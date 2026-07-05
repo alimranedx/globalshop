@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,11 +11,7 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasUlids, Notifiable, SoftDeletes;
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -71,7 +66,7 @@ class User extends Authenticatable
     /**
      * Get the user's role for a specific tenant shop.
      */
-    public function getTenantRole(string $shopId): ?Role
+    public function getTenantRole(int $shopId): ?Role
     {
         $shopUser = \DB::table('shop_user')
             ->where('shop_id', $shopId)

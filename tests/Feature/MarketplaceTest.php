@@ -155,7 +155,6 @@ class MarketplaceTest extends TestCase
 
         // 2. Map Employee 1 to Shop 1 under this role
         \DB::table('shop_user')->insert([
-            'id' => (string) \Str::ulid(),
             'shop_id' => $this->shop1->id,
             'user_id' => $this->employee1->id,
             'role_id' => $role->id,
@@ -174,6 +173,7 @@ class MarketplaceTest extends TestCase
             'name' => 'iPhone 15 Pro',
             'price' => 999.00,
             'stock_quantity' => 10,
+            'stock_unit' => 'pcs',
             'status' => 'published',
         ], ['X-Tenant-ID' => $this->shop1->id]);
 
@@ -191,6 +191,7 @@ class MarketplaceTest extends TestCase
             'name' => 'iPhone 15 Pro',
             'price' => 999.00,
             'stock_quantity' => 10,
+            'stock_unit' => 'pcs',
             'status' => 'published',
         ], ['X-Tenant-ID' => $this->shop1->id]);
 
@@ -237,6 +238,7 @@ class MarketplaceTest extends TestCase
             'name' => 'iPad Pro M4',
             'price' => 799.00,
             'stock_quantity' => 15,
+            'stock_unit' => 'pcs',
             'status' => 'published',
         ], ['X-Tenant-ID' => $this->shop1->id]);
 
@@ -302,7 +304,6 @@ class MarketplaceTest extends TestCase
         ]);
 
         \DB::table('shop_user')->insert([
-            'id' => (string) \Str::ulid(),
             'shop_id' => $this->shop1->id,
             'user_id' => $this->employee1->id,
             'role_id' => $role->id,
@@ -318,6 +319,7 @@ class MarketplaceTest extends TestCase
             'name' => 'iPhone 15 Pro',
             'price' => 999.00,
             'stock_quantity' => 10,
+            'stock_unit' => 'pcs',
             'status' => 'published',
         ], ['X-Tenant-ID' => $this->shop1->id]);
 
@@ -357,4 +359,335 @@ class MarketplaceTest extends TestCase
         $response2->assertStatus(200);
         $response2->assertJson(['success' => true]);
     }
+
+    /**
+     * Test that ApiTokenAuthenticate middleware correctly logs in the user via email bearer token.
+     */
+    public function test_api_token_authentication_resolves_user(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'superadmin@marketplace.com',
+            'password' => bcrypt('password'),
+            'is_platform_admin' => true,
+        ]);
+
+        // Access a platform route with an Authorization Bearer token (owner email)
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer superadmin@marketplace.com',
+        ])->getJson('/api/v1/platform/shops');
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+    }
+
+    /**
+     * Test that platform admin suspension actions toggle shop status correctly.
+     */
+    public function test_admin_suspension_toggles_correctly(): void
+    {
+        $superAdmin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'superadmin@marketplace.com',
+            'password' => bcrypt('password'),
+            'is_platform_admin' => true,
+        ]);
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer superadmin@marketplace.com',
+        ])->postJson("/api/v1/platform/shops/{$this->shop1->id}/toggle-suspension");
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true, 'status' => 'suspended']);
+
+        // Check database
+        $this->assertEquals('suspended', $this->shop1->fresh()->status);
+    }
+
+    /**
+     * Test Category CRUD operations scoped to tenant.
+     */
+    public function test_category_crud_operations(): void
+    {
+        // 1. Create Category
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/categories', [
+            'name' => 'Laptops & Computers',
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.name', 'Laptops & Computers');
+        $categoryId = $response->json('data.id');
+
+        // 2. Read list
+        $response2 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->getJson('/api/v1/tenant/categories');
+
+        $response2->assertStatus(200);
+        $this->assertCount(2, $response2->json('data')); // electronics (global) + laptops (local)
+
+        // 3. Update Category
+        $response3 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->putJson("/api/v1/tenant/categories/{$categoryId}", [
+            'name' => 'Laptops and PCs',
+        ]);
+
+        $response3->assertStatus(200);
+        $response3->assertJsonPath('data.name', 'Laptops and PCs');
+
+        // 4. Delete Category
+        $response4 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->deleteJson("/api/v1/tenant/categories/{$categoryId}");
+
+        $response4->assertStatus(200);
+        $response4->assertJson(['success' => true]);
+    }
+
+    /**
+     * Test Brand CRUD operations scoped to tenant.
+     */
+    public function test_brand_crud_operations(): void
+    {
+        // 1. Create Brand
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/brands', [
+            'name' => 'Brand Tech',
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.name', 'Brand Tech');
+        $brandId = $response->json('data.id');
+
+        // 2. Read list
+        $response2 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->getJson('/api/v1/tenant/brands');
+
+        $response2->assertStatus(200);
+        $this->assertCount(1, $response2->json('data'));
+
+        // 3. Update Brand
+        $response3 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->putJson("/api/v1/tenant/brands/{$brandId}", [
+            'name' => 'Brand Tech Pro',
+        ]);
+
+        $response3->assertStatus(200);
+        $response3->assertJsonPath('data.name', 'Brand Tech Pro');
+
+        // 4. Delete Brand
+        $response4 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->deleteJson("/api/v1/tenant/brands/{$brandId}");
+
+        $response4->assertStatus(200);
+        $response4->assertJson(['success' => true]);
+    }
+
+    /**
+     * Test uploading category and brand logos and product images with subscription limits checks.
+     */
+    public function test_image_uploads_and_quota_limits(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $logoFile = \Illuminate\Http\UploadedFile::fake()->image('logo.png');
+
+        // 1. Create Category with Logo
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/categories', [
+            'name' => 'Phones',
+            'logo' => $logoFile,
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonStructure(['success', 'data' => ['logo_path', 'logo_url']]);
+        $categoryId = $response->json('data.id');
+        $this->assertNotNull($response->json('data.logo_path'));
+
+        // 2. Create Brand with Logo
+        $response2 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/brands', [
+            'name' => 'Brand Premium',
+            'category_id' => $categoryId,
+            'logo' => $logoFile,
+        ]);
+
+        $response2->assertStatus(201);
+        $response2->assertJsonStructure(['success', 'data' => ['logo_path', 'logo_url']]);
+        $brandId = $response2->json('data.id');
+
+        // 3. Create Product with Images exceeding the dynamic limit (limit is 2)
+        $img1 = \Illuminate\Http\UploadedFile::fake()->image('img1.png');
+        $img2 = \Illuminate\Http\UploadedFile::fake()->image('img2.png');
+        $img3 = \Illuminate\Http\UploadedFile::fake()->image('img3.png');
+
+        $response3 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/products', [
+            'category_id' => $categoryId,
+            'brand_id' => $brandId,
+            'name' => 'iPhone Ultra',
+            'price' => 999.00,
+            'stock_quantity' => 10,
+            'stock_unit' => 'pcs',
+            'status' => 'published',
+            'images' => [$img1, $img2, $img3], // 3 images (exceeds trial plan limit of 2)
+        ]);
+
+        // Should return 422 limit exceeded
+        $response3->assertStatus(422);
+        $response3->assertJsonFragment(['success' => false]);
+        $this->assertStringContainsString('Product image limit exceeded', $response3->json('message'));
+
+        // 4. Create Product with acceptable number of images (2 images)
+        $response4 = $this->withHeaders([
+            'Authorization' => 'Bearer owner1@test.com',
+            'X-Tenant-ID' => $this->shop1->id,
+        ])->postJson('/api/v1/tenant/products', [
+            'category_id' => $categoryId,
+            'brand_id' => $brandId,
+            'name' => 'iPhone Ultra',
+            'price' => 999.00,
+            'stock_quantity' => 10,
+            'stock_unit' => 'pcs',
+            'status' => 'published',
+            'images' => [$img1, $img2], // 2 images (matches trial plan limit of 2)
+        ]);
+
+        $response4->assertStatus(201);
+        $this->assertCount(2, $response4->json('data.images'));
+    }
+
+    /**
+     * Test the full permission matrix, registration, approval, and employee management workflow.
+     */
+    public function test_permission_matrix_and_registration_workflow(): void
+    {
+        // 1. Register a new Shop Owner
+        $regData = [
+            'owner_name' => 'Jane Owner',
+            'email' => 'jane@shop.com',
+            'password' => 'password123',
+            'shop_name' => 'Shop Gamma',
+            'shop_slug' => 'gamma',
+        ];
+
+        $response = $this->postJson('/api/v1/auth/register-owner', $regData);
+        $response->assertStatus(201);
+        
+        $shop = Shop::where('slug', 'gamma')->first();
+        $this->assertNotNull($shop);
+        $this->assertEquals('pending', $shop->status);
+
+        $janeUser = User::where('email', 'jane@shop.com')->first();
+        $this->assertNotNull($janeUser);
+
+        // 2. Logging in as pending shop owner should fail access to tenant routes
+        // First log in Jane
+        $this->actingAs($janeUser);
+
+        // Accessing tenant route with header X-Tenant-ID
+        $response2 = $this->withHeaders([
+            'X-Tenant-ID' => $shop->id,
+        ])->getJson('/api/v1/tenant/products');
+        
+        $response2->assertStatus(403);
+        $this->assertStringContainsString('pending admin approval', $response2->json('message'));
+
+        // 3. Super Admin logs in and approves shop
+        $superAdmin = User::where('email', 'superadmin@marketplace.com')->first();
+        if (!$superAdmin) {
+            // Create super admin if not seeded in tests
+            $superAdmin = User::create([
+                'name' => 'Super Admin',
+                'email' => 'superadmin@marketplace.com',
+                'password' => bcrypt('password'),
+                'is_platform_admin' => true,
+            ]);
+        }
+
+        $this->actingAs($superAdmin);
+
+        $response3 = $this->postJson("/api/v1/platform/shops/{$shop->id}/approve");
+        $response3->assertStatus(200);
+        $this->assertEquals('active', $shop->fresh()->status);
+
+        // 4. Log in back as Jane, access should now succeed
+        $this->actingAs($janeUser);
+        $response4 = $this->withHeaders([
+            'X-Tenant-ID' => $shop->id,
+        ])->getJson('/api/v1/tenant/products');
+        
+        $response4->assertStatus(200);
+
+        // 5. Shop owner manages employees
+        // Add a Manager
+        $managerRole = Role::where('shop_id', $shop->id)->where('name', 'Manager')->first();
+        $this->assertNotNull($managerRole);
+
+        $employeeData = [
+            'name' => 'Bob Manager Gamma',
+            'email' => 'bobgamma@test.com',
+            'password' => 'password123',
+            'role_id' => $managerRole->id,
+        ];
+
+        $response5 = $this->withHeaders([
+            'X-Tenant-ID' => $shop->id,
+        ])->postJson('/api/v1/tenant/employees', $employeeData);
+
+        $response5->assertStatus(201);
+        $employeeId = $response5->json('data.id');
+        $this->assertNotNull($employeeId);
+
+        // Verify user was created and added to shop_user table
+        $bobUser = User::find($employeeId);
+        $this->assertNotNull($bobUser);
+        $this->assertEquals('bobgamma@test.com', $bobUser->email);
+
+        // Update employee's role to Worker
+        $workerRole = Role::where('shop_id', $shop->id)->where('name', 'Worker')->first();
+        $this->assertNotNull($workerRole);
+
+        $response6 = $this->withHeaders([
+            'X-Tenant-ID' => $shop->id,
+        ])->putJson("/api/v1/tenant/employees/{$employeeId}", [
+            'role_id' => $workerRole->id,
+        ]);
+        $response6->assertStatus(200);
+        $this->assertEquals('Worker', $response6->json('data.role_name'));
+
+        // Remove employee
+        $response7 = $this->withHeaders([
+            'X-Tenant-ID' => $shop->id,
+        ])->deleteJson("/api/v1/tenant/employees/{$employeeId}");
+        
+        $response7->assertStatus(200);
+        $this->assertDatabaseMissing('shop_user', [
+            'shop_id' => $shop->id,
+            'user_id' => $employeeId,
+        ]);
+    }
 }
+
+

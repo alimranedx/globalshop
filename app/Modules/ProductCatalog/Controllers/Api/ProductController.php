@@ -82,6 +82,26 @@ class ProductController extends Controller
     }
 
     /**
+     * Display a listing of products scoped to the active tenant.
+     */
+    public function tenantIndex(Request $request): JsonResponse
+    {
+        // Scoped automatically by BelongsToTenant scope
+        $products = Product::with(['category', 'brand', 'images'])->get()->map(function ($prod) {
+            $prod->images->map(function ($img) {
+                $img->image_url = asset('storage/' . $img->path);
+                return $img;
+            });
+            return $prod;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
      * Display products listing for a specific shop slug.
      */
     public function shopProducts(string $shopSlug): JsonResponse
@@ -106,22 +126,68 @@ class ProductController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'category_id' => 'required|string',
-            'brand_id' => 'nullable|string',
+            'category_id' => 'required|integer|exists:categories,id',
+            'brand_id' => 'nullable|integer|exists:brands,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'stock_quantity' => 'required|integer|min:0',
+            'stock_quantity' => 'required|numeric|min:0',
+            'stock_unit' => 'required|string|in:pcs,kg,ltr',
             'status' => 'required|string|in:draft,published,archived',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:2048',
         ]);
 
+        if (!empty($validated['brand_id'])) {
+            $brand = \App\Models\Brand::find($validated['brand_id']);
+            if ($brand && $brand->category_id != $validated['category_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected brand is not associated with the selected category.',
+                ], 422);
+            }
+        }
+
         $shop = TenantManager::getTenant();
+
+        // Dynamic subscription images limit check
+        $subscription = $shop->activeSubscription;
+        $maxImages = 2;
+        if ($subscription && $subscription->plan) {
+            $limits = $subscription->plan->limits;
+            $maxImages = $limits['max_images_per_product'] ?? 2;
+        }
+
+        $uploadFiles = $request->file('images') ?? [];
+        if (count($uploadFiles) > $maxImages) {
+            return response()->json([
+                'success' => false,
+                'message' => "Product image limit exceeded. Your plan allows a maximum of {$maxImages} images per product.",
+            ], 422);
+        }
 
         $product = new Product($validated);
         $product->shop_id = $shop->id;
         $product->slug = Str::slug($validated['name']);
         $product->created_by = $request->user()->id;
         $product->save();
+
+        // Save uploaded images
+        foreach ($uploadFiles as $index => $file) {
+            $path = $file->store('products', 'public');
+            $product->images()->create([
+                'shop_id' => $shop->id,
+                'path' => $path,
+                'sort_order' => $index,
+            ]);
+        }
+
+        // Reload product with images and append image_url
+        $product->load('images');
+        $product->images->map(function ($img) {
+            $img->image_url = asset('storage/' . $img->path);
+            return $img;
+        });
 
         return response()->json([
             'success' => true,
@@ -135,14 +201,62 @@ class ProductController extends Controller
     public function update(Request $request, Product $product): JsonResponse
     {
         $validated = $request->validate([
-            'category_id' => 'sometimes|required|string',
-            'brand_id' => 'nullable|string',
+            'category_id' => 'sometimes|required|integer|exists:categories,id',
+            'brand_id' => 'nullable|integer|exists:brands,id',
             'name' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
-            'stock_quantity' => 'sometimes|required|integer|min:0',
+            'stock_quantity' => 'sometimes|required|numeric|min:0',
+            'stock_unit' => 'sometimes|required|string|in:pcs,kg,ltr',
             'status' => 'sometimes|required|string|in:draft,published,archived',
+            'images' => 'nullable|array',
+            'images.*' => 'image|max:2048',
+            'delete_image_ids' => 'nullable|array',
+            'delete_image_ids.*' => 'integer',
         ]);
+
+        $catId = $validated['category_id'] ?? $product->category_id;
+        $brandId = array_key_exists('brand_id', $validated) ? $validated['brand_id'] : $product->brand_id;
+
+        if (!empty($brandId)) {
+            $brand = \App\Models\Brand::find($brandId);
+            if ($brand && $brand->category_id != $catId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'The selected brand is not associated with the selected category.',
+                ], 422);
+            }
+        }
+
+        $shop = TenantManager::getTenant();
+
+        // 1. Handle deletion of selected images
+        if ($request->has('delete_image_ids')) {
+            $deleteIds = $request->input('delete_image_ids');
+            $imagesToDelete = $product->images()->whereIn('id', $deleteIds)->get();
+            foreach ($imagesToDelete as $img) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($img->path);
+                $img->delete();
+            }
+        }
+
+        // 2. Dynamic subscription images limit check for the total images
+        $subscription = $shop->activeSubscription;
+        $maxImages = 2;
+        if ($subscription && $subscription->plan) {
+            $limits = $subscription->plan->limits;
+            $maxImages = $limits['max_images_per_product'] ?? 2;
+        }
+
+        $currentCount = $product->images()->count();
+        $newFiles = $request->file('images') ?? [];
+
+        if (($currentCount + count($newFiles)) > $maxImages) {
+            return response()->json([
+                'success' => false,
+                'message' => "Product image limit exceeded. Your plan allows a maximum of {$maxImages} images per product.",
+            ], 422);
+        }
 
         if (isset($validated['name'])) {
             $product->slug = Str::slug($validated['name']);
@@ -150,6 +264,23 @@ class ProductController extends Controller
 
         $product->updated_by = $request->user()->id;
         $product->update($validated);
+
+        // 3. Save new images
+        foreach ($newFiles as $index => $file) {
+            $path = $file->store('products', 'public');
+            $product->images()->create([
+                'shop_id' => $shop->id,
+                'path' => $path,
+                'sort_order' => $currentCount + $index,
+            ]);
+        }
+
+        // Reload images
+        $product->load('images');
+        $product->images->map(function ($img) {
+            $img->image_url = asset('storage/' . $img->path);
+            return $img;
+        });
 
         return response()->json([
             'success' => true,

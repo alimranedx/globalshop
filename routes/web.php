@@ -45,12 +45,12 @@ Route::prefix('demo')->group(function () {
         Plan::truncate();
         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // Create standard plan (Trial: 2 products limit)
+        // Create standard plan (Trial: 100 products limit)
         $trialPlan = Plan::create([
             'name' => 'Free Trial Plan',
             'price' => 0.00,
             'limits' => [
-                'max_products' => 2,
+                'max_products' => 100,
                 'max_images_per_product' => 2,
                 'max_employees' => 5,
             ],
@@ -91,7 +91,8 @@ Route::prefix('demo')->group(function () {
         $shop = $registrar->execute(
             ['name' => 'Shop Alpha', 'slug' => 'alpha', 'domain' => 'alpha.globalshop.test'],
             ['name' => 'John Owner', 'email' => 'john@alpha.com', 'password' => 'password'],
-            $trialPlan->id
+            $trialPlan->id,
+            'active'
         );
 
         // Retrieve created roles
@@ -105,7 +106,6 @@ Route::prefix('demo')->group(function () {
             'password' => bcrypt('password'),
         ]);
         DB::table('shop_user')->insert([
-            'id' => (string) Str::ulid(),
             'shop_id' => $shop->id,
             'user_id' => $manager->id,
             'role_id' => $managerRole->id,
@@ -121,7 +121,6 @@ Route::prefix('demo')->group(function () {
             'password' => bcrypt('password'),
         ]);
         DB::table('shop_user')->insert([
-            'id' => (string) Str::ulid(),
             'shop_id' => $shop->id,
             'user_id' => $worker->id,
             'role_id' => $workerRole->id,
@@ -187,8 +186,16 @@ Route::prefix('demo')->group(function () {
 
         // Fetch products: scoped to tenant, or global if no tenant is set
         $products = TenantManager::hasActiveTenant()
-            ? Product::with(['category'])->get()
-            : Product::withoutGlobalScope('tenant')->with(['shop', 'category'])->get();
+            ? Product::with(['category', 'brand', 'images'])->get()
+            : Product::withoutGlobalScope('tenant')->with(['shop', 'category', 'brand', 'images'])->get();
+
+        $products->map(function ($prod) {
+            $prod->images->map(function ($img) {
+                $img->image_url = asset('storage/' . $img->path);
+                return $img;
+            });
+            return $prod;
+        });
 
         // Fetch manager role details
         $managerRole = $shop ? Role::where('shop_id', $shop->id)->where('name', 'Manager')->first() : null;
@@ -367,3 +374,14 @@ Route::prefix('demo')->group(function () {
         return response()->json(['success' => true, 'new_status' => $newStatus]);
     });
 });
+
+Route::middleware(['auth'])->get('/admin', [App\Http\Controllers\PlatformAdminController::class, 'index'])->name('platform.admin');
+
+Route::get('/login', function () {
+    return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+})->name('login');
+
+Route::get('/shop/{any?}', function () {
+    return view('shop');
+})->where('any', '.*')->name('shop.panel');
+

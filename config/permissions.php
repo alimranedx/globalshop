@@ -5,19 +5,19 @@ return [
         'products' => [
             'label' => 'Products Management',
             'sub_modules' => [
+                'categories' => [
+                    'label' => 'Categories & Brands',
+                    'pages' => [
+                        'categories.index' => 'Category Management',
+                        'brands.index' => 'Brand Management',
+                    ],
+                ],
                 'catalog' => [
                     'label' => 'Product Catalog',
                     'pages' => [
                         'products.index' => 'Product List',
                         'products.history' => 'Product History',
                         'products.import' => 'Import Products',
-                    ],
-                ],
-                'categories' => [
-                    'label' => 'Categories & Brands',
-                    'pages' => [
-                        'categories.index' => 'Category Management',
-                        'brands.index' => 'Brand Management',
                     ],
                 ],
             ],

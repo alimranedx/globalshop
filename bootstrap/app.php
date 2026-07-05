@@ -15,6 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->validateCsrfTokens(except: [
+            'demo/*',
+        ]);
+        $middleware->prependToGroup('api', \App\Http\Middleware\ApiTokenAuthenticate::class);
         $middleware->alias([
             'tenant.resolve' => ResolveTenant::class,
             'page.authorize' => AuthorizePageAccess::class,

@@ -4,18 +4,13 @@ namespace App\Models;
 
 use App\Modules\ShopManager\TenantManager;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityLog extends Model
 {
-    use HasFactory, HasUlids;
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
+    use HasFactory;
 
     // Disable standard updated_at since logs are immutable
     const UPDATED_AT = null;

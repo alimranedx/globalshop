@@ -24,9 +24,9 @@ class RegisterShopAction
     /**
      * Execute the shop registration process.
      */
-    public function execute(array $shopData, array $ownerData, ?string $planId = null): Shop
+    public function execute(array $shopData, array $ownerData, ?int $planId = null, string $status = 'pending'): Shop
     {
-        return DB::transaction(function () use ($shopData, $ownerData, $planId) {
+        return DB::transaction(function () use ($shopData, $ownerData, $planId, $status) {
             // 1. Resolve or create Owner account
             $owner = User::where('email', $ownerData['email'])->first();
 
@@ -44,7 +44,7 @@ class RegisterShopAction
                 'name' => $shopData['name'],
                 'slug' => Str::slug($shopData['slug'] ?? $shopData['name']),
                 'domain' => $shopData['domain'] ?? null,
-                'status' => 'active',
+                'status' => $status,
             ]);
 
             // 3. Provision Default Roles for the Shop

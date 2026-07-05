@@ -44,6 +44,11 @@ class ResolveTenant
                 abort(403, 'This shop has been suspended.');
             }
 
+            // Check if tenant is pending approval
+            if ($shop->status === 'pending') {
+                abort(403, 'This shop is pending admin approval.');
+            }
+
             // Set global tenant context
             TenantManager::setTenant($shop);
         }

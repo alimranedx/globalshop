@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Modules\ShopManager\Traits\BelongsToTenant;
-use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,11 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
-    use BelongsToTenant, HasFactory, HasUlids;
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
         'shop_id',

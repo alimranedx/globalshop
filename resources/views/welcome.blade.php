@@ -563,6 +563,55 @@
 
         <!-- Right Workspace -->
         <main class="workspace">
+            <!-- Gateway: Registration & Login -->
+            <section class="workspace-card" id="gateway-card">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- Registration Column -->
+                    <div style="border-right: 1px solid var(--border-light); padding-right: 2rem;">
+                        <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; color: var(--color-accent);">Register New Shop Owner</h3>
+                        <form id="register-owner-form" onsubmit="handleRealRegister(event)" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Full Name</label>
+                                <input type="text" id="reg-name" required placeholder="John Owner" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Email Address</label>
+                                <input type="email" id="reg-email" required placeholder="john@newshop.com" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Password</label>
+                                <input type="password" id="reg-password" required placeholder="••••••••" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Shop Name</label>
+                                <input type="text" id="reg-shop-name" required placeholder="My Awesome Shop" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Shop Subdomain Slug</label>
+                                <input type="text" id="reg-shop-slug" required placeholder="my-shop" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top: 0.5rem;">Register Shop</button>
+                        </form>
+                    </div>
+
+                    <!-- Login Column -->
+                    <div>
+                        <h3 style="font-size: 1.15rem; font-weight: 600; margin-bottom: 1rem; color: var(--color-success);">Real Credentials Login</h3>
+                        <form id="real-login-form" onsubmit="handleRealLogin(event)" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Email Address</label>
+                                <input type="email" id="login-email" required placeholder="john@newshop.com" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <label style="font-size: 0.8rem; color: var(--text-secondary);">Password</label>
+                                <input type="password" id="login-password" required placeholder="••••••••" style="background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text-primary); padding: 0.5rem; border-radius: 6px; outline: none; width: 100%;">
+                            </div>
+                            <button type="submit" class="btn-primary" style="margin-top: 0.5rem; background: var(--color-success);">Log In</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
             <!-- 1. Platform Administration Console (Admin Pages test) -->
             <section class="workspace-card" id="admin-console-card" style="display: none;">
                 <div class="card-header-flex">
@@ -646,6 +695,75 @@
         // Cache active session profile permissions for local mock checks
         let activeAdminPermissions = [];
         let activeUserEmail = '';
+
+        async function handleRealRegister(e) {
+            e.preventDefault();
+            const payload = {
+                owner_name: document.getElementById('reg-name').value,
+                email: document.getElementById('reg-email').value,
+                password: document.getElementById('reg-password').value,
+                shop_name: document.getElementById('reg-shop-name').value,
+                shop_slug: document.getElementById('reg-shop-slug').value,
+            };
+
+            try {
+                const response = await fetch('/api/v1/auth/register-owner', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.success) {
+                    showAlert(res.message);
+                    document.getElementById('reg-name').value = '';
+                    document.getElementById('reg-email').value = '';
+                    document.getElementById('reg-password').value = '';
+                    document.getElementById('reg-shop-name').value = '';
+                    document.getElementById('reg-shop-slug').value = '';
+                    updateState();
+                } else {
+                    showAlert(res.message || 'Registration failed.', true);
+                }
+            } catch (error) {
+                showAlert('Registration failed.', true);
+            }
+        }
+
+        async function handleRealLogin(e) {
+            e.preventDefault();
+            const payload = {
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value,
+            };
+
+            try {
+                const response = await fetch('/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+                if (res.success) {
+                    showAlert(res.message || 'Logged in successfully');
+                    document.getElementById('login-email').value = '';
+                    document.getElementById('login-password').value = '';
+                    
+                    // Highlight custom profile if matches
+                    document.querySelectorAll('.profile-list button').forEach(btn => btn.classList.remove('active'));
+                    updateState();
+                } else {
+                    showAlert(res.message || 'Invalid credentials.', true);
+                }
+            } catch (error) {
+                showAlert('Login failed.', true);
+            }
+        }
 
         window.onload = function() {
             login('superadmin@marketplace.com', document.getElementById('btn-login-superadmin'));

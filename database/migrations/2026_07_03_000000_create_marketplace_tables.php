@@ -13,8 +13,8 @@ return new class extends Migration
     {
         // 1. Shops Table (Tenants)
         Schema::create('shops', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('owner_id', 26)->index(); // Foreign Key to users.id
+            $table->id();
+            $table->unsignedBigInteger('owner_id')->index();
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('domain')->nullable()->unique();
@@ -27,7 +27,7 @@ return new class extends Migration
 
         // 2. Plans Table
         Schema::create('plans', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
+            $table->id();
             $table->string('name', 100);
             $table->decimal('price', 10, 2);
             $table->string('billing_period', 50)->default('monthly');
@@ -38,9 +38,9 @@ return new class extends Migration
 
         // 3. Subscriptions Table
         Schema::create('subscriptions', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
-            $table->char('plan_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
+            $table->unsignedBigInteger('plan_id')->index();
             $table->string('status', 50)->default('active')->index();
             $table->timestamp('starts_at');
             $table->timestamp('ends_at')->nullable();
@@ -52,8 +52,8 @@ return new class extends Migration
 
         // 4. Roles Table
         Schema::create('roles', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
             $table->string('name', 100);
             $table->boolean('is_custom')->default(true);
             $table->timestamps();
@@ -64,8 +64,8 @@ return new class extends Migration
 
         // 5. Role Pages Table (Permissions)
         Schema::create('role_pages', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('role_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('role_id')->index();
             $table->string('page_identifier');
             $table->timestamp('created_at')->nullable();
 
@@ -75,10 +75,10 @@ return new class extends Migration
 
         // 6. Shop User Joint Table (Employees)
         Schema::create('shop_user', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
-            $table->char('user_id', 26)->index();
-            $table->char('role_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
+            $table->unsignedBigInteger('user_id')->index();
+            $table->unsignedBigInteger('role_id')->index();
             $table->string('status', 50)->default('active')->index();
             $table->timestamps();
 
@@ -90,12 +90,13 @@ return new class extends Migration
 
         // 7. Categories Table (Hybrid Global/Tenant Taxonomy)
         Schema::create('categories', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->nullable()->index(); // Null = global category
-            $table->char('parent_id', 26)->nullable()->index();
-            $table->char('global_category_id', 26)->nullable()->index(); // Mapping shop cat to global cat
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->nullable()->index();
+            $table->unsignedBigInteger('parent_id')->nullable()->index();
+            $table->unsignedBigInteger('global_category_id')->nullable()->index();
             $table->string('name');
             $table->string('slug');
+            $table->string('logo_path')->nullable();
             $table->timestamps();
 
             $table->foreign('shop_id')->references('id')->on('shops')->onDelete('cascade');
@@ -106,30 +107,34 @@ return new class extends Migration
 
         // 8. Brands Table
         Schema::create('brands', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
+            $table->unsignedBigInteger('category_id')->nullable()->index();
             $table->string('name');
             $table->string('slug');
+            $table->string('logo_path')->nullable();
             $table->timestamps();
 
             $table->foreign('shop_id')->references('id')->on('shops')->onDelete('cascade');
+            $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null');
             $table->unique(['shop_id', 'slug']);
         });
 
         // 9. Products Table
         Schema::create('products', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
-            $table->char('category_id', 26)->index();
-            $table->char('brand_id', 26)->nullable()->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
+            $table->unsignedBigInteger('category_id')->index();
+            $table->unsignedBigInteger('brand_id')->nullable()->index();
             $table->string('name');
             $table->string('slug');
             $table->text('description')->nullable();
             $table->decimal('price', 15, 2)->unsigned();
-            $table->integer('stock_quantity')->unsigned()->default(0);
+            $table->decimal('stock_quantity', 12, 2)->unsigned()->default(0.00);
+            $table->string('stock_unit', 10)->default('pcs');
             $table->string('status', 50)->default('draft')->index();
-            $table->char('created_by', 26)->index();
-            $table->char('updated_by', 26)->nullable()->index();
+            $table->unsignedBigInteger('created_by')->index();
+            $table->unsignedBigInteger('updated_by')->nullable()->index();
             $table->timestamps();
             $table->softDeletes();
 
@@ -146,9 +151,9 @@ return new class extends Migration
 
         // 10. Product Images Table
         Schema::create('product_images', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->index();
-            $table->char('product_id', 26)->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->index();
+            $table->unsignedBigInteger('product_id')->index();
             $table->string('path');
             $table->integer('sort_order')->default(0);
             $table->timestamps();
@@ -159,9 +164,9 @@ return new class extends Migration
 
         // 11. Activity Logs Table
         Schema::create('activity_logs', function (Blueprint $table) {
-            $table->char('id', 26)->primary(); // ULID
-            $table->char('shop_id', 26)->nullable()->index(); // Null = Platform level
-            $table->char('user_id', 26)->nullable()->index();
+            $table->id();
+            $table->unsignedBigInteger('shop_id')->nullable()->index();
+            $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->string('action', 100)->index();
             $table->string('description', 500);
             $table->json('old_values')->nullable();
