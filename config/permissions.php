@@ -15,7 +15,10 @@ return [
                 'catalog' => [
                     'label' => 'Product Catalog',
                     'pages' => [
-                        'products.index' => 'Product List',
+                        'products.index' => 'View Products',
+                        'products.create' => 'Add Products',
+                        'products.edit' => 'Edit Products',
+                        'products.destroy' => 'Delete Products',
                         'products.history' => 'Product History',
                         'products.import' => 'Import Products',
                     ],
@@ -43,6 +46,18 @@ return [
                         'settings.general' => 'General Settings',
                         'settings.shop' => 'Shop Settings',
                         'settings.subscription' => 'Subscription Details',
+                    ],
+                ],
+            ],
+        ],
+        'sales' => [
+            'label' => 'Sales & POS Management',
+            'sub_modules' => [
+                'pos' => [
+                    'label' => 'Sales Transactions',
+                    'pages' => [
+                        'sales.index' => 'Sales Log',
+                        'sales.create' => 'POS Terminal',
                     ],
                 ],
             ],

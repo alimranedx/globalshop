@@ -306,7 +306,8 @@ export default function ProductsPage({
     productPage,
     setProductPage,
     PAGE_SIZE,
-    limits
+    limits,
+    hasPermission = () => true
 }) {
     // Local filter states
     const [searchQuery, setSearchQuery] = useState('');
@@ -362,7 +363,7 @@ export default function ProductsPage({
         <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '1.2rem', fontWeight: '600' }}>Shop Products</h3>
-                {!isSuspended && (
+                {!isSuspended && hasPermission('products.create') && (
                     <button 
                         onClick={() => {
                             setEditingProduct(null);
@@ -499,58 +500,54 @@ export default function ProductsPage({
             )}
 
             {/* Filter Search Form with Date Range, Searchable MultiSelect categories and brands */}
-            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
-                        <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name / Category / Brand</label>
-                        <input
-                            type="text"
-                            placeholder="Type keyword to search..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
-                        />
-                    </div>
-                    
-                    <SmartDateRangePicker 
-                        startDate={startDate}
-                        endDate={endDate}
-                        preset={preset}
-                        onChange={({ startDate, endDate, preset }) => {
-                            setStartDate(startDate);
-                            setEndDate(endDate);
-                            setPreset(preset);
-                        }}
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <SmartDateRangePicker 
+                    startDate={startDate}
+                    endDate={endDate}
+                    preset={preset}
+                    onChange={({ startDate, endDate, preset }) => {
+                        setStartDate(startDate);
+                        setEndDate(endDate);
+                        setPreset(preset);
+                    }}
+                />
+
+                <SearchableMultiSelect 
+                    label="Filter Categories"
+                    placeholder="All Categories"
+                    options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
+                    selectedValues={selectedCategories}
+                    onChange={handleCategoriesFilterChange}
+                />
+
+                <SearchableMultiSelect 
+                    label="Filter Brands"
+                    placeholder="All Brands"
+                    options={brands.filter(b => selectedCategories.length === 0 || selectedCategories.includes(b.category_id)).map(b => ({ id: b.id, name: b.name }))}
+                    selectedValues={selectedBrands}
+                    onChange={setSelectedBrands}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name / Category / Brand</label>
+                    <input
+                        type="text"
+                        placeholder="Type keyword to search..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
                     />
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <SearchableMultiSelect 
-                        label="Filter Categories (Multiselect)"
-                        placeholder="All Categories"
-                        options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
-                        selectedValues={selectedCategories}
-                        onChange={handleCategoriesFilterChange}
-                    />
-
-                    <SearchableMultiSelect 
-                        label="Filter Brands (Multiselect)"
-                        placeholder="All Brands"
-                        options={brands.filter(b => selectedCategories.length === 0 || selectedCategories.includes(b.category_id)).map(b => ({ id: b.id, name: b.name }))}
-                        selectedValues={selectedBrands}
-                        onChange={setSelectedBrands}
-                    />
-
-                    <div style={{ display: 'flex', gap: '0.5rem', height: '38px', marginTop: '0.3rem' }}>
-                        <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0 1.5rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
-                            Search
+                <div style={{ display: 'flex', gap: '0.5rem', height: '38px', alignItems: 'center' }}>
+                    <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0 1.5rem', height: '38px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+                        Search
+                    </button>
+                    {(appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0 || appliedBrands.length > 0) && (
+                        <button type="button" onClick={handleClearFilters} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0 1.5rem', height: '38px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            Clear
                         </button>
-                        {(appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0 || appliedBrands.length > 0) && (
-                            <button type="button" onClick={handleClearFilters} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0 1.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                Clear
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             </form>
 
@@ -632,34 +629,38 @@ export default function ProductsPage({
                                                 <td style={{ padding: '0.8rem' }}>
                                                     {!isSuspended && (
                                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingProduct(p);
-                                                                    setProductForm({
-                                                                        name: p.name,
-                                                                        price: p.price,
-                                                                        stock_quantity: p.stock_quantity.toString(),
-                                                                        stock_unit: p.stock_unit || 'pcs',
-                                                                        category_id: p.category_id,
-                                                                        brand_id: p.brand_id || '',
-                                                                        status: p.status,
-                                                                        imageFiles: []
-                                                                    });
-                                                                    setExistingProductImages(p.images || []);
-                                                                    setDeleteImageIds([]);
-                                                                    setFormError('');
-                                                                    setShowProductModal(true);
-                                                                }}
-                                                                style={{ background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}
-                                                            >
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => deleteProduct(p.id)}
-                                                                style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}
-                                                            >
-                                                                Delete
-                                                            </button>
+                                                            {hasPermission('products.edit') && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingProduct(p);
+                                                                        setProductForm({
+                                                                            name: p.name,
+                                                                            price: p.price,
+                                                                            stock_quantity: p.stock_quantity.toString(),
+                                                                            stock_unit: p.stock_unit || 'pcs',
+                                                                            category_id: p.category_id,
+                                                                            brand_id: p.brand_id || '',
+                                                                            status: p.status,
+                                                                            imageFiles: []
+                                                                        });
+                                                                        setExistingProductImages(p.images || []);
+                                                                        setDeleteImageIds([]);
+                                                                        setFormError('');
+                                                                        setShowProductModal(true);
+                                                                    }}
+                                                                    style={{ background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                            )}
+                                                            {hasPermission('products.destroy') && (
+                                                                <button
+                                                                    onClick={() => deleteProduct(p.id)}
+                                                                    style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </td>

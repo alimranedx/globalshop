@@ -179,10 +179,12 @@ class MarketplaceTest extends TestCase
 
         $response->assertStatus(403);
 
-        // 4. Assign "products.index" page to the role (which normalizes products.store)
+        // 4. Assign "products.create" page to the role.
+        // Since products.create is now explicitly mapped as its own protected page,
+        // only assigning products.create (not products.index) grants POST/store access.
         RolePage::create([
             'role_id' => $role->id,
-            'page_identifier' => 'products.index',
+            'page_identifier' => 'products.create',
         ]);
 
         // Now creating a product should succeed

@@ -1,16 +1,16 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function CatalogNav() {
+export default function CatalogNav({ hasPermission }) {
     const navigate = useNavigate();
     const location = useLocation();
     const currentPath = location.pathname;
 
     const tabs = [
-        { path: '/catalog-hub/categories', label: 'Categories' },
-        { path: '/catalog-hub/brands', label: 'Brands' },
-        { path: '/catalog-hub/products', label: 'Products' }
-    ];
+        (!hasPermission || hasPermission('categories.index')) && { path: '/catalog-hub/categories', label: 'Categories' },
+        (!hasPermission || hasPermission('brands.index')) && { path: '/catalog-hub/brands', label: 'Brands' },
+        (!hasPermission || hasPermission('products.index')) && { path: '/catalog-hub/products', label: 'Products' }
+    ].filter(Boolean);
 
     return (
         <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '0.75rem' }}>

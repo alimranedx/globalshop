@@ -409,51 +409,46 @@ export default function BrandsPage({
                 </div>
             )}
 
-            {/* Filter Search Form with Smart Date Range Picker & Category Searchable Dropdown */}
-            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
-                        <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name</label>
-                        <input
-                            type="text"
-                            placeholder="Search brands by name..."
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
-                        />
-                    </div>
-                    
-                    <SmartDateRangePicker 
-                        startDate={startDate}
-                        endDate={endDate}
-                        preset={preset}
-                        onChange={({ startDate, endDate, preset }) => {
-                            setStartDate(startDate);
-                            setEndDate(endDate);
-                            setPreset(preset);
-                        }}
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <SmartDateRangePicker 
+                    startDate={startDate}
+                    endDate={endDate}
+                    preset={preset}
+                    onChange={({ startDate, endDate, preset }) => {
+                        setStartDate(startDate);
+                        setEndDate(endDate);
+                        setPreset(preset);
+                    }}
+                />
+
+                <SearchableMultiSelect 
+                    label="Filter Categories"
+                    placeholder="All Categories"
+                    options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
+                    selectedValues={selectedCategories}
+                    onChange={setSelectedCategories}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name</label>
+                    <input
+                        type="text"
+                        placeholder="Search brands by name..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
                     />
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                    <SearchableMultiSelect 
-                        label="Filter Categories (Multiselect)"
-                        placeholder="All Categories"
-                        options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
-                        selectedValues={selectedCategories}
-                        onChange={setSelectedCategories}
-                    />
-
-                    <div style={{ display: 'flex', gap: '0.5rem', height: '38px', marginTop: '0.3rem' }}>
-                        <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0 1.5rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
-                            Search
+                <div style={{ display: 'flex', gap: '0.5rem', height: '38px', alignItems: 'center' }}>
+                    <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0 1.5rem', height: '38px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+                        Search
+                    </button>
+                    {(appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0) && (
+                        <button type="button" onClick={handleClearFilters} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0 1.5rem', height: '38px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            Clear
                         </button>
-                        {(appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0) && (
-                            <button type="button" onClick={handleClearFilters} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0 1.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                Clear
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             </form>
 

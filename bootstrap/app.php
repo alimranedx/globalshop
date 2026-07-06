@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'demo/*',
         ]);
+        $middleware->prependToGroup('api', \Illuminate\Session\Middleware\StartSession::class);
         $middleware->prependToGroup('api', \App\Http\Middleware\ApiTokenAuthenticate::class);
         $middleware->alias([
             'tenant.resolve' => ResolveTenant::class,

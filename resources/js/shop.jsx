@@ -7,6 +7,7 @@ import BrandsPage from './components/BrandsPage';
 import ProductsPage from './components/ProductsPage';
 import CatalogRedirect from './components/CatalogRedirect';
 import CatalogNav from './components/CatalogNav';
+import SmartDateRangePicker from './components/SmartDateRangePicker';
 
 function ShopManagerApp() {
     const navigate = useNavigate();
@@ -20,6 +21,8 @@ function ShopManagerApp() {
     useEffect(() => {
         if (location.pathname.startsWith('/catalog-hub')) {
             setActiveTab('catalog');
+        } else if (location.pathname.startsWith('/sales')) {
+            setActiveTab('sales');
         } else if (location.pathname === '/matrix') {
             setActiveTab('matrix');
         } else if (location.pathname === '/staff') {
@@ -105,13 +108,20 @@ function ShopManagerApp() {
         try {
             const headers = getHeaders();
             const response = await fetch('/demo/state', { headers: { ...headers, 'Content-Type': 'application/json' } });
+            if (response.status === 401) {
+                setState({ authenticated: false, user: null });
+                setCurrentUserEmail('');
+                return;
+            }
             const data = await response.json();
             setState(data);
             if (data.shop) {
                 setShopId(data.shop.id);
             }
-            if (data.user && !currentUserEmail) {
+            if (data.user) {
                 setCurrentUserEmail(data.user.email);
+            } else {
+                setCurrentUserEmail('');
             }
         } catch (e) {
             showMessage('Failed to load state', true);
@@ -189,11 +199,43 @@ function ShopManagerApp() {
             if (res.success) {
                 setCurrentUserEmail(email);
                 showMessage(`Logged in as ${res.user.name}`);
+                fetchState();
             } else {
                 showMessage(res.message, true);
             }
         } catch (error) {
             showMessage('Login failed', true);
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            const response = await fetch('/api/v1/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                }
+            });
+            const res = await response.json();
+            if (res.success) {
+                setCurrentUserEmail('');
+                setShopId(null);
+                setProducts([]);
+                setCategories([]);
+                setBrands([]);
+                showMessage('Logged out successfully.');
+                fetchState();
+            } else {
+                showMessage(res.message || 'Logout failed.', true);
+            }
+        } catch (err) {
+            setCurrentUserEmail('');
+            setShopId(null);
+            setProducts([]);
+            setCategories([]);
+            setBrands([]);
+            fetchState();
         }
     };
 
@@ -492,18 +534,18 @@ function ShopManagerApp() {
         }
     };
 
-    // Matrix Perms Sync
-    const saveRolePermissions = async (pages) => {
+    // Per-role permissions sync via REST API
+    const saveRolePermissions = async (roleId, pages) => {
         const headers = getHeaders();
         try {
-            const response = await fetch('/demo/permissions', {
-                method: 'POST',
+            const response = await fetch(`/api/v1/tenant/roles/${roleId}/permissions`, {
+                method: 'PUT',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pages })
             });
             const res = await response.json();
             if (res.success) {
-                showMessage('Manager permissions saved');
+                showMessage('Role permissions saved successfully!');
                 fetchState();
             } else {
                 showMessage(res.message || 'Failed to save permissions', true);
@@ -513,10 +555,23 @@ function ShopManagerApp() {
         }
     };
 
+    // Load permissions tree for a specific role
+    const loadRolePermissions = async (roleId) => {
+        const headers = getHeaders();
+        try {
+            const response = await fetch(`/api/v1/tenant/roles/${roleId}/permissions`, {
+                headers: { ...headers }
+            });
+            const res = await response.json();
+            if (res.success) return res.data;
+        } catch (e) {}
+        return null;
+    };
+
     if (loading && !state) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-                <div style={{ fontSize: '1.2rem', color: '#9ca3af' }}>Loading workspace state...</div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0a0c' }}>
+                <div style={{ fontSize: '1.2rem', color: '#9ca3af', fontFamily: 'Outfit' }}>Loading workspace state...</div>
             </div>
         );
     }
@@ -526,6 +581,43 @@ function ShopManagerApp() {
     const limits = state?.limits;
     const managerPerms = state?.manager_permissions || [];
     const permissionsConfig = state?.permissions_config || {};
+    const userPermissions = state?.user_permissions || [];
+    const isAuthenticated = state?.authenticated;
+
+    const hasPermission = (pageKey) => {
+        if (!isAuthenticated || !user) return false;
+        if (user.role === 'Owner' || user.role === 'Super Admin' || user.is_platform_admin) {
+            return true;
+        }
+        return userPermissions.includes(pageKey);
+    };
+
+    if (!isAuthenticated) {
+        return (
+            <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top right, #181824 0%, #0a0a0c 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: 'Outfit', padding: '2rem' }}>
+                <Routes>
+                    <Route path="/register" element={<RegisterView fetchState={fetchState} showMessage={showMessage} token={token} />} />
+                    <Route path="*" element={<LoginView fetchState={fetchState} showMessage={showMessage} handleQuickLogin={handleLogin} token={token} />} />
+                </Routes>
+                {toast.show && (
+                    <div style={{
+                        position: 'fixed',
+                        bottom: '2rem',
+                        right: '2rem',
+                        padding: '1rem 1.5rem',
+                        borderRadius: '8px',
+                        fontWeight: '600',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+                        background: toast.isError ? '#ef4444' : '#10b981',
+                        color: '#fff',
+                        zIndex: 1000,
+                    }}>
+                        {toast.message}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     const isSuspended = shop?.status === 'suspended';
     const isPending = shop?.status === 'pending';
@@ -546,6 +638,7 @@ function ShopManagerApp() {
                     >
                         <option value="john@alpha.com">John Owner (Owner)</option>
                         <option value="bob@alpha.com">Bob Manager (Manager)</option>
+                        <option value="sam@alpha.com">Sam Sales (Sales Manager)</option>
                         <option value="charlie@alpha.com">Charlie Worker (Worker)</option>
                         <option value="alice@customer.com">Alice Customer (Customer)</option>
                         <option value="">Guest (Public)</option>
@@ -571,19 +664,30 @@ function ShopManagerApp() {
 
                     <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         {[
-                            { id: 'dashboard', label: '📊 Dashboard' },
-                            { id: 'catalog', label: '🗂️ Catalog Hub' },
-                            { id: 'matrix', label: '🔒 Permissions Matrix' },
-                            { id: 'staff', label: '👥 Staff Directory' },
-                            { id: 'settings', label: '⚙️ Shop Settings' },
-                            { id: 'logs', label: '📜 Activity Logs' }
-                        ].map(tab => (
-                            /* Deprecated catalog UI removed, now using React Router routes */
+                            { id: 'dashboard', label: '📊 Dashboard', visible: true },
+                            { id: 'catalog', label: '🗂️ Catalog Hub', visible: hasPermission('categories.index') || hasPermission('brands.index') || hasPermission('products.index') },
+                            { id: 'sales', label: '💰 Sales Hub', visible: hasPermission('sales.index') || hasPermission('sales.create') },
+                            { id: 'staff', label: '👥 Staff & Roles', visible: hasPermission('employees.index') || hasPermission('roles.index') },
+                            { id: 'settings', label: '⚙️ Shop Settings', visible: hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription') },
+                            { id: 'logs', label: '📜 Activity Logs', visible: user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index')) }
+                        ].filter(tab => tab.visible).map(tab => (
                             <li key={tab.id}>
                                 <button 
                                     onClick={() => {
                                         if (tab.id === 'catalog') {
-                                            navigate('/catalog-hub/categories');
+                                            if (hasPermission('categories.index')) {
+                                                navigate('/catalog-hub/categories');
+                                            } else if (hasPermission('brands.index')) {
+                                                navigate('/catalog-hub/brands');
+                                            } else {
+                                                navigate('/catalog-hub/products');
+                                            }
+                                        } else if (tab.id === 'sales') {
+                                            if (hasPermission('sales.create')) {
+                                                navigate('/sales/pos');
+                                            } else {
+                                                navigate('/sales/history');
+                                            }
                                         } else {
                                             navigate(`/${tab.id}`);
                                         }
@@ -624,6 +728,12 @@ function ShopManagerApp() {
                                         {user.role}
                                     </span>
                                     <span style={{ fontWeight: '500' }}>{user.name}</span>
+                                    <button 
+                                        onClick={handleLogout}
+                                        style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: '500' }}
+                                    >
+                                        Log Out
+                                    </button>
                                 </>
                             )}
                             <button onClick={() => window.location.href='/'} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
@@ -646,105 +756,150 @@ function ShopManagerApp() {
                             </div>
                         )}
 
-                        {location.pathname.startsWith('/catalog-hub') && <CatalogNav />}
+                        {location.pathname.startsWith('/catalog-hub') && <CatalogNav hasPermission={hasPermission} />}
 
                         <Routes>
                             <Route path="/" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
                             <Route path="/dashboard" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
                             
                             <Route path="/catalog-hub/categories" element={
-                                <CategoriesPage
-                                    categories={categories}
-                                    isSuspended={isRestricted}
-                                    showCategoryModal={showCategoryModal}
-                                    setShowCategoryModal={setShowCategoryModal}
-                                    editingCategory={editingCategory}
-                                    setEditingCategory={setEditingCategory}
-                                    categoryForm={categoryForm}
-                                    setCategoryForm={setCategoryForm}
-                                    formError={formError}
-                                    setFormError={setFormError}
-                                    handleCategorySubmit={handleCategorySubmit}
-                                    deleteCategory={deleteCategory}
-                                    categorySearch={categorySearch}
-                                    setCategorySearch={setCategorySearch}
-                                    categoryPage={categoryPage}
-                                    setCategoryPage={setCategoryPage}
-                                    PAGE_SIZE={PAGE_SIZE}
-                                />
+                                hasPermission('categories.index') ? (
+                                    <CategoriesPage
+                                        categories={categories}
+                                        isSuspended={isRestricted}
+                                        showCategoryModal={showCategoryModal}
+                                        setShowCategoryModal={setShowCategoryModal}
+                                        editingCategory={editingCategory}
+                                        setEditingCategory={setEditingCategory}
+                                        categoryForm={categoryForm}
+                                        setCategoryForm={setCategoryForm}
+                                        formError={formError}
+                                        setFormError={setFormError}
+                                        handleCategorySubmit={handleCategorySubmit}
+                                        deleteCategory={deleteCategory}
+                                        categorySearch={categorySearch}
+                                        setCategorySearch={setCategorySearch}
+                                        categoryPage={categoryPage}
+                                        setCategoryPage={setCategoryPage}
+                                        PAGE_SIZE={PAGE_SIZE}
+                                    />
+                                ) : <AccessDeniedView />
                             } />
                             <Route path="/catalog-hub/brands" element={
-                                <BrandsPage
-                                    brands={brands}
-                                    categories={categories}
-                                    isSuspended={isRestricted}
-                                    showBrandModal={showBrandModal}
-                                    setShowBrandModal={setShowBrandModal}
-                                    editingBrand={editingBrand}
-                                    setEditingBrand={setEditingBrand}
-                                    brandForm={brandForm}
-                                    setBrandForm={setBrandForm}
-                                    formError={formError}
-                                    setFormError={setFormError}
-                                    handleBrandSubmit={handleBrandSubmit}
-                                    deleteBrand={deleteBrand}
-                                    brandSearch={brandSearch}
-                                    setBrandSearch={setBrandSearch}
-                                    brandPage={brandPage}
-                                    setBrandPage={setBrandPage}
-                                    PAGE_SIZE={PAGE_SIZE}
-                                />
+                                hasPermission('brands.index') ? (
+                                    <BrandsPage
+                                        brands={brands}
+                                        categories={categories}
+                                        isSuspended={isRestricted}
+                                        showBrandModal={showBrandModal}
+                                        setShowBrandModal={setShowBrandModal}
+                                        editingBrand={editingBrand}
+                                        setEditingBrand={setEditingBrand}
+                                        brandForm={brandForm}
+                                        setBrandForm={setBrandForm}
+                                        formError={formError}
+                                        setFormError={setFormError}
+                                        handleBrandSubmit={handleBrandSubmit}
+                                        deleteBrand={deleteBrand}
+                                        brandSearch={brandSearch}
+                                        setBrandSearch={setBrandSearch}
+                                        brandPage={brandPage}
+                                        setBrandPage={setBrandPage}
+                                        PAGE_SIZE={PAGE_SIZE}
+                                    />
+                                ) : <AccessDeniedView />
                             } />
                             <Route path="/catalog-hub/products" element={
-                                <ProductsPage
-                                    products={products}
-                                    categories={categories}
-                                    brands={brands}
-                                    isSuspended={isRestricted}
-                                    showProductModal={showProductModal}
-                                    setShowProductModal={setShowProductModal}
-                                    editingProduct={editingProduct}
-                                    setEditingProduct={setEditingProduct}
-                                    productForm={productForm}
-                                    setProductForm={setProductForm}
-                                    formError={formError}
-                                    setFormError={setFormError}
-                                    handleProductSubmit={handleProductSubmit}
-                                    deleteProduct={deleteProduct}
-                                    existingProductImages={existingProductImages}
-                                    setExistingProductImages={setExistingProductImages}
-                                    deleteImageIds={deleteImageIds}
-                                    setDeleteImageIds={setDeleteImageIds}
-                                    productSearch={productSearch}
-                                    setProductSearch={setProductSearch}
-                                    productPage={productPage}
-                                    setProductPage={setProductPage}
-                                    PAGE_SIZE={PAGE_SIZE}
-                                />
+                                hasPermission('products.index') ? (
+                                    <ProductsPage
+                                        products={products}
+                                        categories={categories}
+                                        brands={brands}
+                                        isSuspended={isRestricted}
+                                        showProductModal={showProductModal}
+                                        setShowProductModal={setShowProductModal}
+                                        editingProduct={editingProduct}
+                                        setEditingProduct={setEditingProduct}
+                                        productForm={productForm}
+                                        setProductForm={setProductForm}
+                                        formError={formError}
+                                        setFormError={setFormError}
+                                        handleProductSubmit={handleProductSubmit}
+                                        deleteProduct={deleteProduct}
+                                        existingProductImages={existingProductImages}
+                                        setExistingProductImages={setExistingProductImages}
+                                        deleteImageIds={deleteImageIds}
+                                        setDeleteImageIds={setDeleteImageIds}
+                                        productSearch={productSearch}
+                                        setProductSearch={setProductSearch}
+                                        productPage={productPage}
+                                        setProductPage={setProductPage}
+                                        PAGE_SIZE={PAGE_SIZE}
+                                        hasPermission={hasPermission}
+                                    />
+                                ) : <AccessDeniedView />
                             } />
-                            <Route path="/catalog-hub" element={<CatalogRedirect />} />
+                            <Route path="/catalog-hub" element={<CatalogRedirect hasPermission={hasPermission} />} />
+
+                            <Route path="/sales/pos" element={
+                                hasPermission('sales.create') ? (
+                                    <SalesHubView 
+                                        activeSubTab="pos"
+                                        products={products}
+                                        categories={categories}
+                                        brands={brands}
+                                        hasPermission={hasPermission}
+                                        currentUserEmail={currentUserEmail}
+                                        fetchState={fetchState}
+                                        isSuspended={isRestricted}
+                                    />
+                                ) : <AccessDeniedView />
+                            } />
+                            <Route path="/sales/history" element={
+                                hasPermission('sales.index') ? (
+                                    <SalesHubView 
+                                        activeSubTab="history"
+                                        products={products}
+                                        categories={categories}
+                                        brands={brands}
+                                        hasPermission={hasPermission}
+                                        currentUserEmail={currentUserEmail}
+                                        fetchState={fetchState}
+                                        isSuspended={isRestricted}
+                                    />
+                                ) : <AccessDeniedView />
+                            } />
+                            <Route path="/sales" element={<SalesRedirect hasPermission={hasPermission} />} />
                             
-                            <Route path="/matrix" element={
-                                <MatrixView 
-                                    permissionsConfig={permissionsConfig} 
-                                    managerPerms={managerPerms} 
-                                    isOwnerOrSuper={isOwnerOrSuper} 
-                                    saveRolePermissions={saveRolePermissions} 
-                                />
-                            } />
                             <Route path="/staff" element={
-                                <StaffView 
-                                    employees={employees} 
-                                    shopRoles={shopRoles} 
-                                    onAddEmployee={handleAddEmployee} 
-                                    onUpdateEmployee={handleUpdateEmployee} 
-                                    onDeleteEmployee={handleDeleteEmployee}
-                                    isOwner={user && user.role === 'Owner'}
-                                    isSuspended={isRestricted}
-                                />
+                                (hasPermission('employees.index') || hasPermission('roles.index')) ? (
+                                    <StaffAndRolesHub
+                                        employees={employees}
+                                        shopRoles={shopRoles}
+                                        permissionsConfig={permissionsConfig}
+                                        onAddEmployee={handleAddEmployee}
+                                        onUpdateEmployee={handleUpdateEmployee}
+                                        onDeleteEmployee={handleDeleteEmployee}
+                                        isOwner={isOwnerOrSuper}
+                                        canManageRoles={hasPermission('roles.index')}
+                                        canManageStaff={hasPermission('employees.index')}
+                                        isSuspended={isRestricted}
+                                        saveRolePermissions={saveRolePermissions}
+                                        loadRolePermissions={loadRolePermissions}
+                                        showMessage={showMessage}
+                                    />
+                                ) : <AccessDeniedView />
                             } />
-                            <Route path="/settings" element={<SettingsView shop={shop} />} />
-                            <Route path="/logs" element={<LogsView state={state} />} />
+                            <Route path="/settings" element={
+                                (hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription')) ? (
+                                    <SettingsView shop={shop} />
+                                ) : <AccessDeniedView />
+                            } />
+                            <Route path="/logs" element={
+                                (user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index'))) ? (
+                                    <LogsView state={state} />
+                                ) : <AccessDeniedView />
+                            } />
                             <Route path="*" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
                         </Routes>
                     </main>
@@ -1194,6 +1349,1048 @@ function LogsView({ state }) {
                         );
                     })
                 )}
+            </div>
+        </div>
+    );
+}
+
+// 6. Access Denied View
+function AccessDeniedView() {
+    return (
+        <div style={{ 
+            background: 'rgba(239, 68, 68, 0.05)', 
+            border: '1px solid rgba(239, 68, 68, 0.15)', 
+            borderRadius: '12px', 
+            padding: '3rem', 
+            textAlign: 'center',
+            marginTop: '2rem',
+            fontFamily: 'Outfit'
+        }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚫</div>
+            <h3 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#ef4444', marginBottom: '0.5rem' }}>
+                Access Denied
+            </h3>
+            <p style={{ color: '#9ca3af', fontSize: '0.95rem' }}>
+                You do not have the required permissions to view this page. Please contact your shop administrator.
+            </p>
+        </div>
+    );
+}
+
+// Login View Component
+function LoginView({ fetchState, showMessage, handleQuickLogin, token }) {
+    const navigate = useNavigate();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [formError, setFormError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        setSubmitting(true);
+        try {
+            const response = await fetch('/api/v1/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                },
+                body: JSON.stringify({ email, password })
+            });
+            const res = await response.json();
+            if (response.ok && res.success) {
+                showMessage(`Logged in successfully.`);
+                fetchState();
+            } else {
+                setFormError(res.message || 'Invalid credentials.');
+            }
+        } catch (err) {
+            setFormError('Authentication failed. Please check your connection.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const triggerQuickLogin = async (demoEmail) => {
+        await handleQuickLogin(demoEmail);
+        fetchState();
+    };
+
+    return (
+        <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '460px',
+            padding: '2.5rem',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.5rem',
+            fontFamily: 'Outfit'
+        }}>
+            <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '2.5rem' }}>🏬</span>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#fff', marginTop: '0.5rem', marginBottom: '0.25rem', letterSpacing: '-0.02em' }}>Shop Management</h2>
+                <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Sign in to access your shop workspace</p>
+            </div>
+
+            {formError && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '500' }}>
+                    ⚠️ {formError}
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: '500' }}>Email Address</label>
+                    <input 
+                        type="email" 
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                        placeholder="you@example.com"
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.75rem', borderRadius: '8px', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box', width: '100%' }}
+                        onFocus={e => e.target.style.borderColor = '#6366f1'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: '500' }}>Password</label>
+                    <input 
+                        type="password" 
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        placeholder="••••••••"
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.75rem', borderRadius: '8px', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box', width: '100%' }}
+                        onFocus={e => e.target.style.borderColor = '#6366f1'}
+                        onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                    />
+                </div>
+
+                <button 
+                    type="submit" 
+                    disabled={submitting}
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: '600', cursor: submitting ? 'default' : 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', marginTop: '0.5rem', width: '100%' }}
+                >
+                    {submitting ? 'Authenticating...' : 'Sign In'}
+                </button>
+            </form>
+
+            <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#9ca3af', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1.25rem' }}>
+                Don't have a shop? <span onClick={() => navigate('/register')} style={{ color: '#6366f1', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Register here</span>
+            </div>
+
+            {/* Quick Demo Login */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.1)', padding: '1rem', borderRadius: '12px' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚡ Quick Login (Demo Accounts)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <button onClick={() => triggerQuickLogin('john@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        🔑 John (Owner)
+                    </button>
+                    <button onClick={() => triggerQuickLogin('bob@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        🔑 Bob (Manager)
+                    </button>
+                    <button onClick={() => triggerQuickLogin('charlie@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        🔑 Charlie (Worker)
+                    </button>
+                    <button onClick={() => triggerQuickLogin('grace@marketplace.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        🔑 Grace (Admin)
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// Register View Component
+function RegisterView({ fetchState, showMessage, token }) {
+    const navigate = useNavigate();
+    const [shopName, setShopName] = useState('');
+    const [shopSlug, setShopSlug] = useState('');
+    const [ownerName, setOwnerName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [formError, setFormError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [registered, setRegistered] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+        setSubmitting(true);
+        try {
+            const response = await fetch('/api/v1/auth/register-owner', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': token
+                },
+                body: JSON.stringify({
+                    owner_name: ownerName,
+                    email,
+                    password,
+                    shop_name: shopName,
+                    shop_slug: shopSlug
+                })
+            });
+            const res = await response.json();
+            if (response.ok && res.success) {
+                setRegistered(true);
+                showMessage('Registration completed! Pending admin approval.');
+            } else {
+                setFormError(res.message || 'Registration failed.');
+            }
+        } catch (err) {
+            setFormError('Registration failed. Please check your connection.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    if (registered) {
+        return (
+            <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(20px)',
+                borderRadius: '20px',
+                width: '100%',
+                maxWidth: '460px',
+                padding: '2.5rem',
+                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem',
+                fontFamily: 'Outfit',
+                textAlign: 'center'
+            }}>
+                <span style={{ fontSize: '3rem' }}>⏳</span>
+                <h2 style={{ fontSize: '1.6rem', fontWeight: '700', color: '#10b981', margin: '0.5rem 0' }}>Registration Successful</h2>
+                <p style={{ color: '#d1d5db', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                    Your shop <strong>{shopName}</strong> has been registered! 
+                </p>
+                <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', color: '#f59e0b', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '500', textAlign: 'left', marginTop: '0.5rem' }}>
+                    ⚠️ Your shop is currently <strong>pending approval</strong> from the platform administrator. You can login, but shop features will be restricted until approved.
+                </div>
+                <button 
+                    onClick={() => navigate('/login')}
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.8rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', marginTop: '1rem', width: '100%' }}
+                >
+                    Return to Login
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: '20px',
+            width: '100%',
+            maxWidth: '480px',
+            padding: '2.5rem',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1.5rem',
+            fontFamily: 'Outfit'
+        }}>
+            <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '2.5rem' }}>🚀</span>
+                <h2 style={{ fontSize: '1.8rem', fontWeight: '700', color: '#fff', marginTop: '0.5rem', marginBottom: '0.25rem', letterSpacing: '-0.02em' }}>Register Your Shop</h2>
+                <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Create a new shop and admin account</p>
+            </div>
+
+            {formError && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.75rem 1rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: '500' }}>
+                    ⚠️ {formError}
+                </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>Shop Name</label>
+                        <input 
+                            type="text" 
+                            value={shopName}
+                            onChange={e => {
+                                setShopName(e.target.value);
+                                setShopSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''));
+                            }}
+                            required
+                            placeholder="My Awesome Shop"
+                            style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.6rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box', width: '100%' }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <label style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>Shop Slug (URL)</label>
+                        <input 
+                            type="text" 
+                            value={shopSlug}
+                            onChange={e => setShopSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]+/g, ''))}
+                            required
+                            placeholder="my-shop"
+                            style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.6rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box', width: '100%' }}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>Owner Name</label>
+                    <input 
+                        type="text" 
+                        value={ownerName}
+                        onChange={e => setOwnerName(e.target.value)}
+                        required
+                        placeholder="John Doe"
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.6rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box', width: '100%' }}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>Email Address</label>
+                    <input 
+                        type="email" 
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                        placeholder="john@example.com"
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.6rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box', width: '100%' }}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>Password (min 6 chars)</label>
+                    <input 
+                        type="password" 
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                        placeholder="••••••••"
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.6rem', borderRadius: '8px', outline: 'none', fontSize: '0.85rem', boxSizing: 'border-box', width: '100%' }}
+                    />
+                </div>
+
+                <button 
+                    type="submit" 
+                    disabled={submitting}
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.75rem', borderRadius: '8px', fontWeight: '600', cursor: submitting ? 'default' : 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)', marginTop: '0.5rem', fontSize: '0.9rem', width: '100%' }}
+                >
+                    {submitting ? 'Creating Shop...' : 'Create Shop & Account'}
+                </button>
+            </form>
+
+            <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#9ca3af', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1.25rem' }}>
+                Already have an account? <span onClick={() => navigate('/login')} style={{ color: '#6366f1', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Sign In</span>
+            </div>
+        </div>
+    );
+}
+
+// ---------------------------------------------------------
+// SALES & POS MODULE COMPONENTS
+// ---------------------------------------------------------
+
+function SalesRedirect({ hasPermission }) {
+    const navigate = useNavigate();
+    useEffect(() => {
+        if (hasPermission('sales.create')) {
+            navigate('/sales/pos', { replace: true });
+        } else if (hasPermission('sales.index')) {
+            navigate('/sales/history', { replace: true });
+        } else {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [hasPermission]);
+    return null;
+}
+
+function SalesHubView({ activeSubTab, products, categories, brands, hasPermission, currentUserEmail, fetchState, isSuspended }) {
+    const navigate = useNavigate();
+    const [selectedReceipt, setSelectedReceipt] = useState(null);
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+            {/* Sub Navigation */}
+            <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)', gap: '1.5rem', paddingBottom: '0.5rem' }}>
+                {hasPermission('sales.create') && (
+                    <button 
+                        onClick={() => navigate('/sales/pos')}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            borderBottom: activeSubTab === 'pos' ? '2px solid #6366f1' : '2px solid transparent',
+                            color: activeSubTab === 'pos' ? '#fff' : '#9ca3af',
+                            fontWeight: '600',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🛒 POS Terminal
+                    </button>
+                )}
+                {hasPermission('sales.index') && (
+                    <button 
+                        onClick={() => navigate('/sales/history')}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            borderBottom: activeSubTab === 'history' ? '2px solid #6366f1' : '2px solid transparent',
+                            color: activeSubTab === 'history' ? '#fff' : '#9ca3af',
+                            fontWeight: '600',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        📜 Sales Log
+                    </button>
+                )}
+            </div>
+
+            {activeSubTab === 'pos' ? (
+                <POSTerminal 
+                    products={products}
+                    categories={categories}
+                    brands={brands}
+                    isSuspended={isSuspended}
+                    fetchState={fetchState}
+                    setSelectedReceipt={setSelectedReceipt}
+                    currentUserEmail={currentUserEmail}
+                />
+            ) : (
+                <SalesLog 
+                    isSuspended={isSuspended}
+                    setSelectedReceipt={setSelectedReceipt}
+                    currentUserEmail={currentUserEmail}
+                />
+            )}
+
+            {/* Receipt Popup Modal */}
+            {selectedReceipt && (
+                <ReceiptModal 
+                    sale={selectedReceipt}
+                    onClose={() => setSelectedReceipt(null)}
+                />
+            )}
+        </div>
+    );
+}
+
+function POSTerminal({ products, categories, brands, isSuspended, fetchState, setSelectedReceipt, currentUserEmail }) {
+    const [cart, setCart] = useState([]);
+    const [search, setSearch] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('');
+    
+    const [customerName, setCustomerName] = useState('');
+    const [customerEmail, setCustomerEmail] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [discount, setDiscount] = useState('0');
+    
+    const [submitting, setSubmitting] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const filteredProducts = products.filter(p => {
+        if (p.status !== 'published') return false;
+        if (categoryFilter && p.category_id.toString() !== categoryFilter.toString()) return false;
+        if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+        return true;
+    });
+
+    const addToCart = (product) => {
+        if (product.stock_quantity <= 0) return;
+        setCart(prev => {
+            const existing = prev.find(item => item.product_id === product.id);
+            if (existing) {
+                if (existing.quantity >= product.stock_quantity) return prev;
+                return prev.map(item => item.product_id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
+            }
+            return [...prev, { product_id: product.id, name: product.name, price: product.price, quantity: 1, maxStock: product.stock_quantity }];
+        });
+    };
+
+    const updateQty = (productId, newQty) => {
+        const qty = parseFloat(newQty);
+        if (isNaN(qty) || qty <= 0) return;
+        setCart(prev => prev.map(item => {
+            if (item.product_id === productId) {
+                const checkedQty = Math.min(qty, item.maxStock);
+                return { ...item, quantity: checkedQty };
+            }
+            return item;
+        }));
+    };
+
+    const removeFromCart = (productId) => {
+        setCart(prev => prev.filter(item => item.product_id !== productId));
+    };
+
+    // Calculations
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const tax = Math.round(subtotal * 0.05 * 100) / 100;
+    const discountAmount = parseFloat(discount) || 0;
+    const total = Math.max(0, subtotal - discountAmount + tax);
+
+    const handleCheckout = async (e) => {
+        e.preventDefault();
+        if (cart.length === 0) return;
+        if (isSuspended) {
+            setErrorMsg('Access restricted. Active subscription is suspended.');
+            return;
+        }
+
+        setSubmitting(true);
+        setErrorMsg('');
+
+        try {
+            const response = await fetch('/api/v1/tenant/sales', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': currentUserEmail ? `Bearer ${currentUserEmail}` : ''
+                },
+                body: JSON.stringify({
+                    customer_name: customerName || null,
+                    customer_email: customerEmail || null,
+                    payment_method: paymentMethod,
+                    discount: discountAmount,
+                    tax: tax,
+                    items: cart.map(item => ({ product_id: item.product_id, quantity: item.quantity }))
+                })
+            });
+
+            const res = await response.json();
+            if (res.success) {
+                setCart([]);
+                setCustomerName('');
+                setCustomerEmail('');
+                setDiscount('0');
+                setPaymentMethod('cash');
+                setSelectedReceipt(res.data);
+                fetchState();
+            } else {
+                setErrorMsg(res.message || 'Checkout failed.');
+            }
+        } catch (err) {
+            setErrorMsg('Network error. Checkout failed.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.5rem', flexGrow: 1, minHeight: '500px' }}>
+            {/* Products grid */}
+            <div style={{ background: 'rgba(20,20,25,0.75)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <input 
+                        type="text"
+                        placeholder="Search product..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', flex: 1, outline: 'none', fontSize: '0.9rem' }}
+                    />
+                    <select
+                        value={categoryFilter}
+                        onChange={e => setCategoryFilter(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem', borderRadius: '8px', cursor: 'pointer', outline: 'none', fontSize: '0.9rem' }}
+                    >
+                        <option value="">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem', overflowY: 'auto', maxHeight: '550px', paddingRight: '0.2rem' }}>
+                    {filteredProducts.length === 0 ? (
+                        <div style={{ color: '#9ca3af', textAlign: 'center', gridColumn: 'span 3', padding: '2rem' }}>No products match filters.</div>
+                    ) : (
+                        filteredProducts.map(p => {
+                            const inCart = cart.find(item => item.product_id === p.id);
+                            const currentQty = inCart ? inCart.quantity : 0;
+                            const isOutOfStock = p.stock_quantity <= 0;
+                            const isMaxedOut = currentQty >= p.stock_quantity;
+
+                            return (
+                                <div 
+                                    key={p.id}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        borderRadius: '12px',
+                                        padding: '1rem',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between',
+                                        gap: '0.5rem',
+                                        opacity: isOutOfStock ? 0.6 : 1,
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        {p.images && p.images.length > 0 ? (
+                                            <img src={p.images[0].image_url} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                                        ) : (
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#9ca3af', fontSize: '0.65rem' }}>N/A</div>
+                                        )}
+                                        {isOutOfStock ? (
+                                            <span style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontSize: '0.65rem', padding: '0.15rem 0.35rem', borderRadius: '4px', fontWeight: '700' }}>OUT OF STOCK</span>
+                                        ) : (
+                                            <span style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', fontSize: '0.7rem', padding: '0.15rem 0.35rem', borderRadius: '4px', fontWeight: '600' }}>
+                                                {p.stock_quantity - currentQty} in stock
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '600', color: '#fff', fontSize: '0.9rem', marginBottom: '0.2rem' }}>{p.name}</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{p.brand ? p.brand.name : 'No Brand'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                        <span style={{ color: '#10b981', fontWeight: '700', fontSize: '1rem' }}>${parseFloat(p.price).toFixed(2)}</span>
+                                        <button
+                                            onClick={() => addToCart(p)}
+                                            disabled={isOutOfStock || isMaxedOut}
+                                            style={{
+                                                background: isOutOfStock || isMaxedOut ? 'rgba(255,255,255,0.05)' : '#6366f1',
+                                                color: isOutOfStock || isMaxedOut ? '#6b7280' : '#fff',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '0.35rem 0.75rem',
+                                                fontSize: '0.8rem',
+                                                fontWeight: '600',
+                                                cursor: isOutOfStock || isMaxedOut ? 'not-allowed' : 'pointer',
+                                            }}
+                                        >
+                                            + Add
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+
+            {/* Cart summary */}
+            <div style={{ background: 'rgba(20,20,25,0.75)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h4 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#fff', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '0.5rem' }}>Current Order</h4>
+
+                {errorMsg && (
+                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.6rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                        ⚠️ {errorMsg}
+                    </div>
+                )}
+
+                <div style={{ flexGrow: 1, overflowY: 'auto', maxHeight: '220px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {cart.length === 0 ? (
+                        <div style={{ color: '#9ca3af', textAlign: 'center', padding: '3rem 0', fontSize: '0.9rem' }}>Cart is empty. Select products from left side catalog.</div>
+                    ) : (
+                        cart.map(item => (
+                            <div 
+                                key={item.product_id}
+                                style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    background: 'rgba(255,255,255,0.01)',
+                                    padding: '0.5rem 0.75rem',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(255,255,255,0.04)'
+                                }}
+                            >
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontWeight: '600', fontSize: '0.85rem', color: '#fff' }}>{item.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#10b981' }}>${parseFloat(item.price).toFixed(2)}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <button 
+                                        type="button"
+                                        onClick={() => updateQty(item.product_id, item.quantity - 1)}
+                                        style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                        -
+                                    </button>
+                                    <input 
+                                        type="number"
+                                        min="1"
+                                        max={item.maxStock}
+                                        value={item.quantity}
+                                        onChange={e => updateQty(item.product_id, e.target.value)}
+                                        style={{ width: '40px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', textAlign: 'center', padding: '0.15rem', borderRadius: '4px', fontSize: '0.85rem', outline: 'none' }}
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={() => updateQty(item.product_id, item.quantity + 1)}
+                                        style={{ background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', width: '24px', height: '24px', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                        +
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={() => removeFromCart(item.product_id)}
+                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', padding: '0 0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+
+                <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Customer Name</label>
+                            <input 
+                                type="text"
+                                placeholder="Walk-in Customer"
+                                value={customerName}
+                                onChange={e => setCustomerName(e.target.value)}
+                                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Customer Email</label>
+                            <input 
+                                type="email"
+                                placeholder="customer@example.com"
+                                value={customerEmail}
+                                onChange={e => setCustomerEmail(e.target.value)}
+                                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.8rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Payment Method</label>
+                            <select 
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value)}
+                                style={{ background: 'rgba(20,20,25,0.75)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', outline: 'none' }}
+                            >
+                                <option value="cash">💵 Cash Payment</option>
+                                <option value="card">💳 Card Terminal</option>
+                                <option value="mobile">📱 Mobile Wallet</option>
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Discount ($)</label>
+                            <input 
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={discount}
+                                onChange={e => setDiscount(e.target.value)}
+                                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Calculations */}
+                    <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.8rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#9ca3af' }}>Subtotal:</span>
+                            <span style={{ color: '#fff' }}>${subtotal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#9ca3af' }}>Discount:</span>
+                            <span style={{ color: '#ef4444' }}>-${discountAmount.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#9ca3af' }}>Tax (5%):</span>
+                            <span style={{ color: '#fff' }}>+${tax.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.4rem', fontWeight: '700', fontSize: '1rem' }}>
+                            <span style={{ color: '#818cf8' }}>Net Total:</span>
+                            <span style={{ color: '#10b981' }}>${total.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="submit"
+                        disabled={submitting || cart.length === 0}
+                        style={{
+                            background: submitting || cart.length === 0 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                            color: submitting || cart.length === 0 ? '#6b7280' : '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            padding: '0.75rem',
+                            fontWeight: '600',
+                            fontSize: '0.95rem',
+                            cursor: submitting || cart.length === 0 ? 'not-allowed' : 'pointer',
+                            boxShadow: submitting || cart.length === 0 ? 'none' : '0 4px 12px rgba(99, 102, 241, 0.3)',
+                            transition: 'all 0.2s',
+                            textAlign: 'center'
+                        }}
+                    >
+                        {submitting ? 'Processing Checkout...' : `Complete Order ($${total.toFixed(2)})`}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail }) {
+    const [sales, setSales] = useState([]);
+    const [loading, setLoading] = useState(true);
+    
+    // Filters (matching user preference: Date Range Picker first!)
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [preset, setPreset] = useState('all');
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [search, setSearch] = useState('');
+
+    const [appliedStart, setAppliedStart] = useState('');
+    const [appliedEnd, setAppliedEnd] = useState('');
+    const [appliedPayment, setAppliedPayment] = useState('');
+    const [appliedSearch, setAppliedSearch] = useState('');
+
+    const fetchSales = async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (appliedStart) params.append('start_date', appliedStart);
+            if (appliedEnd) params.append('end_date', appliedEnd);
+            if (appliedPayment) params.append('payment_method', appliedPayment);
+            if (appliedSearch) params.append('search', appliedSearch);
+
+            const response = await fetch(`/api/v1/tenant/sales?${params.toString()}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': currentUserEmail ? `Bearer ${currentUserEmail}` : ''
+                }
+            });
+            const res = await response.json();
+            if (res.success) {
+                setSales(res.data);
+            }
+        } catch (err) {
+            console.error('Error fetching sales log:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSales();
+    }, [appliedStart, appliedEnd, appliedPayment, appliedSearch]);
+
+    const handleSearchSubmit = (e) => {
+        e.preventDefault();
+        setAppliedStart(startDate);
+        setAppliedEnd(endDate);
+        setAppliedPayment(paymentMethod);
+        setAppliedSearch(search);
+    };
+
+    const handleClear = () => {
+        setStartDate('');
+        setEndDate('');
+        setPreset('all');
+        setPaymentMethod('');
+        setSearch('');
+
+        setAppliedStart('');
+        setAppliedEnd('');
+        setAppliedPayment('');
+        setAppliedSearch('');
+    };
+
+    return (
+        <div style={{ background: 'rgba(20,20,25,0.75)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+            
+            {/* Restructured Filter form: Date picker first, then payment, then search term */}
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                
+                <SmartDateRangePicker 
+                    startDate={startDate}
+                    endDate={endDate}
+                    preset={preset}
+                    onChange={({ startDate, endDate, preset }) => {
+                        setStartDate(startDate);
+                        setEndDate(endDate);
+                        setPreset(preset);
+                    }}
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', minWidth: '180px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Payment Method</label>
+                    <select
+                        value={paymentMethod}
+                        onChange={e => setPaymentMethod(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem', borderRadius: '8px', cursor: 'pointer', outline: 'none', fontSize: '0.9rem' }}
+                    >
+                        <option value="">All Payments</option>
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="mobile">Mobile</option>
+                    </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Invoice / Customer</label>
+                    <input
+                        type="text"
+                        placeholder="Search invoice number or customer details..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', height: '38px', alignItems: 'center' }}>
+                    <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0 1.5rem', height: '38px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>
+                        Search
+                    </button>
+                    {(appliedStart || appliedEnd || appliedPayment || appliedSearch) && (
+                        <button type="button" onClick={handleClear} style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', padding: '0 1.5rem', height: '38px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                            Clear
+                        </button>
+                    )}
+                </div>
+            </form>
+
+            {/* Logs Table */}
+            <div style={{ overflowX: 'auto' }}>
+                {loading ? (
+                    <div style={{ color: '#9ca3af', textAlign: 'center', padding: '3rem' }}>Loading sales transactions...</div>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                        <thead>
+                            <tr>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Invoice #</th>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Date</th>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Cashier</th>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Customer</th>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Payment</th>
+                                <th style={{ textAlign: 'right', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Total</th>
+                                <th style={{ textAlign: 'center', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sales.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>No transactions recorded.</td>
+                                </tr>
+                            ) : (
+                                sales.map(sale => (
+                                    <tr key={sale.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <td style={{ padding: '0.8rem', fontWeight: '600' }}><code>{sale.invoice_number}</code></td>
+                                        <td style={{ padding: '0.8rem' }}>{new Date(sale.created_at).toLocaleString()}</td>
+                                        <td style={{ padding: '0.8rem' }}>{sale.creator ? sale.creator.name : 'Unknown'}</td>
+                                        <td style={{ padding: '0.8rem' }}>{sale.customer_name || 'Walk-in'}</td>
+                                        <td style={{ padding: '0.8rem', textTransform: 'capitalize' }}>
+                                            <span style={{ 
+                                                fontSize: '0.75rem', 
+                                                padding: '0.2rem 0.5rem', 
+                                                borderRadius: '4px',
+                                                background: sale.payment_method === 'cash' ? 'rgba(16,185,129,0.15)' : (sale.payment_method === 'card' ? 'rgba(59,130,246,0.15)' : 'rgba(139,92,246,0.15)'),
+                                                color: sale.payment_method === 'cash' ? '#10b981' : (sale.payment_method === 'card' ? '#3b82f6' : '#8b5cf6')
+                                            }}>
+                                                {sale.payment_method}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: '600', color: '#10b981' }}>${parseFloat(sale.total).toFixed(2)}</td>
+                                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
+                                            <button 
+                                                onClick={() => setSelectedReceipt(sale)}
+                                                style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                            >
+                                                📄 View Invoice
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function ReceiptModal({ sale, onClose }) {
+    return (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 99999 }}>
+            <div style={{ background: '#1c1c24', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '16px', padding: '2rem', width: '420px', display: 'flex', flexDirection: 'column', gap: '1.2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', fontFamily: 'monospace' }}>
+                <div style={{ textAlign: 'center', borderBottom: '1px dashed rgba(255,255,255,0.15)', paddingBottom: '1rem' }}>
+                    <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#fff', margin: '0 0 0.5rem 0' }}>RECEIPT / INVOICE</h3>
+                    <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Invoice #: {sale.invoice_number}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Date: {new Date(sale.created_at).toLocaleString()}</div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem', color: '#d1d5db' }}>
+                    <div><strong>Customer:</strong> {sale.customer_name || 'Walk-in Customer'}</div>
+                    {sale.customer_email && <div><strong>Email:</strong> {sale.customer_email}</div>}
+                    <div><strong>Cashier:</strong> {sale.creator ? sale.creator.name : 'System'}</div>
+                    <div style={{ textTransform: 'capitalize' }}><strong>Payment:</strong> {sale.payment_method}</div>
+                </div>
+
+                <div style={{ borderBottom: '1px dashed rgba(255,255,255,0.15)', borderTop: '1px dashed rgba(255,255,255,0.15)', padding: '0.8rem 0', display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '0.8rem', color: '#9ca3af', marginBottom: '0.2rem' }}>
+                        <span>Item Name [Qty]</span>
+                        <span>Total</span>
+                    </div>
+                    {sale.items && sale.items.map(item => (
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#fff' }}>
+                            <span>{item.product_name} x {parseFloat(item.quantity)}</span>
+                            <span>${parseFloat(item.total).toFixed(2)}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem', color: '#d1d5db', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Subtotal:</span>
+                        <span>${parseFloat(sale.subtotal).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}>
+                        <span>Discount:</span>
+                        <span>-${parseFloat(sale.discount).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Tax (5%):</span>
+                        <span>+${parseFloat(sale.tax).toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.4rem', fontWeight: '700', fontSize: '1.1rem', color: '#10b981' }}>
+                        <span>GRAND TOTAL:</span>
+                        <span>${parseFloat(sale.total).toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                    <button 
+                        onClick={() => window.print()}
+                        style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                    >
+                        🖨️ Print
+                    </button>
+                    <button 
+                        onClick={onClose}
+                        style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: '#9ca3af', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                    >
+                        Close
+                    </button>
+                </div>
             </div>
         </div>
     );

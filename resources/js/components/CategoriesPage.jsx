@@ -113,17 +113,6 @@ export default function CategoriesPage({
 
             {/* Filter Search Form with Smart Date Range Picker */}
             <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '200px' }}>
-                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name</label>
-                    <input
-                        type="text"
-                        placeholder="Search categories by name..."
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
-                    />
-                </div>
-                
                 <SmartDateRangePicker 
                     startDate={startDate}
                     endDate={endDate}
@@ -134,6 +123,17 @@ export default function CategoriesPage({
                         setPreset(preset);
                     }}
                 />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '200px' }}>
+                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name</label>
+                    <input
+                        type="text"
+                        placeholder="Search categories by name..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
+                    />
+                </div>
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.55rem 1.2rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem' }}>

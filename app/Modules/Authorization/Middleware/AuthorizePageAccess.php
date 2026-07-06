@@ -17,8 +17,19 @@ class AuthorizePageAccess
         $routeName = $request->route()?->getName();
         $normalizedPage = $this->getNormalizedPageName($routeName);
 
-        // 1. Bypass check if normalized route is not protected or mapped in config/permissions.php
-        if (! $normalizedPage || ! $this->isProtectedPage($normalizedPage)) {
+        if ($normalizedPage) {
+            // Check if this specific granular action is protected/mapped
+            if (! $this->isProtectedPage($normalizedPage)) {
+                // If not, fallback to checking if the base .index route of the resource is protected
+                $basePage = preg_replace('/\.(create|edit|destroy)$/', '.index', $normalizedPage);
+                if ($this->isProtectedPage($basePage)) {
+                    $normalizedPage = $basePage;
+                } else {
+                    // Bypass check if neither the granular route nor the base index route is mapped
+                    return $next($request);
+                }
+            }
+        } else {
             return $next($request);
         }
 
@@ -76,11 +87,17 @@ class AuthorizePageAccess
             return null;
         }
 
-        $actions = ['.store', '.create', '.edit', '.update', '.destroy', '.show'];
-        foreach ($actions as $action) {
-            if (str_ends_with($routeName, $action)) {
-                return str_replace($action, '.index', $routeName);
-            }
+        if (str_ends_with($routeName, '.store') || str_ends_with($routeName, '.create')) {
+            return str_replace(['.store', '.create'], '.create', $routeName);
+        }
+        if (str_ends_with($routeName, '.update') || str_ends_with($routeName, '.edit')) {
+            return str_replace(['.update', '.edit'], '.edit', $routeName);
+        }
+        if (str_ends_with($routeName, '.destroy')) {
+            return str_replace('.destroy', '.destroy', $routeName);
+        }
+        if (str_ends_with($routeName, '.show')) {
+            return str_replace('.show', '.index', $routeName);
         }
 
         return $routeName;

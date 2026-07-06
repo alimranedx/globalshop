@@ -37,11 +37,18 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('brands', BrandController::class);
 
         // Roles & Permissions management
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::post('roles', [RoleController::class, 'store'])->name('roles.store');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->name('roles.destroy');
         Route::get('roles/{role}/permissions', [RoleController::class, 'permissionsTree'])->name('roles.show');
         Route::put('roles/{role}/permissions', [RoleController::class, 'syncPermissions'])->name('roles.update');
 
         // Employee Management
         Route::apiResource('employees', EmployeeController::class)->except(['show']);
+
+        // Sales Management
+        Route::get('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'index'])->name('sales.index');
+        Route::post('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'store'])->name('sales.create');
     });
 
     // 3. Platform Admin Endpoints (Requires standard auth, page permissions, and optional API token auth)

@@ -34,12 +34,15 @@ Route::prefix('demo')->group(function () {
     Route::post('/reset', function () {
         // Clear old database records
         DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        \App\Models\SaleItem::truncate();
+        \App\Models\Sale::truncate();
         ActivityLog::truncate();
         Product::truncate();
         Category::truncate();
         Subscription::truncate();
         RolePage::truncate();
         Role::truncate();
+        DB::table('shop_user')->truncate();
         Shop::truncate();
         User::truncate();
         Plan::truncate();
@@ -99,6 +102,48 @@ Route::prefix('demo')->group(function () {
         $managerRole = Role::where('shop_id', $shop->id)->where('name', 'Manager')->first();
         $workerRole = Role::where('shop_id', $shop->id)->where('name', 'Worker')->first();
 
+        // 1. Assign Manager Role Permissions
+        $managerPermissions = [
+            'categories.index', 'brands.index', 
+            'products.index', 'products.create', 'products.edit', 'products.destroy',
+            'employees.index', 'roles.index', 
+            'settings.general', 'settings.shop', 'settings.subscription',
+            'sales.index', 'sales.create'
+        ];
+        foreach ($managerPermissions as $perm) {
+            RolePage::create([
+                'role_id' => $managerRole->id,
+                'page_identifier' => $perm,
+            ]);
+        }
+
+        // 2. Assign Worker Role Permissions (View Only)
+        $workerPermissions = [
+            'products.index'
+        ];
+        foreach ($workerPermissions as $perm) {
+            RolePage::create([
+                'role_id' => $workerRole->id,
+                'page_identifier' => $perm,
+            ]);
+        }
+
+        // 3. Create Sales Manager Role and Permissions
+        $salesManagerRole = Role::create([
+            'shop_id' => $shop->id,
+            'name' => 'Sales Manager',
+            'is_custom' => false,
+        ]);
+        $salesManagerPermissions = [
+            'products.index', 'sales.index', 'sales.create'
+        ];
+        foreach ($salesManagerPermissions as $perm) {
+            RolePage::create([
+                'role_id' => $salesManagerRole->id,
+                'page_identifier' => $perm,
+            ]);
+        }
+
         // Create Manager account
         $manager = User::create([
             'name' => 'Bob Manager',
@@ -124,6 +169,21 @@ Route::prefix('demo')->group(function () {
             'shop_id' => $shop->id,
             'user_id' => $worker->id,
             'role_id' => $workerRole->id,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Create Sales Manager account
+        $salesManager = User::create([
+            'name' => 'Sam Sales',
+            'email' => 'sam@alpha.com',
+            'password' => bcrypt('password'),
+        ]);
+        DB::table('shop_user')->insert([
+            'shop_id' => $shop->id,
+            'user_id' => $salesManager->id,
+            'role_id' => $salesManagerRole->id,
             'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
@@ -210,6 +270,29 @@ Route::prefix('demo')->group(function () {
             ? ActivityLog::orderBy('created_at', 'desc')->take(10)->get()
             : ActivityLog::withoutGlobalScope('tenant')->orderBy('created_at', 'desc')->take(10)->get();
 
+        // Calculate all possible module permissions for super admin bypass
+        $allPermissions = [];
+        foreach (config('permissions.modules', []) as $module) {
+            foreach ($module['sub_modules'] as $subModule) {
+                foreach ($subModule['pages'] as $pageKey => $pageLabel) {
+                    $allPermissions[] = $pageKey;
+                }
+            }
+        }
+
+        // Determine user-specific permissions
+        $userPermissions = [];
+        if ($user) {
+            if ($user->is_platform_admin) {
+                $userPermissions = $allPermissions;
+            } elseif ($shop && $user->id === $shop->owner_id) {
+                $userPermissions = $allPermissions;
+            } elseif ($shop) {
+                $role = $user->getTenantRole($shop->id);
+                $userPermissions = $role ? $role->pages()->pluck('page_identifier')->toArray() : [];
+            }
+        }
+
         return response()->json([
             'authenticated' => $user !== null,
             'user' => $user ? [
@@ -229,6 +312,7 @@ Route::prefix('demo')->group(function () {
             'manager_permissions' => $managerPerms,
             'grace_admin_permissions' => $gracePerms,
             'activity_logs' => $logs,
+            'user_permissions' => $userPermissions,
         ]);
     });
 
