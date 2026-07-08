@@ -568,6 +568,61 @@ function ShopManagerApp() {
         return null;
     };
 
+    const fetchRoles = async () => {
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/roles', { headers });
+            const data = await response.json();
+            if (data.success) return data.data;
+        } catch (e) {
+            showMessage('Failed to fetch roles', true);
+        }
+        return [];
+    };
+
+    const createRole = async (name) => {
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/roles', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage(data.message || 'Role created successfully');
+                return { success: true, data: data.data };
+            } else {
+                showMessage(data.message || 'Failed to create role', true);
+                return { success: false, error: data.message };
+            }
+        } catch (e) {
+            showMessage('Failed to create role', true);
+            return { success: false, error: 'Network error' };
+        }
+    };
+
+    const deleteRole = async (roleId) => {
+        const headers = getHeaders();
+        try {
+            const response = await fetch(`/api/v1/tenant/roles/${roleId}`, {
+                method: 'DELETE',
+                headers
+            });
+            const data = await response.json();
+            if (data.success) {
+                showMessage(data.message || 'Role deleted successfully');
+                return { success: true };
+            } else {
+                showMessage(data.message || 'Failed to delete role', true);
+                return { success: false, error: data.message };
+            }
+        } catch (e) {
+            showMessage('Failed to delete role', true);
+            return { success: false, error: 'Network error' };
+        }
+    };
+
     if (loading && !state) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0a0a0c' }}>
@@ -886,6 +941,9 @@ function ShopManagerApp() {
                                         isSuspended={isRestricted}
                                         saveRolePermissions={saveRolePermissions}
                                         loadRolePermissions={loadRolePermissions}
+                                        fetchRoles={fetchRoles}
+                                        createRole={createRole}
+                                        deleteRole={deleteRole}
                                         showMessage={showMessage}
                                     />
                                 ) : <AccessDeniedView />
@@ -1044,6 +1102,309 @@ if (rootEl) {
         <BrowserRouter basename="/shop">
             <ShopManagerApp />
         </BrowserRouter>
+    );
+}
+
+function StaffAndRolesHub({
+    employees,
+    shopRoles,
+    permissionsConfig,
+    onAddEmployee,
+    onUpdateEmployee,
+    onDeleteEmployee,
+    isOwner,
+    canManageRoles,
+    canManageStaff,
+    isSuspended,
+    saveRolePermissions,
+    loadRolePermissions,
+    fetchRoles,
+    createRole,
+    deleteRole,
+    showMessage
+}) {
+    const [activeSubTab, setActiveSubTab] = useState(canManageStaff ? 'employees' : 'roles');
+    const [rolesList, setRolesList] = useState([]);
+    const [selectedRole, setSelectedRole] = useState(null);
+    const [rolePerms, setRolePerms] = useState([]);
+    const [loadingRoles, setLoadingRoles] = useState(false);
+    const [loadingPerms, setLoadingPerms] = useState(false);
+    const [newRoleName, setNewRoleName] = useState('');
+
+    const refreshRoles = async () => {
+        setLoadingRoles(true);
+        const data = await fetchRoles();
+        setRolesList(data);
+        setLoadingRoles(false);
+    };
+
+    useEffect(() => {
+        if (canManageRoles) {
+            refreshRoles();
+        }
+    }, []);
+
+    const handleSelectRole = async (role) => {
+        setSelectedRole(role);
+        setLoadingPerms(true);
+        const data = await loadRolePermissions(role.id);
+        if (data && data.checked_pages) {
+            setRolePerms(data.checked_pages);
+        } else {
+            setRolePerms([]);
+        }
+        setLoadingPerms(false);
+    };
+
+    const handleCreateRoleSubmit = async (e) => {
+        e.preventDefault();
+        if (!newRoleName.trim()) return;
+        const res = await createRole(newRoleName);
+        if (res.success) {
+            setNewRoleName('');
+            refreshRoles();
+        }
+    };
+
+    const handleDeleteRoleClick = async (roleId) => {
+        if (confirm('Are you sure you want to delete this custom role?')) {
+            const res = await deleteRole(roleId);
+            if (res.success) {
+                if (selectedRole && selectedRole.id === roleId) {
+                    setSelectedRole(null);
+                    setRolePerms([]);
+                }
+                refreshRoles();
+            }
+        }
+    };
+
+    const handleSavePermissions = async () => {
+        if (!selectedRole) return;
+        const checked = Array.from(document.querySelectorAll('input[name="role-permissions[]"]:checked')).map(cb => cb.value);
+        await saveRolePermissions(selectedRole.id, checked);
+        // Refresh permissions
+        const data = await loadRolePermissions(selectedRole.id);
+        if (data && data.checked_pages) {
+            setRolePerms(data.checked_pages);
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {canManageStaff && canManageRoles && (
+                <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                    <button
+                        onClick={() => setActiveSubTab('employees')}
+                        style={{
+                            background: activeSubTab === 'employees' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                            color: activeSubTab === 'employees' ? '#818cf8' : '#9ca3af',
+                            border: activeSubTab === 'employees' ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                            padding: '0.6rem 1.2rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            transition: 'all 0.2s',
+                            fontFamily: 'Outfit'
+                        }}
+                    >
+                        👥 Employees Directory
+                    </button>
+                    <button
+                        onClick={() => setActiveSubTab('roles')}
+                        style={{
+                            background: activeSubTab === 'roles' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                            color: activeSubTab === 'roles' ? '#818cf8' : '#9ca3af',
+                            border: activeSubTab === 'roles' ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                            padding: '0.6rem 1.2rem',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: '600',
+                            transition: 'all 0.2s',
+                            fontFamily: 'Outfit'
+                        }}
+                    >
+                        🔑 Roles & Permissions
+                    </button>
+                </div>
+            )}
+
+            {activeSubTab === 'employees' && canManageStaff && (
+                <StaffView
+                    employees={employees}
+                    shopRoles={shopRoles}
+                    onAddEmployee={onAddEmployee}
+                    onUpdateEmployee={onUpdateEmployee}
+                    onDeleteEmployee={onDeleteEmployee}
+                    isOwner={isOwner}
+                    isSuspended={isSuspended}
+                />
+            )}
+
+            {activeSubTab === 'roles' && canManageRoles && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
+                    {/* Left Column: Create custom role form and role list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        {isOwner && !isSuspended && (
+                            <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '1.5rem', borderRadius: '16px' }}>
+                                <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Create Custom Role</h4>
+                                <form onSubmit={handleCreateRoleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Supervisor"
+                                        value={newRoleName}
+                                        onChange={e => setNewRoleName(e.target.value)}
+                                        required
+                                        style={{
+                                            background: 'rgba(30, 30, 38, 0.45)',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            color: '#fff',
+                                            padding: '0.6rem',
+                                            borderRadius: '8px',
+                                            outline: 'none',
+                                            fontFamily: 'Outfit'
+                                        }}
+                                    />
+                                    <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.6rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit' }}>
+                                        + Add Custom Role
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '1.5rem', borderRadius: '16px' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Shop Roles</h4>
+                            {loadingRoles ? (
+                                <div style={{ color: '#9ca3af', fontSize: '0.9rem' }}>Loading roles...</div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                    {rolesList.map(role => {
+                                        const isSelected = selectedRole?.id === role.id;
+                                        return (
+                                            <div
+                                                key={role.id}
+                                                onClick={() => handleSelectRole(role)}
+                                                style={{
+                                                    background: isSelected ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 100%)' : 'rgba(0,0,0,0.15)',
+                                                    border: isSelected ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.06)',
+                                                    borderRadius: '8px',
+                                                    padding: '0.8rem 1rem',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                                                    <span style={{ fontWeight: '600', color: isSelected ? '#fff' : '#d1d5db' }}>{role.name}</span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                                                        {role.is_custom ? 'Custom' : 'System'} • {role.member_count} {role.member_count === 1 ? 'member' : 'members'}
+                                                    </span>
+                                                </div>
+                                                {role.is_custom && role.member_count === 0 && isOwner && !isSuspended && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteRoleClick(role.id);
+                                                        }}
+                                                        style={{
+                                                            background: 'transparent',
+                                                            border: 'none',
+                                                            color: '#ef4444',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: '600',
+                                                            padding: '0.2rem'
+                                                        }}
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Column: permissions checklist for active role */}
+                    <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px' }}>
+                        {selectedRole ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '1rem' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: '1.2rem', fontWeight: '600' }}>Permissions Matrix: {selectedRole.name}</h3>
+                                        <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+                                            {selectedRole.is_custom ? 'Custom' : 'System'} Role Permissions Mapping
+                                        </p>
+                                    </div>
+                                    {isOwner && !isSuspended && (
+                                        <button
+                                            onClick={handleSavePermissions}
+                                            style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit' }}
+                                        >
+                                            Save Permissions
+                                        </button>
+                                    )}
+                                </div>
+
+                                {loadingPerms ? (
+                                    <div style={{ color: '#9ca3af', textAlign: 'center', padding: '3rem' }}>Loading permissions...</div>
+                                ) : (
+                                    <div className="tree-container">
+                                        {Object.keys(permissionsConfig).map(moduleKey => {
+                                            const mod = permissionsConfig[moduleKey];
+                                            return (
+                                                <div key={moduleKey} className="tree-module" style={{ background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(255,255,255,0.06)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem' }}>
+                                                    <div className="tree-module-header" style={{ display: 'flex', gap: '0.5rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                                                        <span>📁 {mod.label}</span>
+                                                    </div>
+                                                    {Object.keys(mod.sub_modules).map(subKey => {
+                                                        const sub = mod.sub_modules[subKey];
+                                                        return (
+                                                            <div key={subKey} className="tree-submodule" style={{ marginLeft: '1.5rem', paddingLeft: '1rem', borderLeft: '1px dashed rgba(255,255,255,0.1)', marginBottom: '0.5rem' }}>
+                                                                <div style={{ color: '#6366f1', fontWeight: '500', marginBottom: '0.3rem', fontSize: '0.9rem' }}>
+                                                                    {sub.label}
+                                                                </div>
+                                                                <div className="tree-pages" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                                                    {Object.keys(sub.pages).map(pageKey => {
+                                                                        const pageLabel = sub.pages[pageKey];
+                                                                        const isChecked = rolePerms.includes(pageKey);
+                                                                        return (
+                                                                            <label key={pageKey} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#9ca3af', cursor: (isOwner && !isSuspended) ? 'pointer' : 'default' }}>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    name="role-permissions[]"
+                                                                                    value={pageKey}
+                                                                                    defaultChecked={isChecked}
+                                                                                    key={`${selectedRole.id}-${pageKey}-${isChecked}`} // force reset state on role update
+                                                                                    disabled={!isOwner || isSuspended}
+                                                                                />
+                                                                                <span>{pageLabel} (<code>{pageKey}</code>)</span>
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ color: '#9ca3af', textAlign: 'center', padding: '5rem 2rem' }}>
+                                👈 Select a role from the list to view and manage its permissions matrix.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
