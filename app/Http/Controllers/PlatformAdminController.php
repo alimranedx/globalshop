@@ -151,6 +151,8 @@ class PlatformAdminController extends Controller
             'limits.max_products' => 'required|integer|min:100',
             'limits.max_images_per_product' => 'required|integer|min:1',
             'limits.max_employees' => 'required|integer|min:1',
+            'limits.max_categories' => 'sometimes|integer|min:1',
+            'limits.max_brands' => 'sometimes|integer|min:1',
         ]);
 
         $plan = Plan::create([
@@ -188,6 +190,8 @@ class PlatformAdminController extends Controller
             'limits.max_products' => 'required|integer|min:100',
             'limits.max_images_per_product' => 'required|integer|min:1',
             'limits.max_employees' => 'required|integer|min:1',
+            'limits.max_categories' => 'sometimes|integer|min:1',
+            'limits.max_brands' => 'sometimes|integer|min:1',
         ]);
 
         $oldValues = $plan->toArray();

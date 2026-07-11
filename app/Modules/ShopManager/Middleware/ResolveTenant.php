@@ -38,6 +38,11 @@ class ResolveTenant
             $shop = Shop::where('domain', $request->getHost())->first();
         }
 
+        // 4. Fallback: Check session mock tenant ID (useful for direct downloads/API requests on localhost)
+        if (! $shop && session()->has('mock_active_tenant_id')) {
+            $shop = Shop::where('id', session('mock_active_tenant_id'))->first();
+        }
+
         if ($shop) {
             // Check if tenant is suspended
             if ($shop->status === 'suspended') {

@@ -115,6 +115,9 @@ function ShopManagerApp() {
             }
             const data = await response.json();
             setState(data);
+            if (data.toast) {
+                showMessage(data.toast);
+            }
             if (data.shop) {
                 setShopId(data.shop.id);
             }
@@ -819,8 +822,8 @@ function ShopManagerApp() {
                         {location.pathname.startsWith('/catalog-hub') && <CatalogNav hasPermission={hasPermission} />}
 
                         <Routes>
-                            <Route path="/" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
-                            <Route path="/dashboard" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
+                            <Route path="/" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} getHeaders={getHeaders} shopId={shopId} />} />
+                            <Route path="/dashboard" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} getHeaders={getHeaders} shopId={shopId} />} />
                             
                             <Route path="/catalog-hub/categories" element={
                                 hasPermission('categories.index') ? (
@@ -912,6 +915,7 @@ function ShopManagerApp() {
                                         currentUserEmail={currentUserEmail}
                                         fetchState={fetchState}
                                         isSuspended={isRestricted}
+                                        getHeaders={getHeaders}
                                     />
                                 ) : <AccessDeniedView />
                             } />
@@ -926,6 +930,7 @@ function ShopManagerApp() {
                                         currentUserEmail={currentUserEmail}
                                         fetchState={fetchState}
                                         isSuspended={isRestricted}
+                                        getHeaders={getHeaders}
                                     />
                                 ) : <AccessDeniedView />
                             } />
@@ -955,7 +960,13 @@ function ShopManagerApp() {
                             } />
                             <Route path="/settings" element={
                                 (hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription')) ? (
-                                    <SettingsView shop={shop} />
+                                    <SettingsView 
+                                        shop={shop} 
+                                        isOwner={isOwnerOrSuper}
+                                        fetchState={fetchState}
+                                        showMessage={showMessage}
+                                        getHeaders={getHeaders}
+                                    />
                                 ) : <AccessDeniedView />
                             } />
                             <Route path="/logs" element={
@@ -963,7 +974,7 @@ function ShopManagerApp() {
                                     <LogsView state={state} />
                                 ) : <AccessDeniedView />
                             } />
-                            <Route path="*" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} />} />
+                            <Route path="*" element={<DashboardView products={products} categories={categories} brands={brands} limits={limits} getHeaders={getHeaders} shopId={shopId} />} />
                         </Routes>
                     </main>
                 </div>
@@ -1103,7 +1114,10 @@ function is_null(val) {
 // Render root element
 const rootEl = document.getElementById('shop-owner-root');
 if (rootEl) {
-    createRoot(rootEl).render(
+    if (!window.__reactRoot) {
+        window.__reactRoot = createRoot(rootEl);
+    }
+    window.__reactRoot.render(
         <BrowserRouter basename="/shop">
             <ShopManagerApp />
         </BrowserRouter>
@@ -1414,9 +1428,107 @@ function StaffAndRolesHub({
 }
 
 // 1. Dashboard View
-function DashboardView({ products, categories, brands, limits }) {
+function DashboardView({ products, categories, brands, limits, getHeaders, shopId }) {
+    const [stats, setStats] = React.useState(null);
+    const [loadingStats, setLoadingStats] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!shopId) return;
+        let cancelled = false;
+        setLoadingStats(true);
+        const headers = {
+            'Accept': 'application/json',
+            'X-Tenant-ID': shopId,
+            ...getHeaders(),
+        };
+        fetch('/api/v1/tenant/dashboard-stats', { headers })
+            .then(r => r.json())
+            .then(d => { if (!cancelled && d.success) setStats(d.data); })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setLoadingStats(false); });
+        return () => { cancelled = true; };
+    }, [shopId]);
+
+    const fmt = (v) => {
+        if (v == null) return '$0.00';
+        return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
+
+    const cardStyle = (gradient) => ({
+        background: gradient,
+        borderRadius: '14px',
+        padding: '1.25rem 1.5rem',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.25rem',
+        minWidth: 0,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
+    });
+
+    const periodLabel = { today: "Today's", month: "This Month's", year: "This Year's" };
+    const periodGradients = {
+        today: 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(99,102,241,0.05) 100%)',
+        month: 'linear-gradient(135deg, rgba(16,185,129,0.25) 0%, rgba(16,185,129,0.05) 100%)',
+        year:  'linear-gradient(135deg, rgba(139,92,246,0.25) 0%, rgba(139,92,246,0.05) 100%)',
+    };
+    const periodBorders = {
+        today: '1px solid rgba(99,102,241,0.3)',
+        month: '1px solid rgba(16,185,129,0.3)',
+        year:  '1px solid rgba(139,92,246,0.3)',
+    };
+    const accentColors = {
+        today: '#818cf8',
+        month: '#34d399',
+        year:  '#a78bfa',
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* ─── Sales Analytics Section ─── */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>📊</span> Sales Analytics
+                </h3>
+
+                {loadingStats ? (
+                    <div style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>Loading analytics...</div>
+                ) : !stats ? (
+                    <div style={{ textAlign: 'center', color: '#6b7280', padding: '2rem', background: 'rgba(30,30,38,0.45)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        No sales data yet. Make your first sale via POS!
+                    </div>
+                ) : (
+                    ['today', 'month', 'year'].map(period => {
+                        const d = stats[period] || {};
+                        return (
+                            <div key={period} style={{ background: 'rgba(20,20,25,0.75)', border: periodBorders[period], borderRadius: '16px', padding: '1.25rem 1.5rem' }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: '600', color: accentColors[period], marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                    {periodLabel[period]} Performance
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+                                    <div style={{ ...cardStyle(periodGradients[period]), border: 'none' }}>
+                                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Orders</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: '700' }}>{d.orders || 0}</span>
+                                    </div>
+                                    <div style={{ ...cardStyle(periodGradients[period]), border: 'none' }}>
+                                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Revenue</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: '700', color: accentColors[period] }}>{fmt(d.revenue)}</span>
+                                    </div>
+                                    <div style={{ ...cardStyle(periodGradients[period]), border: 'none' }}>
+                                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Profit</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: '700', color: (d.profit || 0) >= 0 ? '#34d399' : '#f87171' }}>{fmt(d.profit)}</span>
+                                    </div>
+                                    <div style={{ ...cardStyle(periodGradients[period]), border: 'none' }}>
+                                        <span style={{ fontSize: '0.75rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Discount Given</span>
+                                        <span style={{ fontSize: '1.6rem', fontWeight: '700', color: '#f59e0b' }}>{fmt(d.discount)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* ─── Catalog Counters ─── */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
                 <div style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '1.5rem' }}>
                     <div style={{ fontSize: '0.85rem', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Catalog Products</div>
@@ -1432,17 +1544,38 @@ function DashboardView({ products, categories, brands, limits }) {
                 </div>
             </div>
 
+            {/* ─── Subscription Limits ─── */}
             {limits && (
                 <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px' }}>
-                    <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem' }}>Subscription Limits Progress</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1.25rem' }}>Subscription Limits Progress</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
-                                <span>Products Added ({products.length} / {limits.max_products})</span>
-                                <span>{Math.min(100, Math.round((products.length / limits.max_products) * 100))}%</span>
+                                <span>Products Added ({products.length} / {limits.max_products || 100})</span>
+                                <span>{Math.min(100, Math.round((products.length / (limits.max_products || 100)) * 100))}%</span>
                             </div>
                             <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', width: `${Math.min(100, (products.length / limits.max_products) * 100)}%`, background: products.length >= limits.max_products ? '#ef4444' : '#6366f1', borderRadius: '4px' }}></div>
+                                <div style={{ height: '100%', width: `${Math.min(100, (products.length / (limits.max_products || 100)) * 100)}%`, background: products.length >= (limits.max_products || 100) ? '#ef4444' : '#6366f1', borderRadius: '4px' }}></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
+                                <span>Categories Added ({categories.length} / {limits.max_categories || 25})</span>
+                                <span>{Math.min(100, Math.round((categories.length / (limits.max_categories || 25)) * 100))}%</span>
+                            </div>
+                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${Math.min(100, (categories.length / (limits.max_categories || 25)) * 100)}%`, background: categories.length >= (limits.max_categories || 25) ? '#ef4444' : '#10b981', borderRadius: '4px' }}></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.3rem' }}>
+                                <span>Brands Added ({brands.length} / {limits.max_brands || 50})</span>
+                                <span>{Math.min(100, Math.round((brands.length / (limits.max_brands || 50)) * 100))}%</span>
+                            </div>
+                            <div style={{ height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${Math.min(100, (brands.length / (limits.max_brands || 50)) * 100)}%`, background: brands.length >= (limits.max_brands || 50) ? '#ef4444' : '#8b5cf6', borderRadius: '4px' }}></div>
                             </div>
                         </div>
                     </div>
@@ -1677,18 +1810,187 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
 }
 
 // 4. Shop Settings View
-function SettingsView({ shop }) {
+function SettingsView({ shop, isOwner, fetchState, showMessage, getHeaders }) {
+    const [name, setName] = useState(shop ? shop.name : '');
+    const [status, setStatus] = useState(shop ? shop.status : 'active');
+    const [saving, setSaving] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Sync input states when shop prop changes (e.g. after reload or update)
+    useEffect(() => {
+        if (shop) {
+            setName(shop.name);
+            setStatus(shop.status);
+        }
+    }, [shop]);
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setSaving(true);
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/settings', {
+                method: 'PUT',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, status })
+            });
+            const res = await response.json();
+            if (res.success) {
+                showMessage('Shop settings updated successfully!');
+                fetchState();
+                setIsEditing(false);
+            } else {
+                showMessage(res.message || 'Failed to update settings.', true);
+            }
+        } catch (err) {
+            showMessage('Connection error. Failed to update settings.', true);
+        } finally {
+            setSaving(false);
+        }
+    };
+
     return (
-        <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem' }}>Shop Scope Details</h3>
-            {shop && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.95rem' }}>
-                    <div>Shop Name: <strong>{shop.name}</strong></div>
-                    <div>Subdomain Slug: <code>{shop.slug}</code></div>
-                    <div>Mock Domain: <code>{shop.domain || `${shop.slug}.globalshop.test`}</code></div>
-                    <div>Tenant ULID ID: <code>{shop.id}</code></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '600' }}>Shop Settings</h3>
+                    {isOwner && !isEditing && (
+                        <button 
+                            onClick={() => setIsEditing(true)}
+                            style={{ 
+                                background: '#6366f1', 
+                                color: '#fff', 
+                                border: 'none', 
+                                padding: '0.5rem 1rem', 
+                                borderRadius: '8px', 
+                                fontWeight: '600', 
+                                cursor: 'pointer', 
+                                fontFamily: 'Outfit' 
+                            }}
+                        >
+                            ✏️ Edit Shop Settings
+                        </button>
+                    )}
                 </div>
-            )}
+                
+                {isEditing ? (
+                    <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '480px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: '500' }}>Shop Name</label>
+                            <input 
+                                type="text" 
+                                value={name} 
+                                onChange={e => setName(e.target.value)} 
+                                required 
+                                disabled={saving}
+                                style={{ 
+                                    background: 'rgba(30, 30, 38, 0.45)', 
+                                    border: '1px solid rgba(255, 255, 255, 0.08)', 
+                                    color: '#fff', 
+                                    padding: '0.7rem', 
+                                    borderRadius: '8px', 
+                                    outline: 'none', 
+                                    fontFamily: 'Outfit',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }} 
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: '500' }}>Shop Status</label>
+                            <select 
+                                value={status} 
+                                onChange={e => setStatus(e.target.value)} 
+                                disabled={saving}
+                                style={{ 
+                                    background: 'rgba(30, 30, 38, 0.45)', 
+                                    border: '1px solid rgba(255, 255, 255, 0.08)', 
+                                    color: '#fff', 
+                                    padding: '0.7rem', 
+                                    borderRadius: '8px', 
+                                    outline: 'none', 
+                                    cursor: 'pointer',
+                                    fontFamily: 'Outfit',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }}
+                            >
+                                <option value="active">Active</option>
+                                <option value="inactive">Deactive</option>
+                            </select>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                            <button 
+                                type="submit" 
+                                disabled={saving}
+                                style={{ 
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', 
+                                    color: '#fff', 
+                                    border: 'none', 
+                                    padding: '0.75rem 1.5rem', 
+                                    borderRadius: '8px', 
+                                    fontWeight: '600', 
+                                    cursor: saving ? 'default' : 'pointer', 
+                                    transition: 'all 0.2s', 
+                                    fontFamily: 'Outfit'
+                                }}
+                            >
+                                {saving ? 'Saving...' : 'Save Settings'}
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    if (shop) {
+                                        setName(shop.name);
+                                        setStatus(shop.status);
+                                    }
+                                }}
+                                disabled={saving}
+                                style={{ 
+                                    background: 'transparent', 
+                                    border: '1px solid rgba(255, 255, 255, 0.12)', 
+                                    color: '#9ca3af', 
+                                    padding: '0.75rem 1.5rem', 
+                                    borderRadius: '8px', 
+                                    fontWeight: '600', 
+                                    cursor: 'pointer', 
+                                    transition: 'all 0.2s', 
+                                    fontFamily: 'Outfit'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                ) : (
+                    shop && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.95rem' }}>
+                            <div>Shop Name: <strong>{shop.name}</strong></div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>Shop Status:</span>
+                                <span style={{ 
+                                    fontSize: '0.75rem', 
+                                    padding: '0.2rem 0.5rem', 
+                                    borderRadius: '4px', 
+                                    background: shop.status === 'active' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', 
+                                    color: shop.status === 'active' ? '#10b981' : '#ef4444', 
+                                    fontWeight: '600',
+                                    textTransform: 'capitalize'
+                                }}>
+                                    {shop.status === 'inactive' ? 'Deactive' : shop.status}
+                                </span>
+                            </div>
+                            <div>Subdomain Slug: <code>{shop.slug}</code></div>
+                            <div>Mock Domain: <code>{shop.domain || `${shop.slug}.globalshop.test`}</code></div>
+                            <div>Tenant ULID ID: <code>{shop.id}</code></div>
+                        </div>
+                    )
+                )}
+            </div>
         </div>
     );
 }
@@ -2089,7 +2391,7 @@ function SalesRedirect({ hasPermission }) {
     return null;
 }
 
-function SalesHubView({ activeSubTab, products, categories, brands, hasPermission, currentUserEmail, fetchState, isSuspended }) {
+function SalesHubView({ activeSubTab, products, categories, brands, hasPermission, currentUserEmail, fetchState, isSuspended, getHeaders }) {
     const navigate = useNavigate();
     const [selectedReceipt, setSelectedReceipt] = useState(null);
 
@@ -2142,12 +2444,14 @@ function SalesHubView({ activeSubTab, products, categories, brands, hasPermissio
                     fetchState={fetchState}
                     setSelectedReceipt={setSelectedReceipt}
                     currentUserEmail={currentUserEmail}
+                    getHeaders={getHeaders}
                 />
             ) : (
                 <SalesLog 
                     isSuspended={isSuspended}
                     setSelectedReceipt={setSelectedReceipt}
                     currentUserEmail={currentUserEmail}
+                    getHeaders={getHeaders}
                 />
             )}
 
@@ -2162,7 +2466,7 @@ function SalesHubView({ activeSubTab, products, categories, brands, hasPermissio
     );
 }
 
-function POSTerminal({ products, categories, brands, isSuspended, fetchState, setSelectedReceipt, currentUserEmail }) {
+function POSTerminal({ products, categories, brands, isSuspended, fetchState, setSelectedReceipt, currentUserEmail, getHeaders }) {
     const [cart, setCart] = useState([]);
     const [search, setSearch] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
@@ -2171,6 +2475,7 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
     const [customerEmail, setCustomerEmail] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('cash');
     const [discount, setDiscount] = useState('0');
+    const [discountType, setDiscountType] = useState('fixed'); // 'fixed' or 'percentage'
     
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
@@ -2213,7 +2518,10 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
     // Calculations
     const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax = Math.round(subtotal * 0.05 * 100) / 100;
-    const discountAmount = parseFloat(discount) || 0;
+    const discountValue = parseFloat(discount) || 0;
+    const discountAmount = discountType === 'percentage'
+        ? Math.round(subtotal * (discountValue / 100) * 100) / 100
+        : discountValue;
     const total = Math.max(0, subtotal - discountAmount + tax);
 
     const handleCheckout = async (e) => {
@@ -2228,12 +2536,12 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
         setErrorMsg('');
 
         try {
+            const headers = getHeaders();
             const response = await fetch('/api/v1/tenant/sales', {
                 method: 'POST',
                 headers: {
+                    ...headers,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': currentUserEmail ? `Bearer ${currentUserEmail}` : ''
                 },
                 body: JSON.stringify({
                     customer_name: customerName || null,
@@ -2251,6 +2559,7 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
                 setCustomerName('');
                 setCustomerEmail('');
                 setDiscount('0');
+                setDiscountType('fixed');
                 setPaymentMethod('cash');
                 setSelectedReceipt(res.data);
                 fetchState();
@@ -2462,15 +2771,25 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
                             </select>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Discount ($)</label>
-                            <input 
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={discount}
-                                onChange={e => setDiscount(e.target.value)}
-                                style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none' }}
-                            />
+                            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Discount</label>
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <select 
+                                    value={discountType}
+                                    onChange={e => setDiscountType(e.target.value)}
+                                    style={{ background: 'rgba(20,20,25,0.75)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', outline: 'none', width: '55px' }}
+                                >
+                                    <option value="fixed">$</option>
+                                    <option value="percentage">%</option>
+                                </select>
+                                <input 
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={discount}
+                                    onChange={e => setDiscount(e.target.value)}
+                                    style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', padding: '0.45rem', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', flex: 1 }}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -2519,7 +2838,7 @@ function POSTerminal({ products, categories, brands, isSuspended, fetchState, se
     );
 }
 
-function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail }) {
+function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail, getHeaders }) {
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -2535,6 +2854,20 @@ function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail }) {
     const [appliedPayment, setAppliedPayment] = useState('');
     const [appliedSearch, setAppliedSearch] = useState('');
 
+    const [exportFormat, setExportFormat] = useState('csv');
+
+    const handleExport = () => {
+        const params = new URLSearchParams();
+        if (appliedStart) params.append('start_date', appliedStart);
+        if (appliedEnd) params.append('end_date', appliedEnd);
+        if (appliedPayment) params.append('payment_method', appliedPayment);
+        if (appliedSearch) params.append('search', appliedSearch);
+        params.append('format', exportFormat);
+
+        // Direct browser download prompt preserves Content-Disposition headers and resolves Chrome GUID filename issues
+        window.location.href = `/api/v1/tenant/sales/export?${params.toString()}`;
+    };
+
     const fetchSales = async () => {
         setLoading(true);
         try {
@@ -2544,10 +2877,10 @@ function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail }) {
             if (appliedPayment) params.append('payment_method', appliedPayment);
             if (appliedSearch) params.append('search', appliedSearch);
 
+            const headers = getHeaders();
             const response = await fetch(`/api/v1/tenant/sales?${params.toString()}`, {
                 headers: {
-                    'Accept': 'application/json',
-                    'Authorization': currentUserEmail ? `Bearer ${currentUserEmail}` : ''
+                    ...headers,
                 }
             });
             const res = await response.json();
@@ -2639,6 +2972,27 @@ function SalesLog({ isSuspended, setSelectedReceipt, currentUserEmail }) {
                     )}
                 </div>
             </form>
+
+            {/* Export Actions Section */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.8rem', background: 'rgba(255,255,255,0.02)', padding: '0.8rem 1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: '500' }}>📄 Export Current Log:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <select
+                        value={exportFormat}
+                        onChange={e => setExportFormat(e.target.value)}
+                        style={{ background: 'rgba(30,30,38,0.7)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.45rem 1rem', borderRadius: '8px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}
+                    >
+                        <option value="csv">CSV Format</option>
+                        <option value="xlsx">Excel (XLSX) Format</option>
+                    </select>
+                    <button
+                        onClick={handleExport}
+                        style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', border: 'none', padding: '0.45rem 1.2rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 8px rgba(16,185,129,0.2)' }}
+                    >
+                        📥 Export Report
+                    </button>
+                </div>
+            </div>
 
             {/* Logs Table */}
             <div style={{ overflowX: 'auto' }}>

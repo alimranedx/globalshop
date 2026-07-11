@@ -96,8 +96,8 @@ class AuthorizePageAccess
         if (str_ends_with($routeName, '.destroy')) {
             return str_replace('.destroy', '.destroy', $routeName);
         }
-        if (str_ends_with($routeName, '.show')) {
-            return str_replace('.show', '.index', $routeName);
+        if (str_ends_with($routeName, '.show') || str_ends_with($routeName, '.export')) {
+            return str_replace(['.show', '.export'], '.index', $routeName);
         }
 
         return $routeName;

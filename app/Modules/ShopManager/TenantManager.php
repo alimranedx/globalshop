@@ -44,13 +44,22 @@ class TenantManager
     /**
      * Get a cached subscription quota limit for the active tenant.
      */
-    public static function getLimit(string $key, int $default = 0): int
+    public static function getLimit(string $key, int $default = 0, $shopOrId = null): int
     {
-        if (! static::hasActiveTenant()) {
-            return $default;
+        $shop = null;
+        if ($shopOrId instanceof Shop) {
+            $shop = $shopOrId;
+        } elseif ($shopOrId) {
+            $shop = Shop::find($shopOrId);
         }
 
-        $shop = static::$tenant;
+        if (! $shop) {
+            $shop = static::$tenant;
+        }
+
+        if (! $shop) {
+            return $default;
+        }
 
         try {
             return Cache::tags(["tenant:{$shop->id}", 'subscription'])->remember(

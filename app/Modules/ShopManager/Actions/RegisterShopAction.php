@@ -72,6 +72,8 @@ class RegisterShopAction
                         'max_products' => 100,
                         'max_images_per_product' => 2,
                         'max_employees' => 5,
+                        'max_categories' => 25,
+                        'max_brands' => 50,
                     ],
                 ]);
             }

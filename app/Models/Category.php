@@ -33,6 +33,21 @@ class Category extends Model
             if (TenantManager::hasActiveTenant()) {
                 $model->shop_id = $model->shop_id ?? TenantManager::getTenantId();
             }
+
+            $shopId = $model->shop_id;
+            if ($shopId) {
+                $currentCount = Category::withoutGlobalScopes()
+                    ->where('shop_id', $shopId)
+                    ->count();
+
+                $limit = TenantManager::getLimit('max_categories', 25, $shopId);
+
+                if ($currentCount >= $limit) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'subscription' => ["The active subscription category limit of {$limit} has been reached. Please upgrade your plan."],
+                    ]);
+                }
+            }
         });
 
         static::addGlobalScope('tenant_or_global', function (Builder $builder) {

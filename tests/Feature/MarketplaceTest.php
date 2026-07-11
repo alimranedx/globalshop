@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ActivityLog;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Plan;
 use App\Models\Product;
@@ -689,6 +690,185 @@ class MarketplaceTest extends TestCase
             'shop_id' => $shop->id,
             'user_id' => $employeeId,
         ]);
+    }
+
+    public function test_category_limit_is_enforced(): void
+    {
+        $owner = User::create([
+            'name' => 'Limit Owner',
+            'email' => 'limitowner@test.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $shop = Shop::create([
+            'owner_id' => $owner->id,
+            'name' => 'Limit Shop',
+            'slug' => 'limit-shop',
+            'status' => 'active',
+        ]);
+
+        $plan = Plan::create([
+            'name' => 'Limited Plan',
+            'price' => 0.00,
+            'limits' => [
+                'max_products' => 100,
+                'max_categories' => 2,
+                'max_brands' => 2,
+            ],
+        ]);
+
+        Subscription::create([
+            'shop_id' => $shop->id,
+            'plan_id' => $plan->id,
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($owner);
+
+        Category::create([
+            'shop_id' => $shop->id,
+            'name' => 'Cat 1',
+            'slug' => 'cat-1',
+        ]);
+        Category::create([
+            'shop_id' => $shop->id,
+            'name' => 'Cat 2',
+            'slug' => 'cat-2',
+        ]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        Category::create([
+            'shop_id' => $shop->id,
+            'name' => 'Cat 3',
+            'slug' => 'cat-3',
+        ]);
+    }
+
+    public function test_brand_limit_is_enforced(): void
+    {
+        $owner = User::create([
+            'name' => 'Limit Owner 2',
+            'email' => 'limitowner2@test.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $shop = Shop::create([
+            'owner_id' => $owner->id,
+            'name' => 'Limit Shop 2',
+            'slug' => 'limit-shop-2',
+            'status' => 'active',
+        ]);
+
+        $plan = Plan::create([
+            'name' => 'Limited Plan 2',
+            'price' => 0.00,
+            'limits' => [
+                'max_products' => 100,
+                'max_categories' => 2,
+                'max_brands' => 2,
+            ],
+        ]);
+
+        Subscription::create([
+            'shop_id' => $shop->id,
+            'plan_id' => $plan->id,
+            'status' => 'active',
+            'starts_at' => now(),
+            'ends_at' => now()->addMonth(),
+        ]);
+
+        $this->actingAs($owner);
+
+        $cat1 = Category::create([
+            'shop_id' => $shop->id,
+            'name' => 'Cat A',
+            'slug' => 'cat-a',
+        ]);
+
+        Brand::create([
+            'shop_id' => $shop->id,
+            'category_id' => $cat1->id,
+            'name' => 'Brand 1',
+            'slug' => 'brand-1',
+        ]);
+        Brand::create([
+            'shop_id' => $shop->id,
+            'category_id' => $cat1->id,
+            'name' => 'Brand 2',
+            'slug' => 'brand-2',
+        ]);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        Brand::create([
+            'shop_id' => $shop->id,
+            'category_id' => $cat1->id,
+            'name' => 'Brand 3',
+            'slug' => 'brand-3',
+        ]);
+    }
+
+    public function test_owner_can_update_shop_settings(): void
+    {
+        $owner = User::create([
+            'name' => 'Owner Settings',
+            'email' => 'ownersettings@test.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $shop = Shop::create([
+            'owner_id' => $owner->id,
+            'name' => 'Original Name',
+            'slug' => 'original-slug',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($owner)
+            ->withHeaders(['X-Tenant-ID' => $shop->id])
+            ->putJson('/api/v1/tenant/settings', [
+                'name' => 'Updated Name',
+                'status' => 'deactive',
+            ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success', true);
+        $response->assertJsonPath('data.name', 'Updated Name');
+        $response->assertJsonPath('data.status', 'inactive'); // deactive gets normalized to inactive
+
+        $this->assertEquals('Updated Name', $shop->fresh()->name);
+        $this->assertEquals('inactive', $shop->fresh()->status);
+    }
+
+    public function test_non_owner_cannot_update_shop_settings(): void
+    {
+        $owner = User::create([
+            'name' => 'Owner Settings 2',
+            'email' => 'ownersettings2@test.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $otherUser = User::create([
+            'name' => 'Other User',
+            'email' => 'otheruser@test.com',
+            'password' => bcrypt('password'),
+        ]);
+
+        $shop = Shop::create([
+            'owner_id' => $owner->id,
+            'name' => 'Original Name 2',
+            'slug' => 'original-slug-2',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($otherUser)
+            ->withHeaders(['X-Tenant-ID' => $shop->id])
+            ->putJson('/api/v1/tenant/settings', [
+                'name' => 'Updated Name 2',
+                'status' => 'active',
+            ]);
+
+        $response->assertStatus(403);
     }
 }
 

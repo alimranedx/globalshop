@@ -170,6 +170,20 @@ class SalesTest extends TestCase
             'customer_name' => 'Dave Customer',
             'created_by' => $this->salesManager->id,
         ]);
+
+        // Verify Daily Summary was updated
+        $this->assertDatabaseHas('shop_daily_summaries', [
+            'shop_id' => $this->shop->id,
+            'total_orders' => 1,
+            'total_revenue' => 5.70,
+        ]);
+
+        // Verify Dashboard Stats API retrieval
+        $statsResponse = $this->getJson('/api/v1/tenant/dashboard-stats', ['X-Tenant-ID' => $this->shop->id]);
+        $statsResponse->assertStatus(200);
+        $statsResponse->assertJsonPath('success', true);
+        $statsResponse->assertJsonPath('data.today.orders', 1);
+        $statsResponse->assertJsonPath('data.today.revenue', 5.70);
     }
 
     /**
@@ -280,5 +294,47 @@ class SalesTest extends TestCase
         $response = $this->getJson('/api/v1/tenant/sales', ['X-Tenant-ID' => $this->shop->id]);
 
         $response->assertStatus(403);
+    }
+
+    /**
+     * Test export to CSV format.
+     */
+    public function test_can_export_sales_to_csv(): void
+    {
+        $this->actingAs($this->owner);
+        TenantManager::setTenant($this->shop);
+
+        $response = $this->get('/api/v1/tenant/sales/export?format=csv', [
+            'X-Tenant-ID' => $this->shop->id
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+        $response->assertHeader('Content-Disposition', 'attachment; filename=sales_export.csv');
+
+        ob_start();
+        $response->sendContent();
+        $content = ob_get_clean();
+
+        $this->assertStringContainsString('Invoice Number', $content);
+    }
+
+    /**
+     * Test export to Excel/XLSX (XML Excel table) format.
+     */
+    public function test_can_export_sales_to_xlsx(): void
+    {
+        $this->actingAs($this->owner);
+        TenantManager::setTenant($this->shop);
+
+        $response = $this->get('/api/v1/tenant/sales/export?format=xlsx', [
+            'X-Tenant-ID' => $this->shop->id
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
+        $response->assertHeader('Content-Disposition', 'attachment; filename=sales_export.xls');
+        $response->assertSee('xml version');
+        $response->assertSee('ExcelWorkbook');
     }
 }

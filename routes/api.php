@@ -46,7 +46,14 @@ Route::prefix('v1')->group(function () {
         // Employee Management
         Route::apiResource('employees', EmployeeController::class)->except(['show']);
 
+        // Shop Settings Management
+        Route::put('settings', [\App\Modules\ShopManager\Controllers\Api\ShopSettingsController::class, 'update'])->name('settings.update');
+
+        // Dashboard Analytics
+        Route::get('dashboard-stats', \App\Modules\ShopManager\Controllers\Api\DashboardStatsController::class)->name('dashboard.stats');
+
         // Sales Management
+        Route::get('sales/export', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'export'])->name('sales.export');
         Route::get('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'index'])->name('sales.index');
         Route::post('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'store'])->name('sales.create');
     });

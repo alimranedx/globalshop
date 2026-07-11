@@ -20,6 +20,28 @@ class Brand extends Model
         'logo_path',
     ];
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $shopId = $model->shop_id ?? \App\Modules\ShopManager\TenantManager::getTenantId();
+            if ($shopId) {
+                $currentCount = Brand::withoutGlobalScopes()
+                    ->where('shop_id', $shopId)
+                    ->count();
+
+                $limit = \App\Modules\ShopManager\TenantManager::getLimit('max_brands', 50, $shopId);
+
+                if ($currentCount >= $limit) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'subscription' => ["The active subscription brand limit of {$limit} has been reached. Please upgrade your plan."],
+                    ]);
+                }
+            }
+        });
+    }
+
     /**
      * Get the category that this brand belongs to.
      */

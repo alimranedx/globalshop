@@ -21,6 +21,7 @@ class Product extends Model
         'slug',
         'description',
         'price',
+        'cost_price',
         'stock_quantity',
         'stock_unit',
         'status',
@@ -32,6 +33,7 @@ class Product extends Model
     {
         return [
             'price' => 'float',
+            'cost_price' => 'float',
             'stock_quantity' => 'float',
         ];
     }

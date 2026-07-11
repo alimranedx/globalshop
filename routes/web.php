@@ -56,6 +56,8 @@ Route::prefix('demo')->group(function () {
                 'max_products' => 100,
                 'max_images_per_product' => 2,
                 'max_employees' => 5,
+                'max_categories' => 25,
+                'max_brands' => 50,
             ],
         ]);
 
@@ -294,6 +296,7 @@ Route::prefix('demo')->group(function () {
         }
 
         return response()->json([
+            'toast' => session()->pull('easy_login_toast'),
             'authenticated' => $user !== null,
             'user' => $user ? [
                 'name' => $user->name,
@@ -464,6 +467,15 @@ Route::middleware(['auth'])->get('/admin', [App\Http\Controllers\PlatformAdminCo
 Route::get('/login', function () {
     return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
 })->name('login');
+
+// Local developer Easy Login routes
+if (app()->environment('local') || config('app.debug')) {
+    Route::middleware([\App\Modules\ShopManager\Middleware\EnsureLocalEnvironment::class])->group(function () {
+        Route::get('/shop/easy-login', [\App\Modules\ShopManager\Controllers\EasyLoginController::class, 'index'])->name('shop.easy-login');
+        Route::post('/shop/easy-login/login', [\App\Modules\ShopManager\Controllers\EasyLoginController::class, 'login'])->name('shop.easy-login.login');
+        Route::redirect('/shop/easy-lgoin', '/shop/easy-login');
+    });
+}
 
 Route::get('/shop/{any?}', function () {
     return view('shop');
