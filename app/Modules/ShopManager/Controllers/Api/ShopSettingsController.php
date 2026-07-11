@@ -25,6 +25,8 @@ class ShopSettingsController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:100',
             'status' => 'required|string|in:active,inactive,deactive',
+            'currency' => 'nullable|string|in:USD,BDT',
+            'language' => 'nullable|string|in:en,bn',
         ]);
 
         $status = $validated['status'];
@@ -35,19 +37,26 @@ class ShopSettingsController extends Controller
 
         $oldName = $shop->name;
         $oldStatus = $shop->status;
+        $oldCurrency = $shop->currency;
+        $oldLanguage = $shop->language;
+
+        $currency = $validated['currency'] ?? 'USD';
+        $language = $validated['language'] ?? 'en';
 
         $shop->update([
             'name' => $validated['name'],
             'status' => $status,
+            'currency' => $currency,
+            'language' => $language,
         ]);
 
         // Log Activity
         $logger = resolve(\App\Modules\AuditLog\Actions\LogActivityAction::class);
         $logger->execute(
             'shop.settings_updated',
-            "Shop settings updated. Name: {$oldName} -> {$validated['name']}, Status: {$oldStatus} -> {$status}.",
+            "Shop settings updated. Name: {$oldName} -> {$validated['name']}, Status: {$oldStatus} -> {$status}, Currency: {$oldCurrency} -> {$currency}, Language: {$oldLanguage} -> {$language}.",
             null,
-            ['name' => $validated['name'], 'status' => $status],
+            ['name' => $validated['name'], 'status' => $status, 'currency' => $currency, 'language' => $language],
             $shop->id,
             $user->id
         );
@@ -61,6 +70,8 @@ class ShopSettingsController extends Controller
                 'slug' => $shop->slug,
                 'status' => $shop->status,
                 'domain' => $shop->domain,
+                'currency' => $shop->currency,
+                'language' => $shop->language,
             ],
         ]);
     }

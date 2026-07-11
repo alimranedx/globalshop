@@ -45,6 +45,8 @@ class RegisterShopAction
                 'slug' => Str::slug($shopData['slug'] ?? $shopData['name']),
                 'domain' => $shopData['domain'] ?? null,
                 'status' => $status,
+                'currency' => $shopData['currency'] ?? 'USD',
+                'language' => $shopData['language'] ?? 'en',
             ]);
 
             // 3. Provision Default Roles for the Shop

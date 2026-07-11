@@ -829,15 +829,21 @@ class MarketplaceTest extends TestCase
             ->putJson('/api/v1/tenant/settings', [
                 'name' => 'Updated Name',
                 'status' => 'deactive',
+                'currency' => 'BDT',
+                'language' => 'bn',
             ]);
 
         $response->assertStatus(200);
         $response->assertJsonPath('success', true);
         $response->assertJsonPath('data.name', 'Updated Name');
         $response->assertJsonPath('data.status', 'inactive'); // deactive gets normalized to inactive
+        $response->assertJsonPath('data.currency', 'BDT');
+        $response->assertJsonPath('data.language', 'bn');
 
         $this->assertEquals('Updated Name', $shop->fresh()->name);
         $this->assertEquals('inactive', $shop->fresh()->status);
+        $this->assertEquals('BDT', $shop->fresh()->currency);
+        $this->assertEquals('bn', $shop->fresh()->language);
     }
 
     public function test_non_owner_cannot_update_shop_settings(): void

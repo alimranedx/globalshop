@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import useTheme from '../hooks/useTheme';
+import useTranslation from '../hooks/useTranslation';
 
 export default function SmartDateRangePicker({ startDate, endDate, preset, onChange }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
+    const { colors, isDark } = useTheme();
+    const t = useTranslation();
 
     const applyPreset = (p) => {
         const today = new Date();
@@ -47,18 +51,18 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
     };
 
     const getDisplayLabel = () => {
-        if (preset === 'all') return 'Date: All Time';
-        if (preset === 'today') return 'Date: Today';
-        if (preset === 'yesterday') return 'Date: Yesterday';
-        if (preset === 'last7') return 'Date: Last 7 Days';
-        if (preset === 'last30') return 'Date: Last 1 Month';
+        if (preset === 'all') return t('date_all_time');
+        if (preset === 'today') return t('date_today');
+        if (preset === 'yesterday') return t('date_yesterday');
+        if (preset === 'last7') return t('date_last_7_days');
+        if (preset === 'last30') return t('date_last_1_month');
         if (preset === 'custom') {
             if (startDate && endDate) return `${startDate} to ${endDate}`;
             if (startDate) return `Since ${startDate}`;
             if (endDate) return `Until ${endDate}`;
-            return 'Date: Custom Range';
+            return t('date_custom_range');
         }
-        return 'Date Range';
+        return t('date_custom_range');
     };
 
     useEffect(() => {
@@ -73,13 +77,13 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
 
     return (
         <div ref={dropdownRef} style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative', minWidth: '220px', flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Date Filter</label>
+            <label style={{ fontSize: '0.8rem', color: colors.textMuted }}>{t('date_filter')}</label>
             <div 
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
-                    background: 'rgba(30, 30, 38, 0.45)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: '#fff',
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.text,
                     padding: '0.55rem 1rem',
                     borderRadius: '8px',
                     outline: 'none',
@@ -91,7 +95,7 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
                 }}
             >
                 <span>{getDisplayLabel()}</span>
-                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>📅</span>
+                <span style={{ fontSize: '0.8rem', color: colors.textMuted }}>📅</span>
             </div>
 
             {isOpen && (
@@ -100,11 +104,11 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
                     top: '100%',
                     left: 0,
                     right: 0,
-                    background: '#1b1b22',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
                     zIndex: 9999,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    boxShadow: colors.shadow,
                     marginTop: '4px',
                     padding: '0.8rem',
                     display: 'flex',
@@ -114,27 +118,27 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
                 }}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
                         {[
-                            { id: 'all', label: 'All Time' },
-                            { id: 'today', label: 'Today' },
-                            { id: 'yesterday', label: 'Yesterday' },
-                            { id: 'last7', label: 'Last 7 Days' },
-                            { id: 'last30', label: 'Last 1 Month' },
-                            { id: 'custom', label: 'Custom Range' }
+                            { id: 'all', label: t('all_time') },
+                            { id: 'today', label: t('today') },
+                            { id: 'yesterday', label: t('yesterday') },
+                            { id: 'last7', label: t('last_7_days') },
+                            { id: 'last30', label: t('last_1_month') },
+                            { id: 'custom', label: t('custom_range') }
                         ].map(p => (
                             <button
                                 key={p.id}
                                 type="button"
                                 onClick={() => applyPreset(p.id)}
                                 style={{
-                                    background: preset === p.id ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.03)',
-                                    border: preset === p.id ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
-                                    color: preset === p.id ? '#fff' : '#9ca3af',
+                                    background: preset === p.id ? colors.accentBg : (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
+                                    border: preset === p.id ? '1px solid #6366f1' : `1px solid ${colors.border}`,
+                                    color: preset === p.id ? (isDark ? '#fff' : '#4f46e5') : colors.textMuted,
                                     padding: '0.4rem',
                                     borderRadius: '6px',
                                     fontSize: '0.8rem',
                                     cursor: 'pointer',
                                     textAlign: 'center',
-                                    fontWeight: preset === p.id ? '600' : '400',
+                                    fontWeight: preset === p.id ? '600' : '500',
                                     transition: 'all 0.15s'
                                 }}
                             >
@@ -144,24 +148,24 @@ export default function SmartDateRangePicker({ startDate, endDate, preset, onCha
                     </div>
 
                     {preset === 'custom' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.6rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', borderTop: `1px solid ${colors.border}`, paddingTop: '0.6rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: 1 }}>
-                                    <label style={{ fontSize: '0.72rem', color: '#9ca3af' }}>From</label>
+                                    <label style={{ fontSize: '0.72rem', color: colors.textMuted }}>From</label>
                                     <input
                                         type="date"
                                         value={startDate}
                                         onChange={e => handleCustomChange('start', e.target.value)}
-                                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.3rem', borderRadius: '4px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.3rem', borderRadius: '4px', fontSize: '0.8rem', outline: 'none', colorScheme: isDark ? 'dark' : 'light' }}
                                     />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', flex: 1 }}>
-                                    <label style={{ fontSize: '0.72rem', color: '#9ca3af' }}>To</label>
+                                    <label style={{ fontSize: '0.72rem', color: colors.textMuted }}>To</label>
                                     <input
                                         type="date"
                                         value={endDate}
                                         onChange={e => handleCustomChange('end', e.target.value)}
-                                        style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.3rem', borderRadius: '4px', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.3rem', borderRadius: '4px', fontSize: '0.8rem', outline: 'none', colorScheme: isDark ? 'dark' : 'light' }}
                                     />
                                 </div>
                             </div>

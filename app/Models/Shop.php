@@ -20,6 +20,8 @@ class Shop extends Model
         'slug',
         'domain',
         'status',
+        'currency',
+        'language',
     ];
 
     /**

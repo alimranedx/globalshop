@@ -1,4 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { showToast } from '../store/uiSlice';
+import { fetchCatalogData, fetchState } from '../store/actions';
+import { getHeaders } from '../utils/api';
+import useHasPermission from '../hooks/useHasPermission';
+import useCurrency from '../hooks/useCurrency';
+import useTheme from '../hooks/useTheme';
 import SmartDateRangePicker from './SmartDateRangePicker';
 
 function is_null(val) {
@@ -9,49 +16,34 @@ function is_null(val) {
 function SearchableSelect({ label, value, options, onChange, placeholder, required = false }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const { colors, isDark } = useTheme();
 
     const selectedOption = options.find(opt => opt.id === value);
     const filteredOptions = options.filter(opt =>
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const displayValue = isOpen ? searchTerm : (selectedOption ? selectedOption.name : '');
-
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative' }}>
-            <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{label} {required && <span style={{ color: '#ef4444' }}>*</span>}</label>
-            <div style={{ position: 'relative' }}>
-                <input
-                    type="text"
-                    placeholder={placeholder}
-                    value={displayValue}
-                    onChange={(e) => {
-                        setIsOpen(true);
-                        setSearchTerm(e.target.value);
-                    }}
-                    onFocus={() => {
-                        setIsOpen(true);
-                        setSearchTerm('');
-                    }}
-                    required={required && !value}
-                    style={{
-                        width: '100%',
-                        background: 'rgba(30, 30, 38, 0.45)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        color: '#fff',
-                        padding: '0.6rem',
-                        borderRadius: '6px',
-                        outline: 'none',
-                        cursor: 'text',
-                        boxSizing: 'border-box'
-                    }}
-                />
-                <span 
-                    onClick={() => setIsOpen(!isOpen)}
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: '#9ca3af', fontSize: '0.85rem' }}
-                >
-                    {isOpen ? '▲' : '▼'}
-                </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative', flex: 1, minWidth: '200px' }}>
+            <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>{label}</label>
+            <div 
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.text,
+                    padding: '0.6rem',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: '0.9rem',
+                    boxSizing: 'border-box'
+                }}
+            >
+                <span>{selectedOption ? selectedOption.name : placeholder}</span>
+                <span style={{ fontSize: '0.8rem', color: colors.textMuted }}>{isOpen ? '▲' : '▼'}</span>
             </div>
 
             {isOpen && (
@@ -60,20 +52,43 @@ function SearchableSelect({ label, value, options, onChange, placeholder, requir
                     top: '100%',
                     left: 0,
                     right: 0,
-                    background: '#1b1b22',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: '6px',
                     maxHeight: '200px',
                     overflowY: 'auto',
                     zIndex: 9999,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    marginTop: '4px'
+                    boxShadow: colors.shadow,
+                    marginTop: '4px',
+                    padding: '0.4rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.3rem'
                 }}>
+                    <input 
+                        type="text"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: colors.inputBg,
+                            border: `1px solid ${colors.inputBorder}`,
+                            color: colors.text,
+                            padding: '0.4rem',
+                            borderRadius: '4px',
+                            fontSize: '0.8rem',
+                            outline: 'none',
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            marginBottom: '0.2rem'
+                        }}
+                    />
                     {filteredOptions.length === 0 ? (
-                        <div style={{ padding: '0.6rem', color: '#9ca3af', fontSize: '0.85rem' }}>No results match</div>
+                        <div style={{ padding: '0.4rem', color: colors.textMuted, fontSize: '0.8rem' }}>No results match</div>
                     ) : (
                         filteredOptions.map(opt => (
-                            <div
+                            <div 
                                 key={opt.id}
                                 onClick={() => {
                                     onChange(opt.id);
@@ -81,24 +96,20 @@ function SearchableSelect({ label, value, options, onChange, placeholder, requir
                                     setSearchTerm('');
                                 }}
                                 style={{
-                                    padding: '0.6rem',
+                                    padding: '0.4rem',
                                     cursor: 'pointer',
-                                    background: value === opt.id ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                                    color: '#fff',
-                                    fontSize: '0.85rem',
-                                    transition: 'background 0.2s',
-                                    borderBottom: '1px solid rgba(255,255,255,0.03)'
+                                    background: opt.id === value ? colors.accentBg : 'transparent',
+                                    color: colors.text,
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem'
                                 }}
-                                onMouseEnter={(e) => e.target.style.background = 'rgba(99, 102, 241, 0.15)'}
-                                onMouseLeave={(e) => e.target.style.background = value === opt.id ? 'rgba(99, 102, 241, 0.25)' : 'transparent'}
                             >
-                                {opt.name} {opt.isGlobal ? '(Global)' : ''}
+                                {opt.name}
                             </div>
                         ))
                     )}
                 </div>
             )}
-            
             {isOpen && (
                 <div 
                     onClick={() => setIsOpen(false)}
@@ -109,17 +120,15 @@ function SearchableSelect({ label, value, options, onChange, placeholder, requir
     );
 }
 
-// Searchable Multiselect Component for Filtering with "Select All" Option
+// Searchable Multi-Select Component
 function SearchableMultiSelect({ label, placeholder, options, selectedValues, onChange }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const { colors, isDark } = useTheme();
 
     const filteredOptions = options.filter(opt =>
         opt.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-
-    const filteredIds = filteredOptions.map(o => o.id);
-    const allFilteredChecked = filteredIds.length > 0 && filteredIds.every(id => selectedValues.includes(id));
 
     const handleToggle = (id) => {
         if (selectedValues.includes(id)) {
@@ -130,8 +139,11 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
     };
 
     const handleSelectAllToggle = () => {
+        const filteredIds = filteredOptions.map(o => o.id);
+        const allFilteredChecked = filteredIds.every(id => selectedValues.includes(id));
+        
         if (allFilteredChecked) {
-            onChange(selectedValues.filter(id => !filteredIds.includes(id)));
+            onChange(selectedValues.filter(val => !filteredIds.includes(val)));
         } else {
             onChange([...new Set([...selectedValues, ...filteredIds])]);
         }
@@ -149,13 +161,13 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'relative', minWidth: '220px', flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{label}</label>
+            <label style={{ fontSize: '0.8rem', color: colors.textMuted }}>{label}</label>
             <div 
                 onClick={() => setIsOpen(!isOpen)}
                 style={{
-                    background: 'rgba(30, 30, 38, 0.45)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    color: '#fff',
+                    background: colors.inputBg,
+                    border: `1px solid ${colors.inputBorder}`,
+                    color: colors.text,
                     padding: '0.55rem 1rem',
                     borderRadius: '8px',
                     outline: 'none',
@@ -168,7 +180,7 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                 }}
             >
                 <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{getDisplayLabel()}</span>
-                <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}>{isOpen ? '▲' : '▼'}</span>
+                <span style={{ fontSize: '0.8rem', color: colors.textMuted }}>{isOpen ? '▲' : '▼'}</span>
             </div>
 
             {isOpen && (
@@ -177,13 +189,13 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                     top: '100%',
                     left: 0,
                     right: 0,
-                    background: '#1b1b22',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    background: colors.surface,
+                    border: `1px solid ${colors.border}`,
                     borderRadius: '8px',
                     maxHeight: '260px',
                     overflowY: 'auto',
                     zIndex: 9999,
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    boxShadow: colors.shadow,
                     marginTop: '4px',
                     padding: '0.5rem',
                     display: 'flex',
@@ -197,10 +209,10 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                         onChange={(e) => setSearchTerm(e.target.value)}
                         onClick={(e) => e.stopPropagation()} 
                         style={{
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            background: colors.inputBg,
+                            border: `1px solid ${colors.inputBorder}`,
                             borderRadius: '6px',
-                            color: '#fff',
+                            color: colors.text,
                             padding: '0.4rem 0.6rem',
                             fontSize: '0.82rem',
                             outline: 'none',
@@ -219,7 +231,7 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                                 gap: '0.5rem',
                                 padding: '0.4rem',
                                 cursor: 'pointer',
-                                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                                borderBottom: `1px solid ${colors.border}`,
                                 fontSize: '0.82rem',
                                 color: '#6366f1',
                                 fontWeight: '600'
@@ -227,17 +239,17 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                         >
                             <input
                                 type="checkbox"
-                                checked={allFilteredChecked}
+                                checked={filteredOptions.map(o => o.id).every(id => selectedValues.includes(id))}
                                 onChange={handleSelectAllToggle}
                                 style={{ cursor: 'pointer' }}
                             />
-                            <span>{allFilteredChecked ? 'Deselect All' : 'Select All'}</span>
+                            <span>Select All</span>
                         </label>
                     )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', maxHeight: '140px', overflowY: 'auto' }}>
                         {filteredOptions.length === 0 ? (
-                            <div style={{ padding: '0.5rem', color: '#9ca3af', fontSize: '0.8rem' }}>No results match</div>
+                            <div style={{ padding: '0.5rem', color: colors.textMuted, fontSize: '0.8rem' }}>No results match</div>
                         ) : (
                             filteredOptions.map(opt => {
                                 const isChecked = selectedValues.includes(opt.id);
@@ -251,10 +263,10 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
                                             gap: '0.5rem',
                                             padding: '0.4rem',
                                             cursor: 'pointer',
-                                            background: isChecked ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+                                            background: isChecked ? colors.accentBg : 'transparent',
                                             borderRadius: '4px',
                                             fontSize: '0.82rem',
-                                            color: '#fff'
+                                            color: colors.text
                                         }}
                                     >
                                         <input
@@ -282,34 +294,39 @@ function SearchableMultiSelect({ label, placeholder, options, selectedValues, on
     );
 }
 
-export default function ProductsPage({
-    products,
-    categories,
-    brands,
-    isSuspended,
-    showProductModal,
-    setShowProductModal,
-    editingProduct,
-    setEditingProduct,
-    productForm,
-    setProductForm,
-    formError,
-    setFormError,
-    handleProductSubmit,
-    deleteProduct,
-    existingProductImages,
-    setExistingProductImages,
-    deleteImageIds,
-    setDeleteImageIds,
-    productSearch,
-    setProductSearch,
-    productPage,
-    setProductPage,
-    PAGE_SIZE,
-    limits,
-    hasPermission = () => true
-}) {
-    // Local filter states
+export default function ProductsPage() {
+    const dispatch = useDispatch();
+    const hasPermission = useHasPermission();
+    const cur = useCurrency();
+    const { colors, isDark } = useTheme();
+
+    const products = useSelector(state => state.catalog.products);
+    const categories = useSelector(state => state.catalog.categories);
+    const brands = useSelector(state => state.catalog.brands);
+    const limits = useSelector(state => state.shop.limits);
+    const isSuspended = useSelector(state => state.shop.shop?.status === 'suspended');
+
+    const PAGE_SIZE = 10;
+    const [productPage, setProductPage] = useState(1);
+    const [showProductModal, setShowProductModal] = useState(false);
+    const [editingProduct, setEditingProduct] = useState(null);
+    const [formError, setFormError] = useState('');
+
+    const [productForm, setProductForm] = useState({
+        name: '',
+        price: '',
+        stock_quantity: '10',
+        stock_unit: 'pcs',
+        category_id: categories[0]?.id || '',
+        brand_id: '',
+        status: 'published',
+        imageFiles: []
+    });
+
+    const [existingProductImages, setExistingProductImages] = useState([]);
+    const [deleteImageIds, setDeleteImageIds] = useState([]);
+
+    // Filter states
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -323,6 +340,12 @@ export default function ProductsPage({
     const [appliedEnd, setAppliedEnd] = useState('');
     const [appliedCategories, setAppliedCategories] = useState([]);
     const [appliedBrands, setAppliedBrands] = useState([]);
+
+    useEffect(() => {
+        if (categories && categories.length > 0 && !productForm.category_id) {
+            setProductForm(f => ({ ...f, category_id: categories[0].id }));
+        }
+    }, [categories]);
 
     const handleSearchSubmit = (e) => {
         e.preventDefault();
@@ -341,28 +364,111 @@ export default function ProductsPage({
         setPreset('all');
         setSelectedCategories([]);
         setSelectedBrands([]);
-        
         setAppliedQuery('');
         setAppliedStart('');
         setAppliedEnd('');
         setAppliedCategories([]);
         setAppliedBrands([]);
-        
         setProductPage(1);
     };
 
-    const handleCategoriesFilterChange = (newCats) => {
-        setSelectedCategories(newCats);
-        if (newCats.length > 0) {
-            const allowedBrandIds = brands.filter(b => newCats.includes(b.category_id)).map(b => b.id);
-            setSelectedBrands(prev => prev.filter(id => allowedBrandIds.includes(id)));
+    const handleProductSubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+
+        const headers = getHeaders();
+        const isEditing = !!editingProduct;
+        const url = isEditing 
+            ? `/api/v1/tenant/products/${editingProduct.id}` 
+            : '/api/v1/tenant/products';
+
+        const formData = new FormData();
+        formData.append('name', productForm.name);
+        formData.append('price', productForm.price);
+        formData.append('stock_quantity', productForm.stock_quantity);
+        formData.append('stock_unit', productForm.stock_unit);
+        formData.append('category_id', productForm.category_id);
+        formData.append('brand_id', productForm.brand_id);
+        formData.append('status', productForm.status);
+
+        if (isEditing) {
+            formData.append('_method', 'PUT');
+            deleteImageIds.forEach(id => {
+                formData.append('delete_image_ids[]', id);
+            });
+        }
+
+        if (productForm.imageFiles && productForm.imageFiles.length > 0) {
+            productForm.imageFiles.forEach(file => {
+                formData.append('images[]', file);
+            });
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: formData
+            });
+
+            if (response.status === 422 || response.status === 403) {
+                const errData = await response.json();
+                setFormError(errData.message || 'Error processing request');
+                return;
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                dispatch(showToast({ message: isEditing ? 'Product details updated' : 'Product onboarded', isError: false }));
+                setShowProductModal(false);
+                setEditingProduct(null);
+                setProductForm({
+                    name: '',
+                    price: '',
+                    stock_quantity: '10',
+                    stock_unit: 'pcs',
+                    category_id: categories[0]?.id || '',
+                    brand_id: '',
+                    status: 'published',
+                    imageFiles: []
+                });
+                setExistingProductImages([]);
+                setDeleteImageIds([]);
+                dispatch(fetchCatalogData());
+                dispatch(fetchState());
+            } else {
+                setFormError(data.message || 'An error occurred');
+            }
+        } catch (err) {
+            setFormError('Failed to process product');
+        }
+    };
+
+    const deleteProduct = async (id) => {
+        if (!confirm('Are you sure you want to delete this product?')) return;
+        const headers = getHeaders();
+        try {
+            const response = await fetch(`/api/v1/tenant/products/${id}`, {
+                method: 'DELETE',
+                headers
+            });
+            const data = await response.json();
+            if (data.success) {
+                dispatch(showToast({ message: 'Product deleted', isError: false }));
+                dispatch(fetchCatalogData());
+                dispatch(fetchState());
+            } else {
+                dispatch(showToast({ message: data.message || 'Failed to delete product', isError: true }));
+            }
+        } catch (e) {
+            dispatch(showToast({ message: 'Failed to delete product', isError: true }));
         }
     };
 
     return (
-        <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxShadow: colors.shadow }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '600' }}>Shop Products</h3>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: colors.text }}>Shop Products</h3>
                 {!isSuspended && hasPermission('products.create') && (
                     <button 
                         onClick={() => {
@@ -391,8 +497,8 @@ export default function ProductsPage({
 
             {/* Product Modal Form */}
             {showProductModal && (
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ fontWeight: '600' }}>{editingProduct ? 'Edit Product Details' : 'Onboard New Product'}</h4>
+                <div style={{ background: colors.cardBg, padding: '1.5rem', borderRadius: '10px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h4 style={{ fontWeight: '600', color: colors.text }}>{editingProduct ? 'Edit Product Details' : 'Onboard New Product'}</h4>
                     {formError && (
                         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
                             {formError}
@@ -416,82 +522,73 @@ export default function ProductsPage({
                                 placeholder="Search & select brand..."
                             />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Product Name</label>
-                                <input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} required style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Product Name</label>
+                                <input type="text" value={productForm.name} onChange={e => setProductForm({ ...productForm, name: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Price ($)</label>
-                                <input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} required style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Retail Price</label>
+                                <input type="number" step="0.01" value={productForm.price} onChange={e => setProductForm({ ...productForm, price: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Stock Quantity</label>
-                                <input type="number" step="any" value={productForm.stock_quantity} onChange={e => setProductForm({ ...productForm, stock_quantity: e.target.value })} required style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Stock Quantity</label>
+                                <input type="number" value={productForm.stock_quantity} onChange={e => setProductForm({ ...productForm, stock_quantity: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Stock Unit</label>
-                                <select value={productForm.stock_unit} onChange={e => setProductForm({ ...productForm, stock_unit: e.target.value })} style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none', cursor: 'pointer' }}>
-                                    <option value="pcs">piece (pcs)</option>
-                                    <option value="kg">kilogram (kg)</option>
-                                    <option value="ltr">litre (ltr)</option>
-                                </select>
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Stock Unit</label>
+                                <input type="text" value={productForm.stock_unit} onChange={e => setProductForm({ ...productForm, stock_unit: e.target.value })} style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Status</label>
-                                <select value={productForm.status} onChange={e => setProductForm({ ...productForm, status: e.target.value })} style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none', cursor: 'pointer' }}>
-                                    <option value="published">Published</option>
-                                    <option value="draft">Draft</option>
-                                    <option value="archived">Archived</option>
-                                </select>
-                            </div>
+                        </div>
 
-                            {/* Product Image uploads section */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', gridColumn: 'span 2' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Upload Product Images (Max {limits?.max_images_per_product || 2} images allowed)</label>
-                                <input 
-                                    type="file" 
-                                    multiple 
-                                    accept="image/*" 
-                                    onChange={e => setProductForm({ ...productForm, imageFiles: Array.from(e.target.files) })} 
-                                    style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px' }} 
-                                />
-                                
-                                {/* Previews */}
-                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Upload Product Images</label>
+                            <input 
+                                type="file" 
+                                multiple 
+                                accept="image/*" 
+                                onChange={e => setProductForm({ ...productForm, imageFiles: Array.from(e.target.files) })}
+                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }}
+                            />
+                        </div>
+
+                        {existingProductImages.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Active Images (Click to delete):</label>
+                                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
                                     {existingProductImages.map(img => {
                                         const isDeleted = deleteImageIds.includes(img.id);
                                         return (
-                                            <div key={img.id} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', opacity: isDeleted ? 0.3 : 1 }}>
+                                            <div 
+                                                key={img.id}
+                                                onClick={() => {
+                                                    if (isDeleted) {
+                                                        setDeleteImageIds(deleteImageIds.filter(id => id !== img.id));
+                                                    } else {
+                                                        setDeleteImageIds([...deleteImageIds, img.id]);
+                                                    }
+                                                }}
+                                                style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', cursor: 'pointer', border: isDeleted ? '2px solid #ef4444' : `1px solid ${colors.border}`, overflow: 'hidden', opacity: isDeleted ? 0.35 : 1 }}
+                                            >
                                                 <img src={img.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                <button 
-                                                    type="button" 
-                                                    onClick={() => {
-                                                        if (isDeleted) {
-                                                            setDeleteImageIds(deleteImageIds.filter(id => id !== img.id));
-                                                        } else {
-                                                            setDeleteImageIds([...deleteImageIds, img.id]);
-                                                        }
-                                                    }}
-                                                    style={{ position: 'absolute', top: 2, right: 2, background: isDeleted ? '#10b981' : '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.6rem', padding: '0.15rem 0.3rem' }}
-                                                >
-                                                    {isDeleted ? 'Keep' : 'Del'}
-                                                </button>
+                                                {isDeleted && <span style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.4)', color: '#ef4444', fontWeight: 'bold', fontSize: '0.8rem' }}>DEL</span>}
                                             </div>
                                         );
                                     })}
-                                    {productForm.imageFiles.map((file, i) => (
-                                        <div key={i} style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '6px', border: '1px solid #6366f1', overflow: 'hidden' }}>
-                                            <img src={URL.createObjectURL(file)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            <span style={{ position: 'absolute', bottom: 2, left: 2, fontSize: '0.55rem', background: '#6366f1', color: '#fff', padding: '0.1rem 0.2rem', borderRadius: '2px' }}>New</span>
-                                        </div>
-                                    ))}
                                 </div>
                             </div>
-                        </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                             <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
                                 Save Product
                             </button>
-                            <button type="button" onClick={() => setShowProductModal(false)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
+                            <button 
+                                type="button" 
+                                onClick={() => {
+                                    setShowProductModal(false);
+                                    setEditingProduct(null);
+                                }} 
+                                style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}
+                            >
                                 Cancel
                             </button>
                         </div>
@@ -499,8 +596,8 @@ export default function ProductsPage({
                 </div>
             )}
 
-            {/* Filter Search Form with Date Range, Searchable MultiSelect categories and brands */}
-            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {/* Filter Search Form with Smart Date Range Picker */}
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: colors.cardBg, padding: '1.2rem', borderRadius: '12px', border: `1px solid ${colors.borderLight}` }}>
                 <SmartDateRangePicker 
                     startDate={startDate}
                     endDate={endDate}
@@ -517,25 +614,25 @@ export default function ProductsPage({
                     placeholder="All Categories"
                     options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
                     selectedValues={selectedCategories}
-                    onChange={handleCategoriesFilterChange}
+                    onChange={setSelectedCategories}
                 />
 
                 <SearchableMultiSelect 
                     label="Filter Brands"
                     placeholder="All Brands"
-                    options={brands.filter(b => selectedCategories.length === 0 || selectedCategories.includes(b.category_id)).map(b => ({ id: b.id, name: b.name }))}
+                    options={brands.map(b => ({ id: b.id, name: b.name }))}
                     selectedValues={selectedBrands}
                     onChange={setSelectedBrands}
                 />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '220px' }}>
-                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name / Category / Brand</label>
+                    <label style={{ fontSize: '0.8rem', color: colors.textMuted }}>Search Name / Category / Brand</label>
                     <input
                         type="text"
                         placeholder="Type keyword to search..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
                     />
                 </div>
 
@@ -593,39 +690,39 @@ export default function ProductsPage({
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Image</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Product Name</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Category</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Brand</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Price</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Stock</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Actions</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Image</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Product Name</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Category</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Brand</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Price</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Stock</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {pageItems.length === 0 ? (
                                         <tr>
-                                            <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>{appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0 || appliedBrands.length > 0 ? 'No products match your search.' : 'No products registered.'}</td>
+                                            <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>{appliedQuery || appliedStart || appliedEnd || appliedCategories.length > 0 || appliedBrands.length > 0 ? 'No products match your search.' : 'No products registered.'}</td>
                                         </tr>
                                     ) : (
                                         pageItems.map(p => (
-                                            <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <tr key={p.id} style={{ borderBottom: `1px solid ${colors.tableRowBorder}` }}>
                                                 <td style={{ padding: '0.8rem' }}>
                                                     {p.images && p.images.length > 0 ? (
                                                         <img src={p.images[0].image_url} style={{ width: '36px', height: '36px', borderRadius: '6px', objectFit: 'cover' }} />
                                                     ) : (
-                                                        <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#9ca3af', fontSize: '0.7rem' }}>N/A</div>
+                                                        <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: colors.textMuted, fontSize: '0.7rem' }}>N/A</div>
                                                     )}
                                                 </td>
-                                                <td style={{ padding: '0.8rem', fontWeight: '600' }}>{p.name}</td>
+                                                <td style={{ padding: '0.8rem', fontWeight: '600', color: colors.text }}>{p.name}</td>
                                                 <td>
                                                     <span style={{ fontSize: '0.8rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', padding: '0.2rem 0.4rem', borderRadius: '4px' }}>
                                                         {p.category ? p.category.name : 'Uncategorized'}
                                                     </span>
                                                 </td>
-                                                <td>{p.brand ? p.brand.name : '—'}</td>
-                                                <td style={{ padding: '0.8rem', color: '#10b981', fontWeight: '600' }}>${parseFloat(p.price).toFixed(2)}</td>
-                                                <td style={{ padding: '0.8rem' }}>{parseFloat(p.stock_quantity)} {p.stock_unit || 'pcs'}</td>
+                                                <td style={{ color: colors.text }}>{p.brand ? p.brand.name : '—'}</td>
+                                                <td style={{ padding: '0.8rem', color: isDark ? '#10b981' : '#059669', fontWeight: '600' }}>{cur.format(p.price)}</td>
+                                                <td style={{ padding: '0.8rem', color: colors.text }}>{parseFloat(p.stock_quantity)} {p.stock_unit || 'pcs'}</td>
                                                 <td style={{ padding: '0.8rem' }}>
                                                     {!isSuspended && (
                                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -671,13 +768,13 @@ export default function ProductsPage({
                             </table>
                             {totalPages > 1 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} products</span>
+                                    <span style={{ fontSize: '0.82rem', color: colors.textMuted }}>Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} products</span>
                                     <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                        <button onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={{ background: safePage === 1 ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === 1 ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>← Prev</button>
+                                        <button onClick={() => setProductPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={{ background: safePage === 1 ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === 1 ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>← Prev</button>
                                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
-                                            <button key={pg} onClick={() => setProductPage(pg)} style={{ background: pg === safePage ? '#6366f1' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.3)', color: pg === safePage ? '#fff' : '#9ca3af', padding: '0.35rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: pg === safePage ? '700' : '400' }}>{pg}</button>
+                                            <button key={pg} onClick={() => setProductPage(pg)} style={{ background: pg === safePage ? '#6366f1' : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'), border: '1px solid rgba(99,102,241,0.3)', color: pg === safePage ? '#fff' : colors.textMuted, padding: '0.35rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: pg === safePage ? '700' : '400' }}>{pg}</button>
                                         ))}
-                                        <button onClick={() => setProductPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={{ background: safePage === totalPages ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === totalPages ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>Next →</button>
+                                        <button onClick={() => setProductPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={{ background: safePage === totalPages ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === totalPages ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>Next →</button>
                                     </div>
                                 </div>
                             )}

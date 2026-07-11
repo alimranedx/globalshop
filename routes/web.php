@@ -304,7 +304,13 @@ Route::prefix('demo')->group(function () {
                 'is_platform_admin' => $user->is_platform_admin,
                 'role' => $shop ? ($user->id === $shop->owner_id ? 'Owner' : $user->getTenantRole($shop->id)?->name) : ($user->is_platform_admin ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin') : 'Customer/Guest'),
             ] : null,
-            'shop' => $shop ? ['id' => $shop->id, 'name' => $shop->name, 'status' => $shop->status] : null,
+            'shop' => $shop ? [
+                'id' => $shop->id,
+                'name' => $shop->name,
+                'status' => $shop->status,
+                'currency' => $shop->currency ?? 'USD',
+                'language' => $shop->language ?? 'en',
+            ] : null,
             'products' => $products,
             'limits' => $shop ? [
                 'max_products' => TenantManager::getLimit('max_products', 100),

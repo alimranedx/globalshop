@@ -1,29 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { showToast } from '../store/uiSlice';
+import { fetchCatalogData, fetchState } from '../store/actions';
+import { getHeaders } from '../utils/api';
 import SmartDateRangePicker from './SmartDateRangePicker';
+import useTheme from '../hooks/useTheme';
 
 function is_null(val) {
     return val === null || val === undefined;
 }
 
-export default function CategoriesPage({
-    categories,
-    isSuspended,
-    showCategoryModal,
-    setShowCategoryModal,
-    editingCategory,
-    setEditingCategory,
-    categoryForm,
-    setCategoryForm,
-    formError,
-    setFormError,
-    handleCategorySubmit,
-    deleteCategory,
-    categorySearch,
-    setCategorySearch,
-    categoryPage,
-    setCategoryPage,
-    PAGE_SIZE
-}) {
+export default function CategoriesPage() {
+    const dispatch = useDispatch();
+    const { colors, isDark } = useTheme();
+
+    const categories = useSelector(state => state.catalog.categories);
+    const isSuspended = useSelector(state => state.shop.shop?.status === 'suspended');
+
+    const PAGE_SIZE = 10;
+    const [categoryPage, setCategoryPage] = useState(1);
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
+    const [formError, setFormError] = useState('');
+
+    const [categoryForm, setCategoryForm] = useState({ name: '', logoFile: null });
+
     // Local filter states
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -53,10 +54,79 @@ export default function CategoriesPage({
         setCategoryPage(1);
     };
 
+    const handleCategorySubmit = async (e) => {
+        e.preventDefault();
+        setFormError('');
+
+        const headers = getHeaders();
+        const isEditing = !!editingCategory;
+        const url = isEditing 
+            ? `/api/v1/tenant/categories/${editingCategory.id}` 
+            : '/api/v1/tenant/categories';
+
+        const formData = new FormData();
+        formData.append('name', categoryForm.name);
+        if (categoryForm.logoFile) {
+            formData.append('logo', categoryForm.logoFile);
+        }
+        if (isEditing) {
+            formData.append('_method', 'PUT');
+        }
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: formData
+            });
+
+            if (response.status === 422 || response.status === 403) {
+                const errData = await response.json();
+                setFormError(errData.message || 'Error processing request');
+                return;
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                dispatch(showToast({ message: isEditing ? 'Category updated' : 'Category added', isError: false }));
+                setShowCategoryModal(false);
+                setEditingCategory(null);
+                setCategoryForm({ name: '', logoFile: null });
+                dispatch(fetchCatalogData());
+                dispatch(fetchState());
+            } else {
+                setFormError(data.message || 'An error occurred');
+            }
+        } catch (err) {
+            setFormError('Failed to process request');
+        }
+    };
+
+    const deleteCategory = async (id) => {
+        if (!confirm('Are you sure you want to delete this category? All its brands and products will lose category scoping.')) return;
+        const headers = getHeaders();
+        try {
+            const response = await fetch(`/api/v1/tenant/categories/${id}`, {
+                method: 'DELETE',
+                headers
+            });
+            const data = await response.json();
+            if (data.success) {
+                dispatch(showToast({ message: 'Category deleted', isError: false }));
+                dispatch(fetchCatalogData());
+                dispatch(fetchState());
+            } else {
+                dispatch(showToast({ message: data.message || 'Failed to delete category', isError: true }));
+            }
+        } catch (e) {
+            dispatch(showToast({ message: 'Failed to delete category', isError: true }));
+        }
+    };
+
     return (
-        <div style={{ background: 'rgba(20, 20, 25, 0.75)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1.5rem', boxShadow: colors.shadow }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '600' }}>Manage Categories</h3>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: colors.text }}>Manage Categories</h3>
                 {!isSuspended && (
                     <button
                         onClick={() => {
@@ -73,8 +143,8 @@ export default function CategoriesPage({
             </div>
 
             {showCategoryModal && (
-                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ fontWeight: '600' }}>{editingCategory ? 'Edit Category' : 'Create Category'}</h4>
+                <div style={{ background: colors.cardBg, padding: '1.5rem', borderRadius: '10px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <h4 style={{ fontWeight: '600', color: colors.text }}>{editingCategory ? 'Edit Category' : 'Create Category'}</h4>
                     {formError && (
                         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
                             {formError}
@@ -83,17 +153,17 @@ export default function CategoriesPage({
                     <form onSubmit={handleCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Category Name</label>
-                                <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} required style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Category Name</label>
+                                <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Logo Image</label>
-                                <input type="file" accept="image/*" onChange={e => setCategoryForm({ ...categoryForm, logoFile: e.target.files[0] })} style={{ background: 'rgba(30, 30, 38, 0.45)', border: '1px solid rgba(255, 255, 255, 0.08)', color: '#fff', padding: '0.6rem', borderRadius: '6px' }} />
+                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Image</label>
+                                <input type="file" accept="image/*" onChange={e => setCategoryForm({ ...categoryForm, logoFile: e.target.files[0] })} style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }} />
                             </div>
                             {(categoryForm.logoFile || (editingCategory && editingCategory.logo_url)) && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', gridColumn: 'span 2', marginTop: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Logo Preview</label>
-                                    <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)', overflow: 'hidden' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Preview</label>
+                                    <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
                                         <img src={categoryForm.logoFile ? URL.createObjectURL(categoryForm.logoFile) : editingCategory.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     </div>
                                 </div>
@@ -103,7 +173,7 @@ export default function CategoriesPage({
                             <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
                                 Save Category
                             </button>
-                            <button type="button" onClick={() => setShowCategoryModal(false)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#9ca3af', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
+                            <button type="button" onClick={() => setShowCategoryModal(false)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
                                 Cancel
                             </button>
                         </div>
@@ -112,7 +182,7 @@ export default function CategoriesPage({
             )}
 
             {/* Filter Search Form with Smart Date Range Picker */}
-            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap', background: colors.cardBg, padding: '1.2rem', borderRadius: '12px', border: `1px solid ${colors.borderLight}` }}>
                 <SmartDateRangePicker 
                     startDate={startDate}
                     endDate={endDate}
@@ -125,13 +195,13 @@ export default function CategoriesPage({
                 />
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 2, minWidth: '200px' }}>
-                    <label style={{ fontSize: '0.8rem', color: '#9ca3af' }}>Search Name</label>
+                    <label style={{ fontSize: '0.8rem', color: colors.textMuted }}>Search Name</label>
                     <input
                         type="text"
                         placeholder="Search categories by name..."
                         value={searchQuery}
                         onChange={e => setSearchQuery(e.target.value)}
-                        style={{ background: 'rgba(30,30,38,0.6)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
+                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.55rem 1rem', borderRadius: '8px', outline: 'none', fontSize: '0.9rem' }}
                     />
                 </div>
 
@@ -180,30 +250,30 @@ export default function CategoriesPage({
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                                 <thead>
                                     <tr>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Logo</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Category Name</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Slug</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Scope</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: '2px solid rgba(255,255,255,0.08)', color: '#9ca3af' }}>Actions</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Logo</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Category Name</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Slug</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Scope</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {pageItems.length === 0 ? (
-                                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>{appliedQuery || appliedStart || appliedEnd ? 'No categories match your search.' : 'No categories found.'}</td></tr>
+                                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>{appliedQuery || appliedStart || appliedEnd ? 'No categories match your search.' : 'No categories found.'}</td></tr>
                                     ) : (
                                         pageItems.map(c => {
                                             const isGlobal = is_null(c.shop_id);
                                             return (
-                                                <tr key={c.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                                <tr key={c.id} style={{ borderBottom: `1px solid ${colors.tableRowBorder}` }}>
                                                     <td style={{ padding: '0.8rem' }}>
                                                         {c.logo_url ? (
                                                             <img src={c.logo_url} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }} />
                                                         ) : (
-                                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#9ca3af', fontSize: '0.65rem' }}>N/A</div>
+                                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: colors.textMuted, fontSize: '0.65rem' }}>N/A</div>
                                                         )}
                                                     </td>
-                                                    <td style={{ padding: '0.8rem', fontWeight: '600' }}>{c.name}</td>
-                                                    <td><code>{c.slug}</code></td>
+                                                    <td style={{ padding: '0.8rem', fontWeight: '600', color: colors.text }}>{c.name}</td>
+                                                    <td style={{ color: colors.text }}><code>{c.slug}</code></td>
                                                     <td>
                                                         <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: isGlobal ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: isGlobal ? '#ef4444' : '#10b981', fontWeight: '600' }}>
                                                             {isGlobal ? 'Global' : 'Local'}
@@ -216,7 +286,7 @@ export default function CategoriesPage({
                                                                 <button onClick={() => deleteCategory(c.id)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                                                             </div>
                                                         )}
-                                                        {isGlobal && <span style={{ fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>Read-only</span>}
+                                                        {isGlobal && <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontStyle: 'italic' }}>Read-only</span>}
                                                     </td>
                                                 </tr>
                                             );
@@ -226,13 +296,13 @@ export default function CategoriesPage({
                             </table>
                             {totalPages > 1 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.2rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                    <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} categories</span>
+                                    <span style={{ fontSize: '0.82rem', color: colors.textMuted }}>Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} categories</span>
                                     <div style={{ display: 'flex', gap: '0.3rem' }}>
-                                        <button onClick={() => setCategoryPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={{ background: safePage === 1 ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === 1 ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>← Prev</button>
+                                        <button onClick={() => setCategoryPage(p => Math.max(1, p - 1))} disabled={safePage === 1} style={{ background: safePage === 1 ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === 1 ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === 1 ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>← Prev</button>
                                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
-                                            <button key={pg} onClick={() => setCategoryPage(pg)} style={{ background: pg === safePage ? '#6366f1' : 'rgba(255,255,255,0.04)', border: '1px solid rgba(99,102,241,0.3)', color: pg === safePage ? '#fff' : '#9ca3af', padding: '0.35rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: pg === safePage ? '700' : '400' }}>{pg}</button>
+                                            <button key={pg} onClick={() => setCategoryPage(pg)} style={{ background: pg === safePage ? '#6366f1' : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'), border: '1px solid rgba(99,102,241,0.3)', color: pg === safePage ? '#fff' : colors.textMuted, padding: '0.35rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: pg === safePage ? '700' : '400' }}>{pg}</button>
                                         ))}
-                                        <button onClick={() => setCategoryPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={{ background: safePage === totalPages ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === totalPages ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>Next →</button>
+                                        <button onClick={() => setCategoryPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} style={{ background: safePage === totalPages ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') : 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)', color: safePage === totalPages ? '#6b7280' : '#6366f1', padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: safePage === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.85rem' }}>Next →</button>
                                     </div>
                                 </div>
                             )}

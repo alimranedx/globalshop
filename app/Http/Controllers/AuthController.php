@@ -107,7 +107,13 @@ class AuthController extends Controller
                     'is_platform_admin' => $user->is_platform_admin,
                     'role' => $shop ? ($user->id === $shop->owner_id ? 'Owner' : $user->getTenantRole($shop->id)?->name) : ($user->is_platform_admin ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin') : 'Customer/Guest'),
                 ],
-                'shop' => $shop ? ['id' => $shop->id, 'name' => $shop->name, 'status' => $shop->status] : null,
+                'shop' => $shop ? [
+                    'id' => $shop->id,
+                    'name' => $shop->name,
+                    'status' => $shop->status,
+                    'currency' => $shop->currency ?? 'USD',
+                    'language' => $shop->language ?? 'en',
+                ] : null,
             ]);
         }
 
