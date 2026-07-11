@@ -100,6 +100,7 @@ class AuthController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Logged in successfully.',
+                'csrf_token' => csrf_token(),
                 'user' => [
                     'name' => $user->name,
                     'email' => $user->email,
@@ -128,7 +129,8 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Logged out successfully.'
+            'message' => 'Logged out successfully.',
+            'csrf_token' => csrf_token(),
         ]);
     }
 }

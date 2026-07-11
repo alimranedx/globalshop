@@ -219,6 +219,10 @@ function ShopManagerApp() {
             });
             const res = await response.json();
             if (res.success) {
+                if (res.csrf_token) {
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', res.csrf_token);
+                }
                 setCurrentUserEmail('');
                 setShopId(null);
                 setProducts([]);
@@ -226,6 +230,7 @@ function ShopManagerApp() {
                 setBrands([]);
                 showMessage('Logged out successfully.');
                 fetchState();
+                navigate('/dashboard');
             } else {
                 showMessage(res.message || 'Logout failed.', true);
             }
@@ -1762,8 +1767,13 @@ function LoginView({ fetchState, showMessage, handleQuickLogin, token }) {
             });
             const res = await response.json();
             if (response.ok && res.success) {
+                if (res.csrf_token) {
+                    const meta = document.querySelector('meta[name="csrf-token"]');
+                    if (meta) meta.setAttribute('content', res.csrf_token);
+                }
                 showMessage(`Logged in successfully.`);
                 fetchState();
+                navigate('/dashboard');
             } else {
                 setFormError(res.message || 'Invalid credentials.');
             }
@@ -1777,6 +1787,7 @@ function LoginView({ fetchState, showMessage, handleQuickLogin, token }) {
     const triggerQuickLogin = async (demoEmail) => {
         await handleQuickLogin(demoEmail);
         fetchState();
+        navigate('/dashboard');
     };
 
     return (
