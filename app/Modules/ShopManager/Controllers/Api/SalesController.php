@@ -223,8 +223,8 @@ class SalesController extends Controller
         $sales = $query->get();
         $format = strtolower($request->input('format', 'csv'));
 
-        if ($format === 'xlsx') {
-            return $this->exportToHtmlExcel($sales, $shop->name);
+        if ($format === 'xls') {
+            return $this->exportToXls($sales, $shop->name);
         }
 
         return $this->exportToCsv($sales);
@@ -286,65 +286,76 @@ class SalesController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    private function exportToHtmlExcel($sales, $shopName)
+    private function exportToXls($sales, $shopName)
     {
         $headers = [
-            'Content-Type'        => 'application/vnd.ms-excel; charset=utf-8',
-            'Content-Disposition' => 'attachment; filename=sales_export.xls',
+            'Content-Type'        => 'application/vnd.ms-excel',
+            'Content-Disposition' => 'attachment; filename="sales_export.xlsx"',
             'Cache-Control'       => 'max-age=0',
+            'Pragma'              => 'public',
         ];
 
-        $output = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
-        $output .= '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">' . "\n";
-        $output .= '<head>' . "\n";
-        $output .= '<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Sales Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->' . "\n";
-        $output .= '<style>td { mso-number-format:"\@"; } .number { mso-number-format:"\#\,\#\#0\.00"; } th { background-color: #6366f1; color: white; font-weight: bold; }</style>' . "\n";
-        $output .= '</head>' . "\n";
-        $output .= '<body>' . "\n";
-        $output .= '<h2>Sales Report for ' . htmlspecialchars($shopName) . '</h2>' . "\n";
-        $output .= '<table border="1">' . "\n";
-        $output .= '<thead>' . "\n";
-        $output .= '<tr>' . "\n";
-        $output .= '<th>Invoice Number</th>' . "\n";
-        $output .= '<th>Date</th>' . "\n";
-        $output .= '<th>Cashier</th>' . "\n";
-        $output .= '<th>Customer Name</th>' . "\n";
-        $output .= '<th>Customer Email</th>' . "\n";
-        $output .= '<th>Payment Method</th>' . "\n";
-        $output .= '<th>Subtotal</th>' . "\n";
-        $output .= '<th>Discount</th>' . "\n";
-        $output .= '<th>Tax</th>' . "\n";
-        $output .= '<th>Total</th>' . "\n";
-        $output .= '<th>Items Sold</th>' . "\n";
-        $output .= '</tr>' . "\n";
-        $output .= '</thead>' . "\n";
-        $output .= '<tbody>' . "\n";
+        // SpreadsheetML — opens in Excel without the "broken file" warning
+        $xml  = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+        $xml .= "<?mso-application progid=\"Excel.Sheet\"?>\n";
+        $xml .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"';
+        $xml .= ' xmlns:o="urn:schemas-microsoft-com:office:office"';
+        $xml .= ' xmlns:x="urn:schemas-microsoft-com:office:excel"';
+        $xml .= ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
 
+        // Styles
+        $xml .= '<Styles>' . "\n";
+        $xml .= '<Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#6366F1" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>' . "\n";
+        $xml .= '<Style ss:ID="Number"><NumberFormat ss:Format="0.00"/></Style>' . "\n";
+        $xml .= '<Style ss:ID="Default"></Style>' . "\n";
+        $xml .= '</Styles>' . "\n";
+
+        $xml .= '<Worksheet ss:Name="Sales Report">' . "\n";
+        $xml .= '<Table>' . "\n";
+
+        // Column widths
+        $colWidths = [130, 130, 100, 120, 160, 100, 80, 80, 60, 80, 220];
+        foreach ($colWidths as $w) {
+            $xml .= '<Column ss:Width="' . $w . '"/>' . "\n";
+        }
+
+        // Header row
+        $headers_row = [
+            'Invoice Number', 'Date', 'Cashier', 'Customer Name',
+            'Customer Email', 'Payment Method', 'Subtotal', 'Discount',
+            'Tax', 'Total', 'Items Sold'
+        ];
+        $xml .= '<Row>' . "\n";
+        foreach ($headers_row as $h) {
+            $xml .= '<Cell ss:StyleID="Header"><Data ss:Type="String">' . htmlspecialchars($h, ENT_XML1) . '</Data></Cell>' . "\n";
+        }
+        $xml .= '</Row>' . "\n";
+
+        // Data rows
         foreach ($sales as $sale) {
             $itemsDesc = $sale->items->map(function ($item) {
                 return $item->product_name . ' (' . (float)$item->quantity . ' @ $' . number_format($item->price, 2) . ')';
             })->implode(', ');
 
-            $output .= '<tr>' . "\n";
-            $output .= '<td>' . htmlspecialchars($sale->invoice_number) . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars($sale->created_at->toDateTimeString()) . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars($sale->creator ? $sale->creator->name : 'N/A') . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars($sale->customer_name ?: 'N/A') . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars($sale->customer_email ?: 'N/A') . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars(ucfirst($sale->payment_method)) . '</td>' . "\n";
-            $output .= '<td class="number">' . number_format($sale->subtotal, 2, '.', '') . '</td>' . "\n";
-            $output .= '<td class="number">' . number_format($sale->discount, 2, '.', '') . '</td>' . "\n";
-            $output .= '<td class="number">' . number_format($sale->tax, 2, '.', '') . '</td>' . "\n";
-            $output .= '<td class="number">' . number_format($sale->total, 2, '.', '') . '</td>' . "\n";
-            $output .= '<td>' . htmlspecialchars($itemsDesc) . '</td>' . "\n";
-            $output .= '</tr>' . "\n";
+            $xml .= '<Row>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->invoice_number, ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->created_at->toDateTimeString(), ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->creator ? $sale->creator->name : 'N/A', ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->customer_name ?: 'N/A', ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->customer_email ?: 'N/A', ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars(ucfirst($sale->payment_method), ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->subtotal, 2, '.', '') . '</Data></Cell>' . "\n";
+            $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->discount, 2, '.', '') . '</Data></Cell>' . "\n";
+            $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->tax, 2, '.', '') . '</Data></Cell>' . "\n";
+            $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->total, 2, '.', '') . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($itemsDesc, ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '</Row>' . "\n";
         }
 
-        $output .= '</tbody>' . "\n";
-        $output .= '</table>' . "\n";
-        $output .= '</body>' . "\n";
-        $output .= '</html>' . "\n";
+        $xml .= '</Table>' . "\n";
+        $xml .= '</Worksheet>' . "\n";
+        $xml .= '</Workbook>' . "\n";
 
-        return response($output, 200, $headers);
+        return response($xml, 200, $headers);
     }
 }

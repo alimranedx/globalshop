@@ -320,21 +320,21 @@ class SalesTest extends TestCase
     }
 
     /**
-     * Test export to Excel/XLSX (XML Excel table) format.
+     * Test export to Excel (SpreadsheetML XLS) format.
      */
-    public function test_can_export_sales_to_xlsx(): void
+    public function test_can_export_sales_to_xls(): void
     {
         $this->actingAs($this->owner);
         TenantManager::setTenant($this->shop);
 
-        $response = $this->get('/api/v1/tenant/sales/export?format=xlsx', [
+        $response = $this->get('/api/v1/tenant/sales/export?format=xls', [
             'X-Tenant-ID' => $this->shop->id
         ]);
 
         $response->assertStatus(200);
-        $response->assertHeader('Content-Type', 'application/vnd.ms-excel; charset=utf-8');
-        $response->assertHeader('Content-Disposition', 'attachment; filename=sales_export.xls');
-        $response->assertSee('xml version');
-        $response->assertSee('ExcelWorkbook');
+        $response->assertHeader('Content-Type', 'application/vnd.ms-excel');
+        $response->assertHeader('Content-Disposition', 'attachment; filename="sales_export.xlsx"');
+        $response->assertSee('Workbook');
+        $response->assertSee('Worksheet');
     }
 }

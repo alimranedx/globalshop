@@ -159,7 +159,7 @@ class EmployeeController extends Controller
     }
 
     /**
-     * Update an employee's role.
+     * Update an employee's details (name, email, password, role).
      */
     public function update(Request $request, User $employee): JsonResponse
     {
@@ -169,7 +169,10 @@ class EmployeeController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'role_id' => 'required|exists:roles,id',
+            'role_id'  => 'required|exists:roles,id',
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email,' . $employee->id,
+            'password' => 'nullable|string|min:6',
         ]);
 
         if ($validator->fails()) {
@@ -189,17 +192,25 @@ class EmployeeController extends Controller
             return response()->json(['success' => false, 'message' => 'Employee not found in this shop.'], 404);
         }
 
+        // Build update payload for User
+        $userUpdate = [
+            'name'  => $request->name,
+            'email' => $request->email,
+        ];
+        if ($request->filled('password')) {
+            $userUpdate['password'] = Hash::make($request->password);
+        }
+        $employee->update($userUpdate);
+
+        // Update role in pivot
         DB::table('shop_user')
             ->where('shop_id', $shop->id)
             ->where('user_id', $employee->id)
-            ->update([
-                'role_id' => $role->id,
-                'updated_at' => now(),
-            ]);
+            ->update(['role_id' => $role->id, 'updated_at' => now()]);
 
         $this->logger->execute(
             'employee.updated',
-            "Employee '{$employee->name}' role was updated to {$role->name}.",
+            "Employee '{$employee->name}' profile was updated (role: {$role->name}).",
             ['role_id' => $shopUser->role_id],
             ['role_id' => $role->id],
             $shop->id,
@@ -208,13 +219,13 @@ class EmployeeController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Employee role updated successfully.',
-            'data' => [
-                'id' => $employee->id,
-                'name' => $employee->name,
-                'email' => $employee->email,
+            'message' => 'Employee updated successfully.',
+            'data'    => [
+                'id'        => $employee->id,
+                'name'      => $employee->name,
+                'email'     => $employee->email,
                 'role_name' => $role->name,
-                'role_id' => $role->id,
+                'role_id'   => $role->id,
             ]
         ]);
     }

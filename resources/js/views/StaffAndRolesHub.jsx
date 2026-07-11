@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { showToast } from '../store/uiSlice';
 import { fetchState, fetchCatalogData } from '../store/actions';
@@ -57,17 +57,19 @@ export default function StaffAndRolesHub() {
         }
     };
 
-    const handleUpdateEmployee = async (employeeId, roleId) => {
+    const handleUpdateEmployee = async (employeeId, { name, email, password, roleId }) => {
         const headers = getHeaders();
         try {
+            const body = { name, email, role_id: roleId };
+            if (password) body.password = password;
             const response = await fetch(`/api/v1/tenant/employees/${employeeId}`, {
                 method: 'PUT',
                 headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role_id: roleId })
+                body: JSON.stringify(body)
             });
             const data = await response.json();
             if (data.success) {
-                showMsg('Employee role updated');
+                showMsg('Employee updated successfully');
                 dispatch(fetchCatalogData());
                 dispatch(fetchState());
                 return { success: true };
@@ -468,55 +470,247 @@ export default function StaffAndRolesHub() {
 }
 
 function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDeleteEmployee, isOwner, isSuspended }) {
+    // Add employee form
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [roleId, setRoleId] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState('');
+    const [addError, setAddError] = useState('');
+    const [showAddModal, setShowAddModal] = useState(false);
 
+    // Edit employee modal
     const [editingEmployee, setEditingEmployee] = useState(null);
+    const [editName, setEditName] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [editPassword, setEditPassword] = useState('');
     const [editRoleId, setEditRoleId] = useState('');
+    const [editError, setEditError] = useState('');
     const [updating, setUpdating] = useState(false);
+
+    // Custom confirm dialog for delete
+    const [confirmTarget, setConfirmTarget] = useState(null); // employee to delete
+
     const { colors, isDark } = useTheme();
 
+    // ── Add Employee ───────────────────────────────────────────
     const handleAdd = async (e) => {
         e.preventDefault();
-        setError('');
-        if (!roleId) {
-            setError('Please select a role.');
-            return;
-        }
+        setAddError('');
+        if (!roleId) { setAddError('Please select a role.'); return; }
         setSubmitting(true);
         const res = await onAddEmployee(name, email, password, roleId);
         setSubmitting(false);
         if (res.success) {
-            setName('');
-            setEmail('');
-            setPassword('');
-            setRoleId('');
+            setName(''); setEmail(''); setPassword(''); setRoleId('');
+            setShowAddModal(false);
         } else {
-            setError(res.error || 'Failed to add employee');
+            setAddError(res.error || 'Failed to add employee');
         }
+    };
+
+    const closeAddModal = () => {
+        setShowAddModal(false);
+        setName(''); setEmail(''); setPassword(''); setRoleId(''); setAddError('');
+    };
+
+    // ── Edit Employee ──────────────────────────────────────────
+    const openEditModal = (emp) => {
+        setEditingEmployee(emp);
+        setEditName(emp.name);
+        setEditEmail(emp.email);
+        setEditPassword('');
+        setEditRoleId(emp.role_id || '');
+        setEditError('');
+    };
+
+    const closeEditModal = () => {
+        setEditingEmployee(null);
+        setEditName(''); setEditEmail(''); setEditPassword(''); setEditRoleId(''); setEditError('');
     };
 
     const handleUpdate = async (e) => {
         e.preventDefault();
         if (!editingEmployee || !editRoleId) return;
+        setEditError('');
         setUpdating(true);
-        const res = await onUpdateEmployee(editingEmployee.id, editRoleId);
+        const res = await onUpdateEmployee(editingEmployee.id, {
+            name: editName, email: editEmail,
+            password: editPassword || null, roleId: editRoleId
+        });
         setUpdating(false);
-        if (res.success) {
-            setEditingEmployee(null);
-            setEditRoleId('');
-        }
+        if (res.success) { closeEditModal(); }
+        else { setEditError(res.error || 'Failed to update employee'); }
     };
 
+    // ── Shared style helpers ───────────────────────────────────
+    const modalOverlayStyle = {
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        zIndex: 1000, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '1rem',
+    };
+    const cardStyle = (maxW = '480px') => ({
+        background: colors.surface, border: `1px solid ${colors.border}`,
+        borderRadius: '20px', padding: '2rem', width: '100%',
+        maxWidth: maxW, boxShadow: '0 30px 70px rgba(0,0,0,0.4)', position: 'relative',
+    });
+    const inputStyle = {
+        background: colors.inputBg, border: `1px solid ${colors.inputBorder}`,
+        color: colors.text, padding: '0.65rem 0.9rem', borderRadius: '10px',
+        outline: 'none', fontFamily: 'Outfit', width: '100%',
+        boxSizing: 'border-box', fontSize: '0.9rem',
+    };
+    const labelStyle = {
+        fontSize: '0.75rem', fontWeight: '700', color: colors.textMuted,
+        textTransform: 'uppercase', letterSpacing: '0.06em',
+    };
+    const field = (label, input) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+            <label style={labelStyle}>{label}</label>
+            {input}
+        </div>
+    );
+
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'start' }}>
+        <>
+            {/* ══ Custom Delete Confirm Dialog ══ */}
+            {confirmTarget && (
+                <div style={modalOverlayStyle} onClick={() => setConfirmTarget(null)}>
+                    <div style={{ ...cardStyle('400px'), textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        {/* Danger icon */}
+                        <div style={{
+                            width: '64px', height: '64px', borderRadius: '50%',
+                            background: 'rgba(239,68,68,0.15)', border: '2px solid rgba(239,68,68,0.4)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            margin: '0 auto 1.2rem', fontSize: '1.8rem'
+                        }}>🗑️</div>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.text, margin: '0 0 0.5rem' }}>
+                            Remove Employee?
+                        </h3>
+                        <p style={{ fontSize: '0.88rem', color: colors.textMuted, margin: '0 0 0.3rem' }}>
+                            You're about to remove
+                        </p>
+                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#ef4444', margin: '0 0 1.4rem' }}>
+                            {confirmTarget.name}
+                        </p>
+                        <p style={{ fontSize: '0.82rem', color: colors.textMuted, margin: '0 0 1.8rem', lineHeight: 1.5 }}>
+                            This will revoke their shop access immediately. Their user account will not be deleted.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.8rem' }}>
+                            <button
+                                onClick={() => { onDeleteEmployee(confirmTarget.id); setConfirmTarget(null); }}
+                                style={{ flex: 1, background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', padding: '0.75rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(239,68,68,0.35)' }}
+                            >
+                                Yes, Remove
+                            </button>
+                            <button
+                                onClick={() => setConfirmTarget(null)}
+                                style={{ flex: 1, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.75rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem' }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══ Add Employee Modal ══ */}
+            {showAddModal && (
+                <div style={modalOverlayStyle} onClick={closeAddModal}>
+                    <div style={cardStyle()} onClick={e => e.stopPropagation()}>
+                        <button onClick={closeAddModal} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: colors.textMuted, cursor: 'pointer', fontSize: '1.3rem' }}>✕</button>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.text, margin: 0 }}>➕ Add New Employee</h3>
+                            <p style={{ fontSize: '0.82rem', color: colors.textMuted, marginTop: '0.3rem' }}>Fill in the details to register a new team member.</p>
+                        </div>
+                        {addError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444', padding: '0.6rem 0.9rem', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '1rem' }}>⚠️ {addError}</div>}
+                        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                            {field('Full Name', <input type="text" placeholder="e.g. John Smith" value={name} onChange={e => setName(e.target.value)} required style={inputStyle} />)}
+                            {field('Email Address', <input type="email" placeholder="employee@example.com" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} />)}
+                            {field('Password', <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} />)}
+                            {field('Assign Role', (
+                                <select value={roleId} onChange={e => setRoleId(e.target.value)} required style={{ ...inputStyle, cursor: 'pointer' }}>
+                                    <option value="">Select a Role</option>
+                                    {shopRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            ))}
+                            <div style={{ display: 'flex', gap: '0.7rem', marginTop: '0.4rem' }}>
+                                <button type="submit" disabled={submitting} style={{ flex: 1, background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.75rem', borderRadius: '10px', fontWeight: '700', cursor: submitting ? 'default' : 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem', opacity: submitting ? 0.7 : 1 }}>
+                                    {submitting ? '⏳ Adding...' : '✅ Add Employee'}
+                                </button>
+                                <button type="button" onClick={closeAddModal} style={{ flex: 1, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.75rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem' }}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ══ Edit Employee Modal ══ */}
+            {editingEmployee && isOwner && !isSuspended && (
+                <div style={modalOverlayStyle} onClick={closeEditModal}>
+                    <div style={cardStyle('500px')} onClick={e => e.stopPropagation()}>
+                        <button onClick={closeEditModal} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: colors.textMuted, cursor: 'pointer', fontSize: '1.3rem' }}>✕</button>
+
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', marginBottom: '1.5rem', paddingBottom: '1.2rem', borderBottom: `1px solid ${colors.borderLight}` }}>
+                            <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>✏️</div>
+                            <div>
+                                <h3 style={{ fontSize: '1.15rem', fontWeight: '700', color: colors.text, margin: 0 }}>Edit Employee</h3>
+                                <p style={{ fontSize: '0.8rem', color: colors.textMuted, margin: 0 }}>Update profile details for <strong style={{ color: isDark ? '#f59e0b' : '#d97706' }}>{editingEmployee.name}</strong></p>
+                            </div>
+                        </div>
+
+                        {editError && <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#ef4444', padding: '0.6rem 0.9rem', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '1rem' }}>⚠️ {editError}</div>}
+
+                        <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                                {field('Full Name', <input type="text" placeholder="Full Name" value={editName} onChange={e => setEditName(e.target.value)} required style={inputStyle} />)}
+                                {field('Email Address', <input type="email" placeholder="Email" value={editEmail} onChange={e => setEditEmail(e.target.value)} required style={inputStyle} />)}
+                            </div>
+                            {field('New Password', (
+                                <div style={{ position: 'relative' }}>
+                                    <input type="password" placeholder="Leave blank to keep current password" value={editPassword} onChange={e => setEditPassword(e.target.value)} style={inputStyle} />
+                                    <span style={{ position: 'absolute', right: '0.9rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.7rem', color: colors.textMuted, pointerEvents: 'none', background: colors.inputBg, paddingLeft: '0.3rem' }}>optional</span>
+                                </div>
+                            ))}
+                            {field('Role', (
+                                <select value={editRoleId} onChange={e => setEditRoleId(e.target.value)} required style={{ ...inputStyle, cursor: 'pointer' }}>
+                                    <option value="">Select a Role</option>
+                                    {shopRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            ))}
+
+                            <div style={{ display: 'flex', gap: '0.7rem', marginTop: '0.4rem' }}>
+                                <button type="submit" disabled={updating} style={{ flex: 1, background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#fff', border: 'none', padding: '0.78rem', borderRadius: '10px', fontWeight: '700', cursor: updating ? 'default' : 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem', boxShadow: '0 4px 12px rgba(245,158,11,0.3)', opacity: updating ? 0.7 : 1 }}>
+                                    {updating ? '⏳ Saving...' : '✅ Save Changes'}
+                                </button>
+                                <button type="button" onClick={closeEditModal} style={{ flex: 1, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.78rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem' }}>
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ══ Employee Table ══ */}
             <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '2rem', borderRadius: '16px', boxShadow: colors.shadow }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '1.5rem', color: colors.text }}>Shop Employees</h3>
-                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: colors.text, margin: 0 }}>👥 Shop Employees</h3>
+                        <p style={{ fontSize: '0.82rem', color: colors.textMuted, marginTop: '0.25rem' }}>{employees.length} team member{employees.length !== 1 ? 's' : ''} registered</p>
+                    </div>
+                    {isOwner && !isSuspended && (
+                        <button onClick={() => setShowAddModal(true)} style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: isDark ? '0 4px 15px rgba(99,102,241,0.3)' : '0 2px 8px rgba(99,102,241,0.25)', fontFamily: 'Outfit' }}>
+                            ➕ Add Employee
+                        </button>
+                    )}
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                         <thead>
@@ -524,49 +718,60 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Name</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Email</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Role</th>
-                                <th style={{ textAlign: 'center', padding: '0.8rem', color: colors.tableHeaderColor }}>Actions</th>
+                                {isOwner && !isSuspended && <th style={{ textAlign: 'center', padding: '0.8rem', color: colors.tableHeaderColor }}>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {employees.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>No employees registered.</td>
+                                    <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: colors.textMuted }}>
+                                        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👤</div>
+                                        No employees registered yet.
+                                        {isOwner && !isSuspended && (
+                                            <div style={{ marginTop: '0.8rem' }}>
+                                                <button onClick={() => setShowAddModal(true)} style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'Outfit' }}>
+                                                    Add your first employee →
+                                                </button>
+                                            </div>
+                                        )}
+                                    </td>
                                 </tr>
                             ) : (
                                 employees.map(emp => (
-                                    <tr key={emp.id} style={{ borderBottom: `1px solid ${colors.tableRowBorder}` }}>
-                                        <td style={{ padding: '0.8rem', color: colors.text, fontWeight: '500' }}>{emp.name}</td>
-                                        <td style={{ padding: '0.8rem', color: colors.textMuted }}>{emp.email}</td>
-                                        <td style={{ padding: '0.8rem' }}>
-                                            <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', fontWeight: '600' }}>
+                                    <tr key={emp.id}
+                                        style={{ borderBottom: `1px solid ${colors.tableRowBorder}`, transition: 'background 0.15s' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <td style={{ padding: '0.9rem 0.8rem', color: colors.text, fontWeight: '600' }}>{emp.name}</td>
+                                        <td style={{ padding: '0.9rem 0.8rem', color: colors.textMuted }}>{emp.email}</td>
+                                        <td style={{ padding: '0.9rem 0.8rem' }}>
+                                            <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(99,102,241,0.15)', color: isDark ? '#818cf8' : '#4f46e5', fontWeight: '600' }}>
                                                 {emp.role_name}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                                            {isOwner && !isSuspended && (
-                                                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            setEditingEmployee(emp);
-                                                            setEditRoleId(emp.role_id || '');
-                                                        }}
-                                                        style={{ background: 'rgba(251,191,36,0.15)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.3)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-                                                    >
-                                                        Edit Role
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            if (confirm('Are you sure you want to remove this employee?')) {
-                                                                onDeleteEmployee(emp.id);
-                                                            }
-                                                        }}
-                                                        style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </td>
+                                        {isOwner && !isSuspended && (
+                                            <td style={{ padding: '0.9rem 0.8rem', textAlign: 'center' }}>
+                                                {emp.role_name !== 'Owner' ? (
+                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                        <button
+                                                            onClick={() => openEditModal(emp)}
+                                                            style={{ background: 'rgba(251,191,36,0.15)', color: '#f59e0b', border: '1px solid rgba(251,191,36,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                                                        >
+                                                            ✏️ Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setConfirmTarget(emp)}
+                                                            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                                                        >
+                                                            🗑️ Remove
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>—</span>
+                                                )}
+                                            </td>
+                                        )}
                                     </tr>
                                 ))
                             )}
@@ -574,88 +779,7 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                     </table>
                 </div>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                {editingEmployee && isOwner && !isSuspended && (
-                    <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '1.5rem', borderRadius: '16px', boxShadow: colors.shadow }}>
-                        <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: colors.text }}>Edit Role: {editingEmployee.name}</h4>
-                        <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                            <select
-                                value={editRoleId}
-                                onChange={e => setEditRoleId(e.target.value)}
-                                required
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '8px', outline: 'none', cursor: 'pointer', fontFamily: 'Outfit', width: '100%', boxSizing: 'border-box' }}
-                            >
-                                <option value="" style={{ background: colors.surface, color: colors.text }}>Select a Role</option>
-                                {shopRoles.map(role => (
-                                    <option key={role.id} value={role.id} style={{ background: colors.surface, color: colors.text }}>{role.name}</option>
-                                ))}
-                            </select>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button type="submit" disabled={updating} style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.6rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1, fontFamily: 'Outfit' }}>
-                                    {updating ? 'Updating...' : 'Update'}
-                                </button>
-                                <button type="button" onClick={() => setEditingEmployee(null)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.6rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1, fontFamily: 'Outfit' }}>
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-
-                {isOwner && !isSuspended && (
-                    <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '1.5rem', borderRadius: '16px', boxShadow: colors.shadow }}>
-                        <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: colors.text }}>Add New Employee</h4>
-                        
-                        {error && (
-                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 0.8rem', borderRadius: '6px', fontSize: '0.8rem', marginBottom: '0.8rem' }}>
-                                ⚠️ {error}
-                            </div>
-                        )}
-
-                        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                            <input
-                                type="text"
-                                placeholder="Full Name"
-                                value={name}
-                                onChange={e => setName(e.target.value)}
-                                required
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '8px', outline: 'none', fontFamily: 'Outfit', width: '100%', boxSizing: 'border-box' }}
-                            />
-                            <input
-                                type="email"
-                                placeholder="Email Address"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                required
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '8px', outline: 'none', fontFamily: 'Outfit', width: '100%', boxSizing: 'border-box' }}
-                            />
-                            <input
-                                type="password"
-                                placeholder="Password"
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                required
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '8px', outline: 'none', fontFamily: 'Outfit', width: '100%', boxSizing: 'border-box' }}
-                            />
-                            <select
-                                value={roleId}
-                                onChange={e => setRoleId(e.target.value)}
-                                required
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '8px', outline: 'none', cursor: 'pointer', fontFamily: 'Outfit', width: '100%', boxSizing: 'border-box' }}
-                            >
-                                <option value="" style={{ background: colors.surface, color: colors.text }}>Select a Role</option>
-                                {shopRoles.map(role => (
-                                    <option key={role.id} value={role.id} style={{ background: colors.surface, color: colors.text }}>{role.name}</option>
-                                ))}
-                            </select>
-                            <button type="submit" disabled={submitting} style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.65rem', borderRadius: '8px', fontWeight: '600', cursor: submitting ? 'default' : 'pointer', fontFamily: 'Outfit', marginTop: '0.4rem', width: '100%' }}>
-                                {submitting ? 'Adding...' : 'Add Employee'}
-                            </button>
-                        </form>
-                    </div>
-                )}
-            </div>
-        </div>
+        </>
     );
 }
+

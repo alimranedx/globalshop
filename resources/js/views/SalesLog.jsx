@@ -158,7 +158,7 @@ export default function SalesLog() {
                         style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.45rem 1rem', borderRadius: '8px', cursor: 'pointer', outline: 'none', fontSize: '0.85rem' }}
                     >
                         <option value="csv" style={{ background: colors.surface, color: colors.text }}>CSV Format</option>
-                        <option value="xlsx" style={{ background: colors.surface, color: colors.text }}>Excel (XLSX) Format</option>
+                        <option value="xls" style={{ background: colors.surface, color: colors.text }}>Excel (XLS) Format</option>
                     </select>
                     <button
                         onClick={handleExport}
