@@ -253,6 +253,8 @@ class SalesController extends Controller
                 'Customer Name',
                 'Customer Email',
                 'Payment Method',
+                'Status',
+                'Refunded Amount',
                 'Subtotal',
                 'Discount',
                 'Tax',
@@ -272,6 +274,8 @@ class SalesController extends Controller
                     $sale->customer_name ?: 'N/A',
                     $sale->customer_email ?: 'N/A',
                     ucfirst($sale->payment_method),
+                    ucfirst($sale->status),
+                    number_format($sale->refunded_amount, 2, '.', ''),
                     number_format($sale->subtotal, 2, '.', ''),
                     number_format($sale->discount, 2, '.', ''),
                     number_format($sale->tax, 2, '.', ''),
@@ -314,7 +318,7 @@ class SalesController extends Controller
         $xml .= '<Table>' . "\n";
 
         // Column widths
-        $colWidths = [130, 130, 100, 120, 160, 100, 80, 80, 60, 80, 220];
+        $colWidths = [130, 130, 100, 120, 160, 100, 100, 100, 80, 80, 60, 80, 220];
         foreach ($colWidths as $w) {
             $xml .= '<Column ss:Width="' . $w . '"/>' . "\n";
         }
@@ -322,7 +326,7 @@ class SalesController extends Controller
         // Header row
         $headers_row = [
             'Invoice Number', 'Date', 'Cashier', 'Customer Name',
-            'Customer Email', 'Payment Method', 'Subtotal', 'Discount',
+            'Customer Email', 'Payment Method', 'Status', 'Refunded Amount', 'Subtotal', 'Discount',
             'Tax', 'Total', 'Items Sold'
         ];
         $xml .= '<Row>' . "\n";
@@ -344,6 +348,8 @@ class SalesController extends Controller
             $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->customer_name ?: 'N/A', ENT_XML1) . '</Data></Cell>' . "\n";
             $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars($sale->customer_email ?: 'N/A', ENT_XML1) . '</Data></Cell>' . "\n";
             $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars(ucfirst($sale->payment_method), ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell><Data ss:Type="String">'  . htmlspecialchars(ucfirst($sale->status), ENT_XML1) . '</Data></Cell>' . "\n";
+            $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->refunded_amount, 2, '.', '') . '</Data></Cell>' . "\n";
             $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->subtotal, 2, '.', '') . '</Data></Cell>' . "\n";
             $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->discount, 2, '.', '') . '</Data></Cell>' . "\n";
             $xml .= '<Cell ss:StyleID="Number"><Data ss:Type="Number">' . number_format($sale->tax, 2, '.', '') . '</Data></Cell>' . "\n";

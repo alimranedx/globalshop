@@ -12,9 +12,18 @@ class SaleItem extends Model
         'product_id',
         'product_name',
         'quantity',
+        'refunded_qty',
         'price',
         'cost_price',
         'total',
+    ];
+
+    protected $casts = [
+        'quantity' => 'decimal:2',
+        'refunded_qty' => 'decimal:2',
+        'price' => 'decimal:2',
+        'cost_price' => 'decimal:2',
+        'total' => 'decimal:2',
     ];
 
     /**

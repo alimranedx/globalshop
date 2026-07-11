@@ -5,6 +5,7 @@ import { setSelectedReceipt } from '../store/uiSlice';
 import useHasPermission from '../hooks/useHasPermission';
 import POSTerminal from './POSTerminal';
 import SalesLog from './SalesLog';
+import Refunds from './Refunds';
 import ReceiptModal from '../components/ReceiptModal';
 
 export default function SalesHubView({ activeSubTab }) {
@@ -52,10 +53,29 @@ export default function SalesHubView({ activeSubTab }) {
                         📜 Sales Log
                     </button>
                 )}
+                {hasPermission('sales.index') && (
+                    <button 
+                        onClick={() => navigate('/sales/refunds')}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            borderBottom: activeSubTab === 'refunds' ? '2px solid #6366f1' : '2px solid transparent',
+                            color: activeSubTab === 'refunds' ? '#fff' : '#9ca3af',
+                            fontWeight: '600',
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🔄 Refunds
+                    </button>
+                )}
             </div>
 
             {activeSubTab === 'pos' ? (
                 <POSTerminal />
+            ) : activeSubTab === 'refunds' ? (
+                <Refunds />
             ) : (
                 <SalesLog />
             )}

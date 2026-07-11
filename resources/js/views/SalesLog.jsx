@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { setSelectedReceipt } from '../store/uiSlice';
 import { getHeaders } from '../utils/api';
 import SmartDateRangePicker from '../components/SmartDateRangePicker';
+import RefundModal from '../components/RefundModal';
 import useTranslation from '../hooks/useTranslation';
 import useCurrency from '../hooks/useCurrency';
 import useTheme from '../hooks/useTheme';
@@ -18,6 +19,7 @@ export default function SalesLog() {
 
     const [sales, setSales] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedSaleForRefund, setSelectedSaleForRefund] = useState(null);
     
     // Filters (matching user preference: Date Range Picker first!)
     const [startDate, setStartDate] = useState('');
@@ -182,6 +184,7 @@ export default function SalesLog() {
                                 <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>{t('cashier')}</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Customer</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>{t('payment_method')}</th>
+                                <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Status</th>
                                 <th style={{ textAlign: 'right', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Total</th>
                                 <th style={{ textAlign: 'center', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>{t('actions')}</th>
                             </tr>
@@ -189,7 +192,7 @@ export default function SalesLog() {
                         <tbody>
                             {sales.length === 0 ? (
                                 <tr>
-                                    <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>No transactions recorded.</td>
+                                    <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>No transactions recorded.</td>
                                 </tr>
                             ) : (
                                 sales.map(sale => (
@@ -209,14 +212,36 @@ export default function SalesLog() {
                                                 {sale.payment_method}
                                             </span>
                                         </td>
+                                        <td style={{ padding: '0.8rem' }}>
+                                            <span style={{ 
+                                                fontSize: '0.75rem', 
+                                                padding: '0.2rem 0.5rem', 
+                                                borderRadius: '20px',
+                                                fontWeight: '600',
+                                                background: sale.status === 'completed' ? 'rgba(16,185,129,0.15)' : (sale.status === 'partially_refunded' ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)'),
+                                                color: sale.status === 'completed' ? (isDark ? '#10b981' : '#059669') : (sale.status === 'partially_refunded' ? '#f59e0b' : '#ef4444')
+                                            }}>
+                                                {sale.status === 'partially_refunded' ? 'Partially Refunded' : (sale.status === 'refunded' ? 'Refunded' : 'Completed')}
+                                            </span>
+                                        </td>
                                         <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: '600', color: isDark ? '#10b981' : '#059669' }}>{cur.format(sale.total)}</td>
                                         <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                                            <button 
-                                                onClick={() => dispatch(setSelectedReceipt(sale))}
-                                                style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
-                                            >
-                                                📄 {t('view_invoice')}
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                                                <button 
+                                                    onClick={() => dispatch(setSelectedReceipt(sale))}
+                                                    style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                >
+                                                    📄 {t('view_invoice')}
+                                                </button>
+                                                {sale.status !== 'refunded' && !isSuspended && (
+                                                    <button 
+                                                        onClick={() => setSelectedSaleForRefund(sale)}
+                                                        style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '0.25rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}
+                                                    >
+                                                        🔄 Refund
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -225,6 +250,18 @@ export default function SalesLog() {
                     </table>
                 )}
             </div>
+
+            {/* Refund Modal Popup */}
+            {selectedSaleForRefund && (
+                <RefundModal 
+                    sale={selectedSaleForRefund}
+                    onClose={() => setSelectedSaleForRefund(null)}
+                    onSuccess={(msg) => {
+                        alert(msg);
+                        fetchSales();
+                    }}
+                />
+            )}
         </div>
     );
 }

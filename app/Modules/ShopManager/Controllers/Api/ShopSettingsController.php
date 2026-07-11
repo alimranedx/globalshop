@@ -27,6 +27,7 @@ class ShopSettingsController extends Controller
             'status' => 'required|string|in:active,inactive,deactive',
             'currency' => 'nullable|string|in:USD,BDT',
             'language' => 'nullable|string|in:en,bn',
+            'refund_window_days' => 'nullable|integer|min:0|max:365',
         ]);
 
         $status = $validated['status'];
@@ -39,24 +40,27 @@ class ShopSettingsController extends Controller
         $oldStatus = $shop->status;
         $oldCurrency = $shop->currency;
         $oldLanguage = $shop->language;
+        $oldRefundDays = $shop->refund_window_days ?? 30;
 
         $currency = $validated['currency'] ?? 'USD';
         $language = $validated['language'] ?? 'en';
+        $refundWindowDays = isset($validated['refund_window_days']) ? (int)$validated['refund_window_days'] : 30;
 
         $shop->update([
             'name' => $validated['name'],
             'status' => $status,
             'currency' => $currency,
             'language' => $language,
+            'refund_window_days' => $refundWindowDays,
         ]);
 
         // Log Activity
         $logger = resolve(\App\Modules\AuditLog\Actions\LogActivityAction::class);
         $logger->execute(
             'shop.settings_updated',
-            "Shop settings updated. Name: {$oldName} -> {$validated['name']}, Status: {$oldStatus} -> {$status}, Currency: {$oldCurrency} -> {$currency}, Language: {$oldLanguage} -> {$language}.",
+            "Shop settings updated. Name: {$oldName} -> {$validated['name']}, Status: {$oldStatus} -> {$status}, Currency: {$oldCurrency} -> {$currency}, Language: {$oldLanguage} -> {$language}, Refund Window: {$oldRefundDays} -> {$refundWindowDays} days.",
             null,
-            ['name' => $validated['name'], 'status' => $status, 'currency' => $currency, 'language' => $language],
+            ['name' => $validated['name'], 'status' => $status, 'currency' => $currency, 'language' => $language, 'refund_window_days' => $refundWindowDays],
             $shop->id,
             $user->id
         );
@@ -72,6 +76,7 @@ class ShopSettingsController extends Controller
                 'domain' => $shop->domain,
                 'currency' => $shop->currency,
                 'language' => $shop->language,
+                'refund_window_days' => $shop->refund_window_days,
             ],
         ]);
     }

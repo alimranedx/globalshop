@@ -14,6 +14,7 @@ class Sale extends Model
     protected $fillable = [
         'shop_id',
         'invoice_number',
+        'customer_id',
         'customer_name',
         'customer_email',
         'subtotal',
@@ -21,8 +22,34 @@ class Sale extends Model
         'tax',
         'total',
         'payment_method',
+        'status',
+        'refunded_amount',
         'created_by',
     ];
+
+    /**
+     * Get the shop (tenant) that owns this sale.
+     */
+    public function shop(): BelongsTo
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
+    /**
+     * Get the customer associated with this sale.
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Get the refunds for this sale transaction.
+     */
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(Refund::class);
+    }
 
     /**
      * Get the individual items of the sale transaction.

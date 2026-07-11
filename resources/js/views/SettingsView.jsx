@@ -16,6 +16,7 @@ export default function SettingsView() {
     const [status, setStatus] = useState(shop ? shop.status : 'active');
     const [currency, setCurrency] = useState(shop ? (shop.currency || 'USD') : 'USD');
     const [language, setLanguage] = useState(shop ? (shop.language || 'en') : 'en');
+    const [refundWindowDays, setRefundWindowDays] = useState(shop ? (shop.refund_window_days ?? 30) : 30);
     const [saving, setSaving] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
@@ -25,6 +26,7 @@ export default function SettingsView() {
             setStatus(shop.status);
             setCurrency(shop.currency || 'USD');
             setLanguage(shop.language || 'en');
+            setRefundWindowDays(shop.refund_window_days ?? 30);
         }
     }, [shop]);
 
@@ -37,7 +39,7 @@ export default function SettingsView() {
             const response = await fetch('/api/v1/tenant/settings', {
                 method: 'PUT',
                 headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, status, currency, language })
+                body: JSON.stringify({ name, status, currency, language, refund_window_days: refundWindowDays })
             });
             const res = await response.json();
             if (res.success) {
@@ -174,6 +176,29 @@ export default function SettingsView() {
                             </select>
                         </div>
 
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            <label style={{ fontSize: '0.85rem', color: colors.textMuted, fontWeight: '500' }}>Refund Window (Days)</label>
+                            <input 
+                                type="number" 
+                                min="0"
+                                max="365"
+                                value={refundWindowDays} 
+                                onChange={e => setRefundWindowDays(e.target.value)} 
+                                disabled={saving}
+                                style={{ 
+                                    background: colors.inputBg, 
+                                    border: `1px solid ${colors.inputBorder}`, 
+                                    color: colors.text, 
+                                    padding: '0.7rem', 
+                                    borderRadius: '8px', 
+                                    outline: 'none', 
+                                    fontFamily: 'Outfit',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                        </div>
+
                         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                             <button 
                                 type="submit" 
@@ -201,6 +226,7 @@ export default function SettingsView() {
                                         setStatus(shop.status);
                                         setCurrency(shop.currency || 'USD');
                                         setLanguage(shop.language || 'en');
+                                        setRefundWindowDays(shop.refund_window_days ?? 30);
                                     }
                                 }}
                                 disabled={saving}
@@ -243,6 +269,7 @@ export default function SettingsView() {
                             <div>Tenant ULID ID: <code>{shop.id}</code></div>
                             <div>Currency Code: <strong>{shop.currency || 'USD'}</strong></div>
                             <div>Active Interface Language: <strong>{shop.language === 'bn' ? 'Bangla (বাংলা)' : 'English'}</strong></div>
+                            <div>Refund Window Period: <strong>{shop.refund_window_days ?? 30} days</strong></div>
                         </div>
                     )
                 )}

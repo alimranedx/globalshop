@@ -113,6 +113,7 @@ class AuthController extends Controller
                     'status' => $shop->status,
                     'currency' => $shop->currency ?? 'USD',
                     'language' => $shop->language ?? 'en',
+                    'refund_window_days' => $shop->refund_window_days ?? 30,
                 ] : null,
             ]);
         }

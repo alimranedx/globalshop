@@ -5,6 +5,7 @@ use App\Modules\ProductCatalog\Controllers\Api\ProductController;
 use App\Modules\ProductCatalog\Controllers\Api\CategoryController;
 use App\Modules\ProductCatalog\Controllers\Api\BrandController;
 use App\Modules\ShopManager\Controllers\Api\EmployeeController;
+use App\Modules\ShopManager\Controllers\Api\RefundController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -56,6 +57,15 @@ Route::prefix('v1')->group(function () {
         Route::get('sales/export', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'export'])->name('sales.export');
         Route::get('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'index'])->name('sales.index');
         Route::post('sales', [\App\Modules\ShopManager\Controllers\Api\SalesController::class, 'store'])->name('sales.create');
+
+        // Refund Management
+        Route::get('refunds', [RefundController::class, 'index'])->name('refunds.index');
+        Route::get('refunds/customers', [RefundController::class, 'customers'])->name('refunds.customers');
+        Route::get('refunds/{refund}', [RefundController::class, 'show'])->name('refunds.show');
+        Route::get('sales/{sale}/refundable', [RefundController::class, 'refundable'])->name('sales.refundable');
+        Route::post('sales/{sale}/refund', [RefundController::class, 'store'])->name('sales.refund');
+        Route::post('refunds/{refund}/approve', [RefundController::class, 'approve'])->name('refunds.approve');
+        Route::post('refunds/{refund}/cancel', [RefundController::class, 'cancel'])->name('refunds.cancel');
     });
 
     // 3. Platform Admin Endpoints (Requires standard auth, page permissions, and optional API token auth)

@@ -32,6 +32,9 @@ class SalesSummaryService
                 'total_profit'   => 0,
                 'total_discount' => 0,
                 'total_tax'      => 0,
+                'total_refunds'  => 0.00,
+                'total_refund_count' => 0,
+                'net_revenue'    => 0.00,
             ]
         );
 
@@ -44,6 +47,44 @@ class SalesSummaryService
         $summary->increment('total_profit', $profit);
         $summary->increment('total_discount', $discount);
         $summary->increment('total_tax', $tax);
+
+        // Recalculate net_revenue
+        $summary->update([
+            'net_revenue' => DB::raw('total_revenue - total_refunds')
+        ]);
+    }
+
+    /**
+     * Record a refund to the daily summary.
+     */
+    public function recordRefund(
+        int    $shopId,
+        Carbon $date,
+        float  $refundAmount
+    ): void {
+        $dateStr = $date->toDateString();
+
+        $summary = ShopDailySummary::firstOrCreate(
+            ['shop_id' => $shopId, 'summary_date' => $dateStr],
+            [
+                'total_orders'   => 0,
+                'total_revenue'  => 0,
+                'total_cost'     => 0,
+                'total_profit'   => 0,
+                'total_discount' => 0,
+                'total_tax'      => 0,
+                'total_refunds'  => 0.00,
+                'total_refund_count' => 0,
+                'net_revenue'    => 0.00,
+            ]
+        );
+
+        $summary->increment('total_refunds', $refundAmount);
+        $summary->increment('total_refund_count', 1);
+
+        $summary->update([
+            'net_revenue' => DB::raw('total_revenue - total_refunds')
+        ]);
     }
 
     /**

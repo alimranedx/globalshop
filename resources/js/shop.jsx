@@ -423,6 +423,9 @@ function ShopManagerApp() {
                             <Route path="/sales/history" element={
                                 hasPermission('sales.index') ? <SalesHubView activeSubTab="history" /> : <AccessDeniedView />
                             } />
+                            <Route path="/sales/refunds" element={
+                                hasPermission('sales.index') ? <SalesHubView activeSubTab="refunds" /> : <AccessDeniedView />
+                            } />
                             <Route path="/sales" element={<SalesRedirect />} />
                             
                             <Route path="/staff" element={

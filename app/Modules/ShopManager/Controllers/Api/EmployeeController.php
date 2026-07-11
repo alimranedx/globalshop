@@ -170,8 +170,8 @@ class EmployeeController extends Controller
 
         $validator = Validator::make($request->all(), [
             'role_id'  => 'required|exists:roles,id',
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email,' . $employee->id,
+            'name'     => 'nullable|string|max:255',
+            'email'    => 'nullable|email|unique:users,email,' . $employee->id,
             'password' => 'nullable|string|min:6',
         ]);
 
@@ -194,8 +194,8 @@ class EmployeeController extends Controller
 
         // Build update payload for User
         $userUpdate = [
-            'name'  => $request->name,
-            'email' => $request->email,
+            'name'  => $request->input('name', $employee->name),
+            'email' => $request->input('email', $employee->email),
         ];
         if ($request->filled('password')) {
             $userUpdate['password'] = Hash::make($request->password);
