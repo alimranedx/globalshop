@@ -23,6 +23,7 @@ import CatalogNav from './components/CatalogNav';
 import AccessDeniedView from './views/AccessDeniedView';
 import DashboardView from './views/DashboardView';
 import LogsView from './views/LogsView';
+import CustomersView from './views/CustomersView';
 import LoginView from './views/LoginView';
 import RegisterView from './views/RegisterView';
 import SettingsView from './views/SettingsView';
@@ -82,6 +83,8 @@ function ShopManagerApp() {
             setActiveTab('catalog');
         } else if (location.pathname.startsWith('/sales')) {
             setActiveTab('sales');
+        } else if (location.pathname.startsWith('/customers')) {
+            setActiveTab('customers');
         } else if (location.pathname === '/matrix') {
             setActiveTab('matrix');
         } else if (location.pathname === '/staff') {
@@ -247,6 +250,7 @@ function ShopManagerApp() {
                             { id: 'dashboard', label: t('dashboard'), visible: true },
                             { id: 'catalog', label: t('catalog'), visible: hasPermission('categories.index') || hasPermission('brands.index') || hasPermission('products.index') },
                             { id: 'sales', label: t('sales'), visible: hasPermission('sales.index') || hasPermission('sales.create') },
+                            { id: 'customers', label: t('customers') || 'Customers', visible: hasPermission('customers.index') || hasPermission('customers.edit') },
                             { id: 'staff', label: t('staff'), visible: hasPermission('employees.index') || hasPermission('roles.index') },
                             { id: 'settings', label: t('settings'), visible: hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription') },
                             { id: 'logs', label: t('logs'), visible: user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index')) }
@@ -427,6 +431,10 @@ function ShopManagerApp() {
                                 hasPermission('sales.index') ? <SalesHubView activeSubTab="refunds" /> : <AccessDeniedView />
                             } />
                             <Route path="/sales" element={<SalesRedirect />} />
+                            
+                            <Route path="/customers" element={
+                                (hasPermission('customers.index') || hasPermission('customers.edit')) ? <CustomersView /> : <AccessDeniedView />
+                            } />
                             
                             <Route path="/staff" element={
                                 (hasPermission('employees.index') || hasPermission('roles.index')) ? <StaffAndRolesHub /> : <AccessDeniedView />

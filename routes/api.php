@@ -6,6 +6,7 @@ use App\Modules\ProductCatalog\Controllers\Api\CategoryController;
 use App\Modules\ProductCatalog\Controllers\Api\BrandController;
 use App\Modules\ShopManager\Controllers\Api\EmployeeController;
 use App\Modules\ShopManager\Controllers\Api\RefundController;
+use App\Modules\ShopManager\Controllers\Api\CustomerController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
@@ -66,6 +67,10 @@ Route::prefix('v1')->group(function () {
         Route::post('sales/{sale}/refund', [RefundController::class, 'store'])->name('sales.refund');
         Route::post('refunds/{refund}/approve', [RefundController::class, 'approve'])->name('refunds.approve');
         Route::post('refunds/{refund}/cancel', [RefundController::class, 'cancel'])->name('refunds.cancel');
+
+        // Customer Management
+        Route::apiResource('customers', CustomerController::class)->only(['index', 'show', 'store', 'update']);
+        Route::post('customers/{customer}/credit', [CustomerController::class, 'updateCredit'])->name('customers.credit');
     });
 
     // 3. Platform Admin Endpoints (Requires standard auth, page permissions, and optional API token auth)

@@ -62,6 +62,18 @@ return [
                 ],
             ],
         ],
+        'customers' => [
+            'label' => 'Customer Management',
+            'sub_modules' => [
+                'directory' => [
+                    'label' => 'Customer Directory',
+                    'pages' => [
+                        'customers.index' => 'View Customers',
+                        'customers.edit' => 'Edit Customers & Credit',
+                    ],
+                ],
+            ],
+        ],
     ],
     // Platform-Level Admin Page Mappings
     'platform_admin' => [

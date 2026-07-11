@@ -3,7 +3,8 @@ export const translations = {
         // Sidebar tabs
         dashboard: '📊 Dashboard',
         catalog: '🗂️ Catalog Hub',
-        sales: '💰 Sales Hub',
+        sales: '💳 Sales',
+        customers: '👥 Customers',
         staff: '👥 Staff & Roles',
         settings: '⚙️ Shop Settings',
         logs: '📜 Activity Logs',
@@ -81,7 +82,8 @@ export const translations = {
         // Sidebar tabs
         dashboard: '📊 ড্যাশবোর্ড',
         catalog: '🗂️ ক্যাটালগ হাব',
-        sales: '💰 সেলস হাব',
+        sales: '💳 সেলস',
+        customers: '👥 কাস্টমার্স',
         staff: '👥 স্টাফ ও রোলস',
         settings: '⚙️ শপ সেটিংস',
         logs: '📜 অ্যাক্টিভিটি লগস',

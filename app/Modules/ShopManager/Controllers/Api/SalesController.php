@@ -80,7 +80,9 @@ class SalesController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
+            'customer_id' => 'nullable|exists:customers,id',
             'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|min:11|max:13',
             'customer_email' => 'nullable|email|max:255',
             'payment_method' => 'required|string|in:cash,card,mobile',
             'discount' => 'nullable|numeric|min:0',
@@ -139,7 +141,9 @@ class SalesController extends Controller
                 $sale = Sale::create([
                     'shop_id' => $shop->id,
                     'invoice_number' => $invoiceNumber,
+                    'customer_id' => $request->input('customer_id'),
                     'customer_name' => $request->input('customer_name'),
+                    'customer_phone' => $request->input('customer_phone'),
                     'customer_email' => $request->input('customer_email'),
                     'subtotal' => $subtotal,
                     'discount' => $discount,

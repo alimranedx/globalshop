@@ -16,6 +16,7 @@ class Sale extends Model
         'invoice_number',
         'customer_id',
         'customer_name',
+        'customer_phone',
         'customer_email',
         'subtotal',
         'discount',

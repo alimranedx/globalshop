@@ -4,6 +4,8 @@ import { setSelectedReceipt, showToast } from '../store/uiSlice';
 import { fetchState } from '../store/actions';
 import { getHeaders } from '../utils/api';
 import SearchableSelect from '../components/SearchableSelect';
+import POSCheckoutModal from '../components/POSCheckoutModal';
+import CustomerEditModal from '../components/CustomerEditModal';
 import useTranslation from '../hooks/useTranslation';
 import useCurrency from '../hooks/useCurrency';
 import useTheme from '../hooks/useTheme';
@@ -21,9 +23,14 @@ export default function POSTerminal() {
     const isSuspended = useSelector(state => state.shop.shop?.status === 'suspended');
 
     const [cart, setCart] = useState([]);
-    const [customerName, setCustomerName] = useState('');
-    const [customerEmail, setCustomerEmail] = useState('');
+    
+    // Customer Tracking State
+    const [customerData, setCustomerData] = useState(null);
+    const [showCreateCustomer, setShowCreateCustomer] = useState(false);
+    const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [cashReceived, setCashReceived] = useState('');
 
     const [discountType, setDiscountType] = useState('percentage'); 
     const [discountVal, setDiscountVal] = useState('0'); 
@@ -140,8 +147,10 @@ export default function POSTerminal() {
                 method: 'POST',
                 headers: { ...headers, 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    customer_name: customerName,
-                    customer_email: customerEmail,
+                    customer_id: customerData?.id || null,
+                    customer_name: customerData?.name || '',
+                    customer_phone: customerData?.phone || '',
+                    customer_email: customerData?.email || '',
                     payment_method: paymentMethod,
                     discount,
                     tax,
@@ -156,9 +165,10 @@ export default function POSTerminal() {
             if (res.success) {
                 dispatch(showToast({ message: 'Sale completed successfully!', isError: false }));
                 setCart([]);
-                setCustomerName('');
-                setCustomerEmail('');
+                setCustomerData(null);
                 setDiscountVal('0');
+                setCashReceived('');
+                setShowCheckoutModal(false);
                 dispatch(fetchState());
                 // Open Receipt Modal
                 dispatch(setSelectedReceipt(res.data));
@@ -170,6 +180,22 @@ export default function POSTerminal() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleDirectPurchase = (product) => {
+        if (product.stock_quantity <= 0) return;
+
+        // Clear cart and add only this product
+        setCart([{
+            product_id: product.id,
+            name: product.name,
+            price: parseFloat(product.price),
+            quantity: 1,
+            max_stock: product.stock_quantity
+        }]);
+
+        // Open checkout modal popup instantly!
+        setShowCheckoutModal(true);
     };
 
     return (
@@ -208,9 +234,9 @@ export default function POSTerminal() {
                         </select>
                     </div>
                 </div>
-
-                {/* Catalog Grid */}
-                <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.8rem', paddingRight: '0.2rem' }}>
+            
+            {/* Catalog Grid */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '1rem', paddingRight: '0.2rem' }}>
                     {filteredProducts.length === 0 ? (
                         <div style={{ gridColumn: '1/-1', color: colors.textMuted, textAlign: 'center', padding: '4rem' }}>No products found matching filters.</div>
                     ) : (
@@ -219,44 +245,127 @@ export default function POSTerminal() {
                             const cartQty = inCartItem ? inCartItem.quantity : 0;
                             const isOutOfStock = prod.stock_quantity <= 0;
                             const isMaxedOut = cartQty >= prod.stock_quantity;
+                            const hasImage = prod.images && prod.images.length > 0;
+                            const imageUrl = hasImage ? prod.images[0].image_url : null;
 
                             return (
                                 <div 
                                     key={prod.id}
-                                    onClick={() => !isOutOfStock && !isMaxedOut && addToCart(prod)}
                                     style={{
-                                        background: isOutOfStock ? (isDark ? 'rgba(0,0,0,0.3)' : '#f3f4f6') : colors.cardBg,
+                                        background: colors.cardBg,
                                         border: isMaxedOut 
                                             ? '1px solid rgba(99, 102, 241, 0.4)' 
-                                            : (isOutOfStock ? `1px dashed ${colors.border}` : `1px solid ${colors.border}`),
-                                        borderRadius: '12px',
-                                        padding: '0.8rem',
-                                        cursor: (isOutOfStock || isMaxedOut) ? 'default' : 'pointer',
+                                            : `1px solid ${colors.border}`,
+                                        borderRadius: '16px',
+                                        overflow: 'hidden',
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: '0.4rem',
+                                        transition: 'transform 0.2s, box-shadow 0.2s',
+                                        opacity: isOutOfStock ? 0.7 : 1,
+                                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                         position: 'relative',
-                                        transition: 'all 0.2s',
-                                        opacity: isOutOfStock ? 0.5 : 1
+                                        height: '290px',
+                                        flexShrink: 0
                                     }}
                                 >
-                                    {cartQty > 0 && (
-                                        <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: '#6366f1', color: '#fff', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                            {cartQty}
-                                        </div>
-                                    )}
-
-                                    <div style={{ fontWeight: '600', fontSize: '0.8rem', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', height: '2.2rem', lineHeight: '1.1rem' }}>
-                                        {prod.name}
+                                    {/* Image Area */}
+                                    <div style={{ 
+                                        height: '110px', 
+                                        background: isDark ? 'linear-gradient(135deg, #1e1e38 0%, #111125 100%)' : 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        position: 'relative',
+                                        borderBottom: `1px solid ${colors.borderLight}` 
+                                    }}>
+                                        {imageUrl ? (
+                                            <img 
+                                                src={imageUrl} 
+                                                alt={prod.name} 
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                                            />
+                                        ) : (
+                                            <span style={{ fontSize: '2.2rem' }}>📦</span>
+                                        )}
+                                        {cartQty > 0 && (
+                                            <div style={{ position: 'absolute', top: '8px', right: '8px', background: '#6366f1', color: '#fff', borderRadius: '20px', padding: '0.2rem 0.6rem', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                                                {cartQty} in cart
+                                            </div>
+                                        )}
                                     </div>
-                                    
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
-                                        <span style={{ fontSize: '0.95rem', fontWeight: '700', color: isDark ? '#10b981' : '#059669' }}>
-                                            {cur.format(prod.price)}
-                                        </span>
-                                        <span style={{ fontSize: '0.7rem', color: isOutOfStock ? '#ef4444' : colors.textMuted }}>
-                                            {isOutOfStock ? 'Out of stock' : `${prod.stock_quantity} left`}
-                                        </span>
+
+                                    {/* Product Details Section */}
+                                    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', flex: 1, minHeight: 0 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.4rem' }}>
+                                            <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                {prod.category?.name || 'General'}
+                                            </span>
+                                            <span style={{ fontSize: '0.7rem', color: isOutOfStock ? '#ef4444' : (prod.stock_quantity < 10 ? '#f59e0b' : '#10b981'), fontWeight: '600' }}>
+                                                {isOutOfStock ? 'Out of stock' : `${prod.stock_quantity} left`}
+                                            </span>
+                                        </div>
+                                        
+                                        <div style={{ fontWeight: '700', fontSize: '0.85rem', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', lineHeight: '1.2rem' }}>
+                                            {prod.name}
+                                        </div>
+                                        
+                                        <div style={{ fontSize: '0.75rem', color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', height: '2rem', lineHeight: '1rem', margin: '0.1rem 0' }}>
+                                            {prod.description || 'No description provided.'}
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.4rem' }}>
+                                            <span style={{ fontSize: '1rem', fontWeight: '800', color: isDark ? '#10b981' : '#059669' }}>
+                                                {cur.format(prod.price)}
+                                            </span>
+                                        </div>
+
+                                        {/* Action buttons */}
+                                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem' }}>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (!isOutOfStock && !isMaxedOut) addToCart(prod);
+                                                }}
+                                                disabled={isOutOfStock || isMaxedOut}
+                                                style={{
+                                                    flex: 1,
+                                                    background: 'transparent',
+                                                    border: `1px solid ${isOutOfStock || isMaxedOut ? colors.border : '#6366f1'}`,
+                                                    color: isOutOfStock || isMaxedOut ? colors.textMuted : '#6366f1',
+                                                    borderRadius: '6px',
+                                                    padding: '0.35rem 0',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: (isOutOfStock || isMaxedOut) ? 'default' : 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                            >
+                                                🛒 Add
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDirectPurchase(prod);
+                                                }}
+                                                disabled={isOutOfStock}
+                                                style={{
+                                                    flex: 1,
+                                                    background: isOutOfStock ? colors.border : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                                                    color: '#fff',
+                                                    border: 'none',
+                                                    borderRadius: '6px',
+                                                    padding: '0.35rem 0',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: '600',
+                                                    cursor: isOutOfStock ? 'default' : 'pointer',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                            >
+                                                ⚡ Buy Now
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             );
@@ -280,23 +389,27 @@ export default function POSTerminal() {
                         </div>
                     ) : (
                         cart.map(item => (
-                            <div key={item.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: colors.cardBg, border: `1px solid ${colors.border}`, borderRadius: '8px', padding: '0.6rem' }}>
+                            <div key={item.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: colors.cardBg, border: `1px solid ${colors.border}`, borderRadius: '12px', padding: '0.6rem 0.8rem' }}>
                                 <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: '600', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
-                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#10b981' : '#059669', marginTop: '0.1rem' }}>{cur.format(item.price)} / unit</div>
+                                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: isDark ? '#10b981' : '#059669', marginTop: '0.1rem', fontWeight: '600' }}>{cur.format(item.price)}</div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <input 
-                                        type="number"
-                                        min="1"
-                                        max={item.max_stock}
-                                        value={item.quantity}
-                                        onChange={e => updateQuantity(item.product_id, e.target.value)}
-                                        style={{ width: '45px', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.25rem', borderRadius: '4px', textAlign: 'center', outline: 'none', fontSize: '0.8rem' }}
-                                    />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                     <button 
+                                        type="button"
+                                        onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                                    >-</button>
+                                    <span style={{ minWidth: '22px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '700', color: colors.text }}>{item.quantity}</span>
+                                    <button 
+                                        type="button"
+                                        onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                                    >+</button>
+                                    <button 
+                                        type="button"
                                         onClick={() => removeFromCart(item.product_id)}
-                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0.2rem' }}
+                                        style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.9rem', padding: '0.2rem', marginLeft: '0.3rem' }}
                                     >
                                         ❌
                                     </button>
@@ -308,97 +421,130 @@ export default function POSTerminal() {
 
                 {/* Subtotal, discount calculations */}
                 {cart.length > 0 && (
-                    <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.85rem' }}>
+                    <div style={{ borderTop: `1px solid ${colors.border}`, paddingTop: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', fontSize: '0.85rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: colors.textMuted }}>Subtotal:</span>
-                            <span style={{ color: colors.text, fontWeight: '500' }}>{cur.format(getCartSubtotal())}</span>
+                            <span style={{ color: colors.text, fontWeight: '600' }}>{cur.format(getCartSubtotal())}</span>
                         </div>
                         
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                            <span style={{ color: colors.textMuted }}>{t('discount')}:</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                <select 
-                                    value={discountType}
-                                    onChange={e => setDiscountType(e.target.value)}
-                                    style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', outline: 'none' }}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                <span style={{ color: colors.textMuted }}>{t('discount')}:</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                    <select 
+                                        value={discountType}
+                                        onChange={e => setDiscountType(e.target.value)}
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, fontSize: '0.75rem', padding: '0.2rem', borderRadius: '4px', outline: 'none' }}
+                                    >
+                                        <option value="percentage">%</option>
+                                        <option value="fixed">Fixed</option>
+                                    </select>
+                                    <input 
+                                        type="number"
+                                        min="0"
+                                        value={discountVal}
+                                        onChange={e => setDiscountVal(e.target.value)}
+                                        style={{ width: '55px', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.2rem', borderRadius: '4px', textAlign: 'center', outline: 'none', fontSize: '0.75rem' }}
+                                    />
+                                    <span style={{ color: '#ef4444', marginLeft: '0.2rem', fontWeight: '600' }}>-{cur.format(getCartDiscount())}</span>
+                                </div>
+                            </div>
+                            
+                            {/* Discount presets */}
+                            <div style={{ display: 'flex', gap: '0.3rem', justifyContent: 'flex-end' }}>
+                                {['5', '10', '15', '20'].map(pct => (
+                                    <button 
+                                        key={pct}
+                                        type="button"
+                                        onClick={() => { setDiscountType('percentage'); setDiscountVal(pct); }}
+                                        style={{ background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: `1px solid ${colors.borderLight}`, color: colors.textMuted, fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: '4px', cursor: 'pointer', transition: 'all 0.15s' }}
+                                    >
+                                        {pct}%
+                                    </button>
+                                ))}
+                                <button 
+                                    type="button"
+                                    onClick={() => { setDiscountVal('0'); }}
+                                    style={{ background: 'transparent', border: `1px solid ${colors.borderLight}`, color: '#ef4444', fontSize: '0.7rem', padding: '0.15rem 0.4rem', borderRadius: '4px', cursor: 'pointer' }}
                                 >
-                                    <option value="percentage">%</option>
-                                    <option value="fixed">Fixed</option>
-                                </select>
-                                <input 
-                                    type="number"
-                                    min="0"
-                                    value={discountVal}
-                                    onChange={e => setDiscountVal(e.target.value)}
-                                    style={{ width: '55px', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.2rem', borderRadius: '4px', textAlign: 'center', outline: 'none', fontSize: '0.75rem' }}
-                                />
-                                <span style={{ color: '#ef4444', marginLeft: '0.2rem' }}>-{cur.format(getCartDiscount())}</span>
+                                    Clear
+                                </button>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: colors.textMuted }}>{t('tax')} (5%):</span>
-                            <span style={{ color: colors.text }}>+{cur.format(getCartTax())}</span>
+                            <span style={{ color: colors.text, fontWeight: '500' }}>+{cur.format(getCartTax())}</span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.1rem', fontWeight: '700', color: isDark ? '#10b981' : '#059669', borderTop: `1px solid ${colors.border}`, paddingTop: '0.6rem', marginTop: '0.2rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: '800', color: isDark ? '#10b981' : '#059669', borderTop: `1px solid ${colors.border}`, paddingTop: '0.6rem', marginTop: '0.2rem' }}>
                             <span>{t('total_amount')}:</span>
                             <span>{cur.format(getCartTotal())}</span>
                         </div>
                     </div>
                 )}
 
-                {/* Customer Information & Payment Checkout Form */}
-                <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', borderTop: `1px solid ${colors.border}`, paddingTop: '0.8rem' }}>
-                    <input
-                        type="text"
-                        placeholder="Customer Name (Optional)"
-                        value={customerName}
-                        onChange={e => setCustomerName(e.target.value)}
-                        style={{ width: '100%', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.5rem', borderRadius: '6px', outline: 'none', fontSize: '0.8rem' }}
-                    />
-                    <input
-                        type="email"
-                        placeholder="Customer Email (Optional)"
-                        value={customerEmail}
-                        onChange={e => setCustomerEmail(e.target.value)}
-                        style={{ width: '100%', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.5rem', borderRadius: '6px', outline: 'none', fontSize: '0.8rem' }}
-                    />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '0.8rem', color: colors.textMuted, flexShrink: 0 }}>Payment:</span>
-                        <select
-                            value={paymentMethod}
-                            onChange={e => setPaymentMethod(e.target.value)}
-                            style={{ flex: 1, background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.45rem', borderRadius: '6px', cursor: 'pointer', outline: 'none', fontSize: '0.8rem' }}
-                        >
-                            <option value="cash">💵 Cash</option>
-                            <option value="card">💳 Card</option>
-                            <option value="mobile">📱 Mobile payment</option>
-                        </select>
-                    </div>
-                    
+                {/* Proceed to Payment Button */}
+                {cart.length > 0 && (
                     <button
-                        type="submit"
-                        disabled={submitting || cart.length === 0 || isSuspended}
+                        type="button"
+                        onClick={() => setShowCheckoutModal(true)}
+                        disabled={isSuspended}
                         style={{
                             background: isSuspended ? 'rgba(239, 68, 68, 0.2)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             color: isSuspended ? '#ef4444' : '#fff',
                             border: 'none',
-                            padding: '0.7rem',
-                            borderRadius: '8px',
-                            fontWeight: '600',
-                            cursor: (submitting || cart.length === 0 || isSuspended) ? 'default' : 'pointer',
+                            padding: '0.8rem',
+                            borderRadius: '10px',
+                            fontWeight: '700',
+                            cursor: isSuspended ? 'default' : 'pointer',
                             transition: 'all 0.2s',
                             boxShadow: isDark ? '0 4px 12px rgba(16, 185, 129, 0.2)' : '0 4px 12px rgba(16, 185, 129, 0.08)',
-                            marginTop: '0.4rem',
-                            fontSize: '0.9rem',
+                            marginTop: '0.8rem',
+                            fontSize: '0.95rem',
                             width: '100%',
                             textAlign: 'center'
                         }}
                     >
-                        {isSuspended ? 'Shop Suspended' : (submitting ? 'Processing sale...' : `${cur.symbol} ${t('complete_pos_sale')}`)}
+                        {isSuspended ? 'Shop Suspended' : `Proceed to Payment (${cur.format(getCartTotal())})`}
                     </button>
-                </form>
+                )}
             </div>
+
+            {showCheckoutModal && (
+                <POSCheckoutModal 
+                    onClose={() => setShowCheckoutModal(false)}
+                    cartTotal={getCartTotal()}
+                    customerData={customerData}
+                    setCustomerData={setCustomerData}
+                    paymentMethod={paymentMethod}
+                    setPaymentMethod={setPaymentMethod}
+                    cashReceived={cashReceived}
+                    setCashReceived={setCashReceived}
+                    submitting={submitting}
+                    onSubmit={handleCheckout}
+                    onModeChange={(mode) => {
+                        if (mode === 'create') setShowCreateCustomer(true);
+                    }}
+                />
+            )}
+
+            {showCreateCustomer && (
+                <CustomerEditModal 
+                    customer={null}
+                    onClose={() => setShowCreateCustomer(false)}
+                    onSuccess={(msg, newCustomer) => {
+                        dispatch(showToast({ message: msg, isError: false }));
+                        if (newCustomer) {
+                            setCustomerData({
+                                id: newCustomer.id,
+                                name: newCustomer.name,
+                                phone: newCustomer.phone,
+                                email: newCustomer.email
+                            });
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }

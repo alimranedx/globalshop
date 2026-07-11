@@ -202,7 +202,7 @@ class RefundService
                     'product_id' => $saleItem->product_id,
                     'product_name' => $saleItem->product_name,
                     'quantity' => $qtyToRefund,
-                    'unit_price' => $saleItem->price,
+                    'unit_price' => round($itemAmount / max(0.01, $qtyToRefund), 2),
                     'cost_price' => $saleItem->cost_price,
                     'refund_amount' => $itemAmount,
                     'restock' => $itemData['restock'] ?? true,
@@ -223,10 +223,12 @@ class RefundService
 
             // For full refund, if items were not sent, auto-generate them
             if (empty($items) && $type === 'full') {
+                $ratio = $sale->subtotal > 0 ? ($sale->total / $sale->subtotal) : 1;
                 foreach ($sale->items as $saleItem) {
                     $availableQty = (float)($saleItem->quantity - $saleItem->refunded_qty);
                     if ($availableQty > 0) {
-                        $itemAmount = round($availableQty * $saleItem->price, 2);
+                        $effectivePrice = round($saleItem->price * $ratio, 2);
+                        $itemAmount = round($availableQty * $effectivePrice, 2);
                         $itemRefundSum += $itemAmount;
 
                         RefundItem::create([
@@ -235,7 +237,7 @@ class RefundService
                             'product_id' => $saleItem->product_id,
                             'product_name' => $saleItem->product_name,
                             'quantity' => $availableQty,
-                            'unit_price' => $saleItem->price,
+                            'unit_price' => $effectivePrice,
                             'cost_price' => $saleItem->cost_price,
                             'refund_amount' => $itemAmount,
                             'restock' => true,

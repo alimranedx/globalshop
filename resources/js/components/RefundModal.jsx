@@ -357,7 +357,7 @@ export default function RefundModal({ sale, onClose, onSuccess }) {
                                         <label style={{ fontSize: '0.75rem', color: colors.textMuted }}>Phone *</label>
                                         <input 
                                             type="text" 
-                                            placeholder="Phone Number"
+                                            placeholder="01733425633"
                                             value={customerPhone}
                                             onChange={e => setCustomerPhone(e.target.value)}
                                             required

@@ -99,9 +99,13 @@ class RefundController extends Controller
             return response()->json(['success' => false, 'message' => 'Sale not found.'], 404);
         }
 
-        $items = $sale->items->map(function ($item) {
+        // Calculate ratio to pro-rate order-level discount and tax
+        $ratio = $sale->subtotal > 0 ? ($sale->total / $sale->subtotal) : 1;
+
+        $items = $sale->items->map(function ($item) use ($ratio) {
             $availableQty = $item->quantity - $item->refunded_qty;
-            $availableRefundAmount = round($availableQty * $item->price, 2);
+            $effectivePrice = round($item->price * $ratio, 2);
+            $availableRefundAmount = round($availableQty * $effectivePrice, 2);
             return [
                 'sale_item_id' => $item->id,
                 'product_id' => $item->product_id,
@@ -109,7 +113,8 @@ class RefundController extends Controller
                 'quantity' => (float)$item->quantity,
                 'refunded_qty' => (float)$item->refunded_qty,
                 'available_qty' => (float)max(0, $availableQty),
-                'price' => (float)$item->price,
+                'price' => (float)$effectivePrice,
+                'original_price' => (float)$item->price,
                 'total' => (float)$item->total,
                 'available_refund_amount' => (float)max(0, $availableRefundAmount),
             ];
@@ -151,7 +156,7 @@ class RefundController extends Controller
             'reason' => 'required|string|max:255',
             'notes' => 'nullable|string',
             'customer_name' => 'nullable|string|max:255',
-            'customer_phone' => 'nullable|string|max:25',
+            'customer_phone' => 'nullable|string|min:11|max:13',
             'customer_email' => 'nullable|email|max:255',
             'items' => 'nullable|array',
             'items.*.sale_item_id' => 'required|integer',

@@ -64,7 +64,7 @@ export default function ReceiptModal({ sale, onClose }) {
                     </button>
                     <button 
                         onClick={onClose}
-                        style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', flex: 1, textAlign: 'center' }}
+                        style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer', flex: 1, textAlign: 'center', fontWeight: '600' }}
                     >
                         Close
                     </button>
