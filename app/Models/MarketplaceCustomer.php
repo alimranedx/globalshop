@@ -10,6 +10,8 @@ class MarketplaceCustomer extends Model
     protected $fillable = [
         'phone',
         'name',
+        'avatar',
+        'password',
         'shipping_address',
         'otp',
         'otp_expires_at',
@@ -19,9 +21,11 @@ class MarketplaceCustomer extends Model
     protected $casts = [
         'otp_expires_at' => 'datetime',
         'verified_at'    => 'datetime',
+        'password'       => 'hashed',
     ];
 
     protected $hidden = [
+        'password',
         'otp',
         'otp_expires_at',
     ];

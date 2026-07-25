@@ -198,169 +198,144 @@ function ProductGrid({ products, loading, onShopClick, onAddToCart, onBuyNow, on
    OTP Registration / Login Modal
 ───────────────────────────────────────────── */
 function AuthModal({ onClose, onSuccess, allShops }) {
-    const [step, setStep]           = useState(1); 
-    const [phone, setPhone]         = useState('');
-    const [otp, setOtp]             = useState('');
-    const [name, setName]           = useState('');
-    const [devOtp, setDevOtp]       = useState('');
-    const [isNew, setIsNew]         = useState(false);
-    const [loading, setLoading]     = useState(false);
-    const [error, setError]         = useState('');
-    const [shopSearch, setShopSearch] = useState('');
-    const [selectedShops, setSelectedShops] = useState([]); 
+    const [mode, setMode]                       = useState('login'); // 'login' or 'register'
+    const [name, setName]                       = useState('');
+    const [phone, setPhone]                     = useState('');
+    const [password, setPassword]               = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading]                 = useState(false);
+    const [error, setError]                     = useState('');
 
-    const MAX_SHOPS = 5;
-
-    const filteredShops = allShops.filter(s =>
-        !shopSearch || s.name?.toLowerCase().includes(shopSearch.toLowerCase()) || s.slug?.toLowerCase().includes(shopSearch.toLowerCase())
-    );
-
-    const toggleShop = (shop) => {
-        setSelectedShops(prev => {
-            const exists = prev.find(s => s.id === shop.id);
-            if (exists) return prev.filter(s => s.id !== shop.id);
-            if (prev.length >= MAX_SHOPS) return prev; 
-            return [...prev, shop];
-        });
-    };
-
-    const handleSendOtp = async () => {
+    const handleLogin = async (e) => {
+        e?.preventDefault();
         if (!phone.trim()) { setError('Please enter your phone number.'); return; }
+        if (!password) { setError('Please enter your password.'); return; }
         setError(''); setLoading(true);
-        const res = await apiPost(`${API}/marketplace/send-otp`, { phone: phone.trim() });
-        setLoading(false);
-        if (!res || !res.success) { setError(res?.message || 'Failed to send OTP.'); return; }
-        setDevOtp(res.dev_otp || '');
-        setIsNew(res.is_new !== false);
-        setStep(2);
-    };
 
-    const handleVerifyOtp = async () => {
-        if (otp.length !== 6) { setError('Please enter the 6-digit OTP.'); return; }
-        setError(''); setLoading(true);
-        const res = await apiPost(`${API}/marketplace/verify-otp`, {
+        const res = await apiPost(`${API}/marketplace/login`, {
             phone: phone.trim(),
-            otp,
-            name: name || undefined,
-            shop_ids: [],
+            password: password,
         });
+
         setLoading(false);
-        if (!res || !res.success) { setError(res?.message || 'Invalid OTP.'); return; }
-        if (!isNew && res.customer?.name && res.customer?.preferred_shops?.length > 0) {
-            onSuccess(res.customer);
+        if (!res || !res.success) {
+            setError(res?.message || 'Login failed. Please check your credentials.');
             return;
         }
-        if (res.customer?.name) setName(res.customer.name);
-        if (res.customer?.preferred_shops) setSelectedShops(res.customer.preferred_shops);
-        setStep(3);
+
+        onSuccess(res.customer);
     };
 
-    const handleFinish = async () => {
+    const handleRegister = async (e) => {
+        e?.preventDefault();
+        if (!name.trim()) { setError('Full Name is required.'); return; }
+        if (!phone.trim()) { setError('Phone Number is required.'); return; }
+        if (!password) { setError('Password is required.'); return; }
+        if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+        if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
         setError(''); setLoading(true);
-        const shopIds = selectedShops.map(s => s.id);
-        if (shopIds.length > 0) {
-            await apiPost(`${API}/marketplace/shops`, { shop_ids: shopIds });
-        }
-        const meRes = await apiGet(`${API}/marketplace/me`);
-        setLoading(false);
-        if (meRes?.success && meRes.customer) {
-            onSuccess({ ...meRes.customer, name: name || meRes.customer.name || phone });
-        } else {
-            onSuccess({ name: name || phone, phone, preferred_shops: selectedShops });
-        }
-    };
 
-    const handleOtpKeydown = (e) => { if (e.key === 'Enter') handleVerifyOtp(); };
-    const handlePhoneKeydown = (e) => { if (e.key === 'Enter') handleSendOtp(); };
+        const res = await apiPost(`${API}/marketplace/register`, {
+            name: name.trim(),
+            phone: phone.trim(),
+            password: password,
+            confirm_password: confirmPassword,
+        });
+
+        setLoading(false);
+        if (!res || !res.success) {
+            setError(res?.message || 'Registration failed.');
+            return;
+        }
+
+        onSuccess(res.customer);
+    };
 
     return (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 480, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
+            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 460, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
                 <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
 
-                <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                    {[1, 2, 3].map(s => (
-                        <div key={s} style={{ width: s === step ? 28 : 8, height: 8, borderRadius: 4, background: s <= step ? C.accent : C.border, transition: 'all 0.3s ease' }} />
-                    ))}
+                {/* Mode Selector Tabs */}
+                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '0.25rem', marginBottom: '1.5rem', border: `1px solid ${C.border}` }}>
+                    <button 
+                        type="button"
+                        onClick={() => { setMode('login'); setError(''); }} 
+                        style={{ flex: 1, padding: '0.6rem', border: 'none', borderRadius: 9, background: mode === 'login' ? C.accent : 'transparent', color: mode === 'login' ? '#fff' : C.muted, fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                    >
+                        Sign In
+                    </button>
+                    <button 
+                        type="button"
+                        onClick={() => { setMode('register'); setError(''); }} 
+                        style={{ flex: 1, padding: '0.6rem', border: 'none', borderRadius: 9, background: mode === 'register' ? C.accent : 'transparent', color: mode === 'register' ? '#fff' : C.muted, fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                    >
+                        Create Account
+                    </button>
                 </div>
 
-                {step === 1 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }} className="fade-up">
+                {/* Sign In Form */}
+                {mode === 'login' && (
+                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }} className="fade-up">
                         <div>
-                            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, marginBottom: '0.3rem' }}>Welcome to GlobalShop</h2>
-                            <p style={{ fontSize: '0.88rem', color: C.muted }}>Enter your phone number to sign in or create an account.</p>
+                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginBottom: '0.25rem' }}>Welcome Back</h2>
+                            <p style={{ fontSize: '0.85rem', color: C.muted }}>Sign in with your phone number and password.</p>
                         </div>
                         <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.5rem' }}>Phone Number</label>
-                            <input id="auth-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={handlePhoneKeydown} autoFocus />
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Phone Number</label>
+                            <input id="auth-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} autoFocus required />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Password</label>
+                            <input id="auth-password" className="inp" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
                         </div>
                         {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                        <button id="send-otp-btn" className="btn-primary" onClick={handleSendOtp} disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '📱 Send OTP'}
+                        <button id="login-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                            {loading ? <Spinner size={18} color="#fff" /> : '🔑 Sign In'}
                         </button>
-                    </div>
+                        <p style={{ textAlign: 'center', fontSize: '0.82rem', color: C.muted, marginTop: '0.4rem' }}>
+                            Don't have an account?{' '}
+                            <span onClick={() => { setMode('register'); setError(''); }} style={{ color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+                                Create an Account
+                            </span>
+                        </p>
+                    </form>
                 )}
 
-                {step === 2 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }} className="fade-up">
+                {/* Registration Form */}
+                {mode === 'register' && (
+                    <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }} className="fade-up">
                         <div>
-                            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, marginBottom: '0.3rem' }}>Enter OTP</h2>
-                            <p style={{ fontSize: '0.88rem', color: C.muted }}>Sent to <strong style={{ color: C.text }}>{phone}</strong></p>
-                        </div>
-                        {devOtp && (
-                            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '0.7rem 1rem', fontSize: '0.82rem', color: C.warning }}>
-                                🛠️ <strong>DEV MODE:</strong> OTP is <strong style={{ fontSize: '1rem', letterSpacing: '0.15em' }}>{devOtp}</strong>
-                            </div>
-                        )}
-                        <div>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.5rem' }}>6-Digit OTP</label>
-                            <input id="auth-otp" className="inp" type="text" inputMode="numeric" maxLength={6} placeholder="1 2 3 4 5 6" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} onKeyDown={handleOtpKeydown} autoFocus style={{ fontSize: '1.4rem', letterSpacing: '0.3em', textAlign: 'center' }} />
-                        </div>
-                        {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                        <button id="verify-otp-btn" className="btn-primary" onClick={handleVerifyOtp} disabled={loading || otp.length !== 6} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '✅ Verify OTP'}
-                        </button>
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }} className="fade-up">
-                        <div>
-                            <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: C.text, marginBottom: '0.25rem' }}>
-                                {isNew ? '🎉 Almost there!' : 'Your Preferences'}
-                            </h2>
-                            <p style={{ fontSize: '0.85rem', color: C.muted }}>
-                                {isNew ? 'Set your name and pick up to 5 shops to follow.' : 'Update your name and preferred shops.'}
-                            </p>
+                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginBottom: '0.25rem' }}>Create an Account</h2>
+                            <p style={{ fontSize: '0.85rem', color: C.muted }}>Join GlobalShop to manage orders and follow shops.</p>
                         </div>
                         <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Your Name</label>
-                            <input id="auth-name" className="inp" type="text" placeholder="e.g. Rahim Hossain" value={name} onChange={e => setName(e.target.value)} />
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Full Name *</label>
+                            <input id="reg-name" className="inp" type="text" placeholder="e.g. Rahim Hossain" value={name} onChange={e => setName(e.target.value)} autoFocus required />
                         </div>
                         <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifySpace: 'space-between', marginBottom: '0.5rem' }}>
-                                <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Preferred Shops (optional)</label>
-                                <span style={{ fontSize: '0.78rem', color: selectedShops.length >= MAX_SHOPS ? C.warning : C.muted, fontWeight: 700 }}>{selectedShops.length}/{MAX_SHOPS}</span>
-                            </div>
-                            <input id="shop-picker-search" className="inp" type="text" placeholder="Search shops…" value={shopSearch} onChange={e => setShopSearch(e.target.value)} style={{ marginBottom: '0.5rem', padding: '0.55rem 0.9rem', fontSize: '0.88rem' }} />
-                            <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                {filteredShops.map(shop => {
-                                    const isSelected = !!selectedShops.find(s => s.id === shop.id);
-                                    const isDisabled = !isSelected && selectedShops.length >= MAX_SHOPS;
-                                    return (
-                                        <button key={shop.id} id={`shop-pick-${shop.slug}`} className={`shop-pick-item ${isSelected ? 'selected' : ''}`} onClick={() => !isDisabled && toggleShop(shop)} disabled={isDisabled} style={{ opacity: isDisabled ? 0.4 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}>
-                                            <span>🏪 {shop.name}</span>
-                                            {isSelected ? <span style={{ color: C.success, fontSize: '0.85rem' }}>✓ Selected</span> : <span style={{ color: C.faint, fontSize: '0.78rem' }}>+ Follow</span>}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Phone Number *</label>
+                            <input id="reg-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} required />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Password *</label>
+                            <input id="reg-password" className="inp" type="password" placeholder="At least 6 characters" value={password} onChange={e => setPassword(e.target.value)} required />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Confirm Password *</label>
+                            <input id="reg-confirm-password" className="inp" type="password" placeholder="Re-enter password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
                         </div>
                         {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                        <button id="finish-register-btn" className="btn-primary" onClick={handleFinish} disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '🚀 Start Shopping'}
+                        <button id="register-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                            {loading ? <Spinner size={18} color="#fff" /> : '🚀 Create Account'}
                         </button>
-                    </div>
+                        <p style={{ textAlign: 'center', fontSize: '0.82rem', color: C.muted, marginTop: '0.4rem' }}>
+                            Already have an account?{' '}
+                            <span onClick={() => { setMode('login'); setError(''); }} style={{ color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
+                                Sign In
+                            </span>
+                        </p>
+                    </form>
                 )}
             </div>
         </div>
@@ -623,9 +598,307 @@ function CartDrawer({ isOpen, onClose, cart, updateQty, removeItem, clearCart, c
 }
 
 /* ─────────────────────────────────────────────
+   User Profile Modal
+───────────────────────────────────────────── */
+function ProfileModal({ customer, onClose, onUpdate }) {
+    const [name, setName]                       = useState(customer?.name || '');
+    const [phone, setPhone]                     = useState(customer?.phone || '');
+    const [shippingAddress, setShippingAddress] = useState(customer?.shipping_address || '');
+    const [avatar, setAvatar]                   = useState(customer?.avatar || '');
+    const [loading, setLoading]                 = useState(false);
+    const [error, setError]                     = useState('');
+    const [successMsg, setSuccessMsg]           = useState('');
+
+    const avatarPresets = [
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
+        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
+    ];
+
+    const handleSubmit = async (e) => {
+        e?.preventDefault();
+        setError(''); setSuccessMsg('');
+        if (!name.trim()) { setError('Name is required.'); return; }
+        if (!phone.trim()) { setError('Phone number is required.'); return; }
+
+        setLoading(true);
+        const res = await apiPost(`${API}/marketplace/profile`, {
+            name: name.trim(),
+            phone: phone.trim(),
+            shipping_address: shippingAddress.trim(),
+            avatar: avatar.trim(),
+        });
+        setLoading(false);
+
+        if (!res || !res.success) {
+            setError(res?.message || 'Failed to update profile.');
+            return;
+        }
+
+        setSuccessMsg('Profile updated successfully!');
+        if (res.customer) {
+            onUpdate(res.customer);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 500, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        👤 Edit Profile
+                    </h2>
+                    <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.2rem' }}>
+                        Manage your customer details &amp; default shipping preferences.
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }} className="fade-up">
+                    {/* Avatar selection preview */}
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.5rem' }}>
+                            Profile Avatar
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.6rem' }}>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', border: `2px solid ${C.accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', flexShrink: 0 }}>
+                                {avatar ? (
+                                    <img src={avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    '👤'
+                                )}
+                            </div>
+                            <input
+                                className="inp"
+                                type="url"
+                                placeholder="Paste image URL or pick below..."
+                                value={avatar}
+                                onChange={e => setAvatar(e.target.value)}
+                                style={{ flex: 1, fontSize: '0.85rem' }}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {avatarPresets.map((preset, idx) => (
+                                <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setAvatar(preset)}
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: '50%',
+                                        border: avatar === preset ? `2px solid ${C.accent}` : `1px solid ${C.border}`,
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        padding: 0,
+                                    }}
+                                >
+                                    <img src={preset} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                </button>
+                            ))}
+                            {avatar && (
+                                <button
+                                    type="button"
+                                    onClick={() => setAvatar('')}
+                                    style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 20, padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: C.muted, cursor: 'pointer' }}
+                                >
+                                    Remove Avatar
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
+                            Full Name *
+                        </label>
+                        <input id="profile-name" className="inp" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
+                            Phone Number *
+                        </label>
+                        <input id="profile-phone" className="inp" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
+                            Default Shipping Address
+                        </label>
+                        <textarea
+                            id="profile-address"
+                            className="inp"
+                            rows={3}
+                            placeholder="e.g. House 12, Road 4, Sector 3, Uttara, Dhaka"
+                            value={shippingAddress}
+                            onChange={e => setShippingAddress(e.target.value)}
+                            style={{ resize: 'none' }}
+                        />
+                    </div>
+
+                    {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
+                    {successMsg && <p style={{ fontSize: '0.82rem', color: C.success }}>{successMsg}</p>}
+
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                        <button type="button" className="btn-ghost" onClick={onClose} style={{ flex: 1, padding: '0.8rem' }}>
+                            Cancel
+                        </button>
+                        <button id="save-profile-btn" type="submit" className="btn-primary" disabled={loading} style={{ flex: 1.5, padding: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            {loading ? <Spinner size={18} color="#fff" /> : '💾 Save Profile'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────
+   User Dropdown Menu
+───────────────────────────────────────────── */
+function UserDropdown({ customer, onOpenProfile, onLogout }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <button
+                id="user-menu-btn"
+                onClick={() => setIsOpen(!isOpen)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.55rem',
+                    background: isOpen ? 'rgba(99,102,241,0.2)' : 'rgba(99,102,241,0.12)',
+                    border: `1px solid rgba(99,102,241,0.25)`,
+                    borderRadius: 24,
+                    padding: '0.35rem 0.85rem 0.35rem 0.4rem',
+                    color: C.text,
+                    fontWeight: 600,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isOpen ? '0 0 12px rgba(99, 102, 241, 0.3)' : 'none',
+                }}
+            >
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', color: '#fff', fontSize: '0.85rem', flexShrink: 0 }}>
+                    {customer.avatar ? (
+                        <img src={customer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                        '👤'
+                    )}
+                </div>
+                <span>{customer.name || customer.phone}</span>
+                <span style={{ fontSize: '0.65rem', color: C.muted, transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+            </button>
+
+            {isOpen && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 'calc(100% + 8px)',
+                        width: 220,
+                        background: 'rgba(14,14,22,0.96)',
+                        border: `1px solid ${C.border}`,
+                        borderRadius: 14,
+                        padding: '0.5rem',
+                        boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
+                        backdropFilter: 'blur(16px)',
+                        zIndex: 300,
+                    }}
+                    className="fade-up"
+                >
+                    <div style={{ padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}`, marginBottom: '0.35rem' }}>
+                        <p style={{ fontSize: '0.88rem', fontWeight: 700, color: C.text }}>{customer.name || 'Customer'}</p>
+                        <p style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.1rem' }}>{customer.phone}</p>
+                    </div>
+
+                    <button
+                        id="dropdown-profile-btn"
+                        onClick={() => { setIsOpen(false); onOpenProfile(); }}
+                        style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            background: 'transparent',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '0.55rem 0.75rem',
+                            color: C.text,
+                            fontSize: '0.84rem',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'background 0.15s',
+                        }}
+                        onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                        👤 User Profile
+                    </button>
+
+                    {customer.preferred_shops?.length > 0 && (
+                        <div style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', color: C.muted, display: 'flex', alignItems: 'center', justifySpace: 'space-between' }}>
+                            <span>⭐ Followed Shops</span>
+                            <span style={{ background: C.accent, color: '#fff', borderRadius: 10, padding: '0.05rem 0.4rem', fontSize: '0.68rem', fontWeight: 700 }}>
+                                {customer.preferred_shops.length}
+                            </span>
+                        </div>
+                    )}
+
+                    <div style={{ borderTop: `1px solid ${C.border}`, margin: '0.35rem 0' }} />
+
+                    <button
+                        id="dropdown-logout-btn"
+                        onClick={() => { setIsOpen(false); onLogout(); }}
+                        style={{
+                            width: '100%',
+                            textAlign: 'left',
+                            background: 'transparent',
+                            border: 'none',
+                            borderRadius: 8,
+                            padding: '0.55rem 0.75rem',
+                            color: C.danger,
+                            fontSize: '0.84rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'background 0.15s',
+                        }}
+                        onMouseOver={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                        onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                        🚪 Log Out
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────
    Navbar
 ───────────────────────────────────────────── */
-function Navbar({ customer, cartCount, onCartClick, onAuthClick, onLogout, currentShopSlug }) {
+function Navbar({ customer, cartCount, onCartClick, onAuthClick, onOpenProfile, onLogout, currentShopSlug }) {
     return (
         <header style={{ position: 'sticky', top: 0, zIndex: 200, background: 'rgba(8,8,13,0.88)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${C.border}` }}>
             <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 2rem', height: 62, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -649,17 +922,7 @@ function Navbar({ customer, cartCount, onCartClick, onAuthClick, onLogout, curre
                     </button>
 
                     {customer ? (
-                        <>
-                            <span style={{ fontSize: '0.82rem', background: 'rgba(99,102,241,0.12)', border: `1px solid rgba(99,102,241,0.2)`, borderRadius: 20, padding: '0.3rem 0.8rem', color: C.accent, fontWeight: 600 }}>
-                                👤 {customer.name || customer.phone}
-                                {customer.preferred_shops?.length > 0 && (
-                                    <span style={{ marginLeft: '0.4rem', background: C.accent, color: '#fff', borderRadius: 10, padding: '0.1rem 0.4rem', fontSize: '0.7rem' }}>
-                                        ⭐ {customer.preferred_shops.length}
-                                    </span>
-                                )}
-                            </span>
-                            <button id="nav-logout-btn" className="btn-ghost" onClick={onLogout} style={{ padding: '0.4rem 0.85rem', fontSize: '0.82rem' }}>Log Out</button>
-                        </>
+                        <UserDropdown customer={customer} onOpenProfile={onOpenProfile} onLogout={onLogout} />
                     ) : (
                         <button id="nav-signin-btn" className="btn-primary" onClick={onAuthClick} style={{ padding: '0.45rem 1.1rem', fontSize: '0.88rem', borderRadius: 8 }}>
                             Sign In / Register
@@ -1180,6 +1443,7 @@ function MarketplaceApp() {
     const [bootDone, setBootDone] = useState(false);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [showAuth, setShowAuth] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const [cartInitialStep, setCartInitialStep] = useState(1); // 1 = cart, 2 = checkout
 
     // Shopping Cart state
@@ -1260,6 +1524,7 @@ function MarketplaceApp() {
                 cartCount={totalCartItems} 
                 onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} 
                 onAuthClick={() => setShowAuth(true)} 
+                onOpenProfile={() => setShowProfile(true)}
                 onLogout={handleLogout} 
             />
 
@@ -1268,6 +1533,14 @@ function MarketplaceApp() {
                     onClose={() => setShowAuth(false)} 
                     onSuccess={c => { setCustomer(c); setShowAuth(false); }} 
                     allShops={allShops} 
+                />
+            )}
+
+            {showProfile && customer && (
+                <ProfileModal 
+                    customer={customer} 
+                    onClose={() => setShowProfile(false)} 
+                    onUpdate={updated => { setCustomer(updated); setShowProfile(false); }} 
                 />
             )}
 

@@ -33,9 +33,12 @@ Route::prefix('v1')->group(function () {
     // Marketplace Customer Auth (Public — phone OTP, session-based)
     // ──────────────────────────────────────────────────────
     Route::prefix('marketplace')->group(function () {
+        Route::post('/login',      [\App\Http\Controllers\MarketplaceCustomerController::class, 'login'])->name('marketplace.login');
+        Route::post('/register',   [\App\Http\Controllers\MarketplaceCustomerController::class, 'register'])->name('marketplace.register');
         Route::post('/send-otp',   [\App\Http\Controllers\MarketplaceCustomerController::class, 'sendOtp'])->name('marketplace.send-otp');
         Route::post('/verify-otp', [\App\Http\Controllers\MarketplaceCustomerController::class, 'verifyOtp'])->name('marketplace.verify-otp');
         Route::get('/me',          [\App\Http\Controllers\MarketplaceCustomerController::class, 'me'])->name('marketplace.me');
+        Route::post('/profile',    [\App\Http\Controllers\MarketplaceCustomerController::class, 'updateProfile'])->name('marketplace.profile.update');
         Route::post('/shops',      [\App\Http\Controllers\MarketplaceCustomerController::class, 'updateShops'])->name('marketplace.update-shops');
         Route::post('/logout',     [\App\Http\Controllers\MarketplaceCustomerController::class, 'logout'])->name('marketplace.logout');
         Route::get('/shops/search',[\App\Http\Controllers\MarketplaceCustomerController::class, 'searchShops'])->name('marketplace.shops.search');

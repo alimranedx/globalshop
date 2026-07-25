@@ -11,6 +11,7 @@ use App\Modules\AuditLog\Actions\LogActivityAction;
 use App\Modules\ShopManager\Services\SalesSummaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,6 +19,104 @@ use Carbon\Carbon;
 
 class MarketplaceCustomerController extends Controller
 {
+    /**
+     * Customer Login via Phone Number + Password.
+     *
+     * POST /api/v1/marketplace/login
+     * Body: { phone, password }
+     */
+    public function login(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'phone'    => 'required|string',
+            'password' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $phone = preg_replace('/\s+/', '', $request->phone);
+        $customer = MarketplaceCustomer::where('phone', $phone)->first();
+
+        if (!$customer || !$customer->password || !Hash::check($request->password, $customer->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid phone number or password.',
+            ], 422);
+        }
+
+        session(['marketplace_customer_id' => $customer->id]);
+        $customer->load('preferredShops');
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Logged in successfully.',
+            'customer' => [
+                'id'               => $customer->id,
+                'name'             => $customer->name,
+                'phone'            => $customer->phone,
+                'avatar'           => $customer->avatar,
+                'shipping_address' => $customer->shipping_address,
+                'preferred_shops'  => $customer->preferredShops->map(fn($s) => [
+                    'id'   => $s->id,
+                    'name' => $s->name,
+                    'slug' => $s->slug,
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+     * Customer Registration via Full Name, Phone Number, Password, Confirm Password.
+     *
+     * POST /api/v1/marketplace/register
+     * Body: { name, phone, password, confirm_password }
+     */
+    public function register(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name'             => 'required|string|max:255',
+            'phone'            => 'required|string|min:10|max:20|unique:marketplace_customers,phone',
+            'password'         => 'required|string|min:6',
+            'confirm_password' => 'required|string|same:password',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $phone = preg_replace('/\s+/', '', $request->phone);
+
+        $customer = MarketplaceCustomer::create([
+            'name'        => trim($request->name),
+            'phone'       => $phone,
+            'password'    => Hash::make($request->password),
+            'verified_at' => now(),
+        ]);
+
+        session(['marketplace_customer_id' => $customer->id]);
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Account created successfully.',
+            'customer' => [
+                'id'               => $customer->id,
+                'name'             => $customer->name,
+                'phone'            => $customer->phone,
+                'avatar'           => $customer->avatar,
+                'shipping_address' => $customer->shipping_address,
+                'preferred_shops'  => [],
+            ],
+        ], 201);
+    }
+
     /**
      * Step 1: Send OTP to phone number.
      * Creates account if it doesn't exist yet, generates & stores OTP.
@@ -185,10 +284,81 @@ class MarketplaceCustomerController extends Controller
         return response()->json([
             'success'  => true,
             'customer' => [
-                'id'              => $customer->id,
-                'name'            => $customer->name,
-                'phone'           => $customer->phone,
-                'preferred_shops' => $customer->preferredShops->map(fn($s) => [
+                'id'               => $customer->id,
+                'name'             => $customer->name,
+                'phone'            => $customer->phone,
+                'avatar'           => $customer->avatar,
+                'shipping_address' => $customer->shipping_address,
+                'preferred_shops'  => $customer->preferredShops->map(fn($s) => [
+                    'id'   => $s->id,
+                    'name' => $s->name,
+                    'slug' => $s->slug,
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+     * Update customer profile info (name, phone, shipping_address, avatar).
+     *
+     * POST /api/v1/marketplace/profile
+     */
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $customerId = session('marketplace_customer_id');
+        if (!$customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $customer = MarketplaceCustomer::find($customerId);
+        if (!$customer) {
+            return response()->json(['success' => false, 'message' => 'Customer account not found.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name'             => 'nullable|string|max:255',
+            'phone'            => 'nullable|string|min:10|max:20|unique:marketplace_customers,phone,' . $customer->id,
+            'shipping_address' => 'nullable|string|max:1000',
+            'avatar'           => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $updateData = [];
+        if ($request->has('name')) {
+            $updateData['name'] = trim($request->name);
+        }
+        if ($request->has('phone') && $request->filled('phone')) {
+            $updateData['phone'] = preg_replace('/\s+/', '', $request->phone);
+        }
+        if ($request->has('shipping_address')) {
+            $updateData['shipping_address'] = trim($request->shipping_address);
+        }
+        if ($request->has('avatar')) {
+            $updateData['avatar'] = trim($request->avatar);
+        }
+
+        if (!empty($updateData)) {
+            $customer->update($updateData);
+        }
+
+        $customer->load('preferredShops');
+
+        return response()->json([
+            'success'  => true,
+            'message'  => 'Profile updated successfully.',
+            'customer' => [
+                'id'               => $customer->id,
+                'name'             => $customer->name,
+                'phone'            => $customer->phone,
+                'avatar'           => $customer->avatar,
+                'shipping_address' => $customer->shipping_address,
+                'preferred_shops'  => $customer->preferredShops->map(fn($s) => [
                     'id'   => $s->id,
                     'name' => $s->name,
                     'slug' => $s->slug,
