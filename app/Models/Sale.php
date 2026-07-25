@@ -15,6 +15,7 @@ class Sale extends Model
         'shop_id',
         'invoice_number',
         'customer_id',
+        'marketplace_customer_id',
         'customer_name',
         'customer_phone',
         'customer_email',
@@ -43,6 +44,14 @@ class Sale extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * Get the marketplace customer associated with this sale.
+     */
+    public function marketplaceCustomer(): BelongsTo
+    {
+        return $this->belongsTo(MarketplaceCustomer::class, 'marketplace_customer_id');
     }
 
     /**

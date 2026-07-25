@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 
 /* ─────────────────────────────────────────────
    API Helpers
@@ -30,6 +30,33 @@ async function apiPost(url, body = {}) {
 
 function formatPrice(price) {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price ?? 0);
+}
+
+async function downloadReceiptFile(orderId, invoiceNumber, setDownloadingId) {
+    if (!orderId) return;
+    if (setDownloadingId) setDownloadingId(orderId);
+    try {
+        const response = await fetch(`${API}/marketplace/orders/${orderId}/receipt`, {
+            headers: { Accept: 'application/pdf', 'X-CSRF-TOKEN': getCsrf() }
+        });
+        if (!response.ok) {
+            alert('Unable to download receipt. The order may be unauthorized or processing.');
+            if (setDownloadingId) setDownloadingId(null);
+            return;
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `GlobalShop-Order-${invoiceNumber || orderId}-Receipt.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        alert('Failed to download receipt. Please try again.');
+    }
+    if (setDownloadingId) setDownloadingId(null);
 }
 
 /* ─────────────────────────────────────────────
@@ -195,16 +222,14 @@ function ProductGrid({ products, loading, onShopClick, onAddToCart, onBuyNow, on
 }
 
 /* ─────────────────────────────────────────────
-   OTP Registration / Login Modal
+   Public Marketplace Login Page (/login)
 ───────────────────────────────────────────── */
-function AuthModal({ onClose, onSuccess, allShops }) {
-    const [mode, setMode]                       = useState('login'); // 'login' or 'register'
-    const [name, setName]                       = useState('');
-    const [phone, setPhone]                     = useState('');
-    const [password, setPassword]               = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading]                 = useState(false);
-    const [error, setError]                     = useState('');
+function LoginPage({ setCustomer }) {
+    const navigate = useNavigate();
+    const [phone, setPhone]       = useState('');
+    const [password, setPassword] = useState('');
+    const [loading, setLoading]   = useState(false);
+    const [error, setError]       = useState('');
 
     const handleLogin = async (e) => {
         e?.preventDefault();
@@ -223,8 +248,59 @@ function AuthModal({ onClose, onSuccess, allShops }) {
             return;
         }
 
-        onSuccess(res.customer);
+        setCustomer(res.customer);
+        navigate('/');
     };
+
+    return (
+        <div style={{ minHeight: 'calc(100vh - 120px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+            <div className="fade-up" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2.5rem 2rem', width: '100%', maxWidth: 450, boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
+                <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+                    <span style={{ fontSize: '2.2rem', fontWeight: 800, background: `linear-gradient(135deg,${C.accent},${C.accentAlt})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>GlobalShop</span>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, marginTop: '0.5rem' }}>Welcome Back</h2>
+                    <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.25rem' }}>Sign in to your customer account using Phone & Password.</p>
+                </div>
+
+                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Phone Number</label>
+                        <input id="login-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} autoFocus required />
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Password</label>
+                        <input id="login-password" className="inp" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+                    </div>
+
+                    {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
+
+                    <button id="login-submit-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.9rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                        {loading ? <Spinner size={18} color="#fff" /> : '🔑 Sign In'}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.88rem', color: C.muted }}>
+                        Don't have an account?{' '}
+                        <button type="button" onClick={() => navigate('/register')} style={{ background: 'none', border: 'none', color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                            Create an Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────
+   Public Marketplace Registration Page (/register)
+───────────────────────────────────────────── */
+function RegisterPage({ setCustomer }) {
+    const navigate = useNavigate();
+    const [name, setName]                       = useState('');
+    const [phone, setPhone]                     = useState('');
+    const [password, setPassword]               = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [loading, setLoading]                 = useState(false);
+    const [error, setError]                     = useState('');
 
     const handleRegister = async (e) => {
         e?.preventDefault();
@@ -248,95 +324,53 @@ function AuthModal({ onClose, onSuccess, allShops }) {
             return;
         }
 
-        onSuccess(res.customer);
+        setCustomer(res.customer);
+        navigate('/');
     };
 
     return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 460, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
-                <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
-
-                {/* Mode Selector Tabs */}
-                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '0.25rem', marginBottom: '1.5rem', border: `1px solid ${C.border}` }}>
-                    <button 
-                        type="button"
-                        onClick={() => { setMode('login'); setError(''); }} 
-                        style={{ flex: 1, padding: '0.6rem', border: 'none', borderRadius: 9, background: mode === 'login' ? C.accent : 'transparent', color: mode === 'login' ? '#fff' : C.muted, fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.2s' }}
-                    >
-                        Sign In
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => { setMode('register'); setError(''); }} 
-                        style={{ flex: 1, padding: '0.6rem', border: 'none', borderRadius: 9, background: mode === 'register' ? C.accent : 'transparent', color: mode === 'register' ? '#fff' : C.muted, fontWeight: 700, fontSize: '0.88rem', cursor: 'pointer', transition: 'all 0.2s' }}
-                    >
-                        Create Account
-                    </button>
+        <div style={{ minHeight: 'calc(100vh - 120px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem' }}>
+            <div className="fade-up" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2.5rem 2rem', width: '100%', maxWidth: 450, boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
+                <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+                    <span style={{ fontSize: '2.2rem', fontWeight: 800, background: `linear-gradient(135deg,${C.accent},${C.accentAlt})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>GlobalShop</span>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, marginTop: '0.5rem' }}>Create Account</h2>
+                    <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.25rem' }}>Join GlobalShop to track orders and save preferences.</p>
                 </div>
 
-                {/* Sign In Form */}
-                {mode === 'login' && (
-                    <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }} className="fade-up">
-                        <div>
-                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginBottom: '0.25rem' }}>Welcome Back</h2>
-                            <p style={{ fontSize: '0.85rem', color: C.muted }}>Sign in with your phone number and password.</p>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Phone Number</label>
-                            <input id="auth-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} autoFocus required />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Password</label>
-                            <input id="auth-password" className="inp" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
-                        </div>
-                        {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                        <button id="login-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '🔑 Sign In'}
-                        </button>
-                        <p style={{ textAlign: 'center', fontSize: '0.82rem', color: C.muted, marginTop: '0.4rem' }}>
-                            Don't have an account?{' '}
-                            <span onClick={() => { setMode('register'); setError(''); }} style={{ color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                                Create an Account
-                            </span>
-                        </p>
-                    </form>
-                )}
+                <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Full Name *</label>
+                        <input id="register-name" className="inp" type="text" placeholder="e.g. Rahim Hossain" value={name} onChange={e => setName(e.target.value)} autoFocus required />
+                    </div>
 
-                {/* Registration Form */}
-                {mode === 'register' && (
-                    <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }} className="fade-up">
-                        <div>
-                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginBottom: '0.25rem' }}>Create an Account</h2>
-                            <p style={{ fontSize: '0.85rem', color: C.muted }}>Join GlobalShop to manage orders and follow shops.</p>
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Full Name *</label>
-                            <input id="reg-name" className="inp" type="text" placeholder="e.g. Rahim Hossain" value={name} onChange={e => setName(e.target.value)} autoFocus required />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Phone Number *</label>
-                            <input id="reg-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Password *</label>
-                            <input id="reg-password" className="inp" type="password" placeholder="At least 6 characters" value={password} onChange={e => setPassword(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Confirm Password *</label>
-                            <input id="reg-confirm-password" className="inp" type="password" placeholder="Re-enter password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
-                        </div>
-                        {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                        <button id="register-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.85rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '🚀 Create Account'}
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Phone Number *</label>
+                        <input id="register-phone" className="inp" type="tel" placeholder="+880 1X XX XX XX XX" value={phone} onChange={e => setPhone(e.target.value)} required />
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Password *</label>
+                        <input id="register-password" className="inp" type="password" placeholder="At least 6 characters" value={password} onChange={e => setPassword(e.target.value)} required />
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Confirm Password *</label>
+                        <input id="register-confirm-password" className="inp" type="password" placeholder="Re-enter password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                    </div>
+
+                    {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
+
+                    <button id="register-submit-btn" type="submit" className="btn-primary" disabled={loading} style={{ padding: '0.9rem', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.4rem' }}>
+                        {loading ? <Spinner size={18} color="#fff" /> : '🚀 Create Account'}
+                    </button>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.5rem', fontSize: '0.88rem', color: C.muted }}>
+                        Already have an account?{' '}
+                        <button type="button" onClick={() => navigate('/login')} style={{ background: 'none', border: 'none', color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                            Sign In
                         </button>
-                        <p style={{ textAlign: 'center', fontSize: '0.82rem', color: C.muted, marginTop: '0.4rem' }}>
-                            Already have an account?{' '}
-                            <span onClick={() => { setMode('login'); setError(''); }} style={{ color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}>
-                                Sign In
-                            </span>
-                        </p>
-                    </form>
-                )}
+                    </div>
+                </form>
             </div>
         </div>
     );
@@ -354,6 +388,7 @@ function CartDrawer({ isOpen, onClose, cart, updateQty, removeItem, clearCart, c
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [orderResults, setOrderResults] = useState([]);
+    const [downloadingId, setDownloadingId] = useState(null);
     
     const drawerRef = useRef(null);
 
@@ -575,15 +610,24 @@ function CartDrawer({ isOpen, onClose, cart, updateQty, removeItem, clearCart, c
                         <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.35rem' }}>Your order splits have been received by the shops.</p>
                     </div>
 
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', textAlign: 'left' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', textAlign: 'left' }}>
                         <p style={{ fontSize: '0.8rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Your Invoices:</p>
                         {orderResults.map((ord, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifySpace: 'space-between', fontSize: '0.85rem', borderBottom: idx < orderResults.length - 1 ? `1px dashed ${C.border}` : 'none', paddingBottom: '0.4rem' }}>
+                            <div key={idx} style={{ display: 'flex', alignItems: 'center', justifySpace: 'space-between', fontSize: '0.85rem', borderBottom: idx < orderResults.length - 1 ? `1px dashed ${C.border}` : 'none', paddingBottom: '0.6rem' }}>
                                 <div>
                                     <p style={{ fontWeight: 600 }}>🏪 {ord.shop_name}</p>
                                     <p style={{ fontSize: '0.72rem', color: C.faint }}>{ord.invoice_number}</p>
+                                    <p style={{ fontWeight: 700, color: C.accent, marginTop: '0.15rem' }}>{formatPrice(ord.total)}</p>
                                 </div>
-                                <span style={{ fontWeight: 700, color: C.accent }}>{formatPrice(ord.total)}</span>
+                                <button
+                                    id={`cart-receipt-btn-${ord.id || idx}`}
+                                    className="btn-ghost"
+                                    disabled={downloadingId === ord.id}
+                                    onClick={() => downloadReceiptFile(ord.id, ord.invoice_number, setDownloadingId)}
+                                    style={{ padding: '0.45rem 0.75rem', fontSize: '0.78rem', borderRadius: 8, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                >
+                                    {downloadingId === ord.id ? <Spinner size={14} color={C.accent} /> : '📄 Download Receipt'}
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -598,170 +642,9 @@ function CartDrawer({ isOpen, onClose, cart, updateQty, removeItem, clearCart, c
 }
 
 /* ─────────────────────────────────────────────
-   User Profile Modal
-───────────────────────────────────────────── */
-function ProfileModal({ customer, onClose, onUpdate }) {
-    const [name, setName]                       = useState(customer?.name || '');
-    const [phone, setPhone]                     = useState(customer?.phone || '');
-    const [shippingAddress, setShippingAddress] = useState(customer?.shipping_address || '');
-    const [avatar, setAvatar]                   = useState(customer?.avatar || '');
-    const [loading, setLoading]                 = useState(false);
-    const [error, setError]                     = useState('');
-    const [successMsg, setSuccessMsg]           = useState('');
-
-    const avatarPresets = [
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
-    ];
-
-    const handleSubmit = async (e) => {
-        e?.preventDefault();
-        setError(''); setSuccessMsg('');
-        if (!name.trim()) { setError('Name is required.'); return; }
-        if (!phone.trim()) { setError('Phone number is required.'); return; }
-
-        setLoading(true);
-        const res = await apiPost(`${API}/marketplace/profile`, {
-            name: name.trim(),
-            phone: phone.trim(),
-            shipping_address: shippingAddress.trim(),
-            avatar: avatar.trim(),
-        });
-        setLoading(false);
-
-        if (!res || !res.success) {
-            setError(res?.message || 'Failed to update profile.');
-            return;
-        }
-
-        setSuccessMsg('Profile updated successfully!');
-        if (res.customer) {
-            onUpdate(res.customer);
-        }
-    };
-
-    return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 500, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)' }}>
-                <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
-
-                <div style={{ marginBottom: '1.5rem' }}>
-                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: C.text, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        👤 Edit Profile
-                    </h2>
-                    <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.2rem' }}>
-                        Manage your customer details &amp; default shipping preferences.
-                    </p>
-                </div>
-
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }} className="fade-up">
-                    {/* Avatar selection preview */}
-                    <div>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.5rem' }}>
-                            Profile Avatar
-                        </label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.6rem' }}>
-                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(99,102,241,0.15)', border: `2px solid ${C.accent}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', flexShrink: 0 }}>
-                                {avatar ? (
-                                    <img src={avatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                ) : (
-                                    '👤'
-                                )}
-                            </div>
-                            <input
-                                className="inp"
-                                type="url"
-                                placeholder="Paste image URL or pick below..."
-                                value={avatar}
-                                onChange={e => setAvatar(e.target.value)}
-                                style={{ flex: 1, fontSize: '0.85rem' }}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {avatarPresets.map((preset, idx) => (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    onClick={() => setAvatar(preset)}
-                                    style={{
-                                        width: 36,
-                                        height: 36,
-                                        borderRadius: '50%',
-                                        border: avatar === preset ? `2px solid ${C.accent}` : `1px solid ${C.border}`,
-                                        overflow: 'hidden',
-                                        cursor: 'pointer',
-                                        padding: 0,
-                                    }}
-                                >
-                                    <img src={preset} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                </button>
-                            ))}
-                            {avatar && (
-                                <button
-                                    type="button"
-                                    onClick={() => setAvatar('')}
-                                    style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 20, padding: '0.2rem 0.6rem', fontSize: '0.75rem', color: C.muted, cursor: 'pointer' }}
-                                >
-                                    Remove Avatar
-                                </button>
-                            )}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
-                            Full Name *
-                        </label>
-                        <input id="profile-name" className="inp" type="text" value={name} onChange={e => setName(e.target.value)} required />
-                    </div>
-
-                    <div>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
-                            Phone Number *
-                        </label>
-                        <input id="profile-phone" className="inp" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
-                    </div>
-
-                    <div>
-                        <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>
-                            Default Shipping Address
-                        </label>
-                        <textarea
-                            id="profile-address"
-                            className="inp"
-                            rows={3}
-                            placeholder="e.g. House 12, Road 4, Sector 3, Uttara, Dhaka"
-                            value={shippingAddress}
-                            onChange={e => setShippingAddress(e.target.value)}
-                            style={{ resize: 'none' }}
-                        />
-                    </div>
-
-                    {error && <p style={{ fontSize: '0.82rem', color: C.danger }}>{error}</p>}
-                    {successMsg && <p style={{ fontSize: '0.82rem', color: C.success }}>{successMsg}</p>}
-
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                        <button type="button" className="btn-ghost" onClick={onClose} style={{ flex: 1, padding: '0.8rem' }}>
-                            Cancel
-                        </button>
-                        <button id="save-profile-btn" type="submit" className="btn-primary" disabled={loading} style={{ flex: 1.5, padding: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                            {loading ? <Spinner size={18} color="#fff" /> : '💾 Save Profile'}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-/* ─────────────────────────────────────────────
    User Dropdown Menu
 ───────────────────────────────────────────── */
-function UserDropdown({ customer, onOpenProfile, onLogout }) {
+function UserDropdown({ customer, onNavigateProfile, onLogout }) {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -813,55 +696,41 @@ function UserDropdown({ customer, onOpenProfile, onLogout }) {
                         position: 'absolute',
                         right: 0,
                         top: 'calc(100% + 8px)',
-                        width: 220,
+                        width: 210,
                         background: 'rgba(14,14,22,0.96)',
                         border: `1px solid ${C.border}`,
                         borderRadius: 14,
-                        padding: '0.5rem',
+                        padding: '0.4rem',
                         boxShadow: '0 15px 35px rgba(0,0,0,0.7)',
                         backdropFilter: 'blur(16px)',
                         zIndex: 300,
                     }}
                     className="fade-up"
                 >
-                    <div style={{ padding: '0.6rem 0.75rem', borderBottom: `1px solid ${C.border}`, marginBottom: '0.35rem' }}>
-                        <p style={{ fontSize: '0.88rem', fontWeight: 700, color: C.text }}>{customer.name || 'Customer'}</p>
-                        <p style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.1rem' }}>{customer.phone}</p>
-                    </div>
-
                     <button
-                        id="dropdown-profile-btn"
-                        onClick={() => { setIsOpen(false); onOpenProfile(); }}
+                        id="dropdown-profile-dashboard-btn"
+                        onClick={() => { setIsOpen(false); onNavigateProfile(); }}
                         style={{
                             width: '100%',
                             textAlign: 'left',
                             background: 'transparent',
                             border: 'none',
                             borderRadius: 8,
-                            padding: '0.55rem 0.75rem',
+                            padding: '0.65rem 0.75rem',
                             color: C.text,
-                            fontSize: '0.84rem',
-                            fontWeight: 500,
+                            fontSize: '0.86rem',
+                            fontWeight: 600,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.55rem',
                             transition: 'background 0.15s',
                         }}
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
                         onMouseOut={e => e.currentTarget.style.background = 'transparent'}
                     >
-                        👤 User Profile
+                        👤 My Profile / Dashboard
                     </button>
-
-                    {customer.preferred_shops?.length > 0 && (
-                        <div style={{ padding: '0.4rem 0.75rem', fontSize: '0.75rem', color: C.muted, display: 'flex', alignItems: 'center', justifySpace: 'space-between' }}>
-                            <span>⭐ Followed Shops</span>
-                            <span style={{ background: C.accent, color: '#fff', borderRadius: 10, padding: '0.05rem 0.4rem', fontSize: '0.68rem', fontWeight: 700 }}>
-                                {customer.preferred_shops.length}
-                            </span>
-                        </div>
-                    )}
 
                     <div style={{ borderTop: `1px solid ${C.border}`, margin: '0.35rem 0' }} />
 
@@ -874,14 +743,14 @@ function UserDropdown({ customer, onOpenProfile, onLogout }) {
                             background: 'transparent',
                             border: 'none',
                             borderRadius: 8,
-                            padding: '0.55rem 0.75rem',
+                            padding: '0.65rem 0.75rem',
                             color: C.danger,
-                            fontSize: '0.84rem',
+                            fontSize: '0.86rem',
                             fontWeight: 600,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.55rem',
                             transition: 'background 0.15s',
                         }}
                         onMouseOver={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
@@ -896,9 +765,538 @@ function UserDropdown({ customer, onOpenProfile, onLogout }) {
 }
 
 /* ─────────────────────────────────────────────
+   Customer Dashboard (/profile)
+───────────────────────────────────────────── */
+function CustomerDashboard({ customer, setCustomer, onAuthRequest }) {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Determine sub-tab from path or default 'overview'
+    const activeTab = (() => {
+        const path = location.pathname.replace(/\/$/, '');
+        if (path === '/profile/orders') return 'orders';
+        if (path === '/profile/pending') return 'pending';
+        if (path === '/profile/completed') return 'completed';
+        if (path === '/profile/cancelled') return 'cancelled';
+        if (path === '/profile/settings') return 'settings';
+        return 'overview';
+    })();
+
+    const [orders, setOrders]               = useState([]);
+    const [loadingOrders, setLoadingOrders] = useState(true);
+    const [selectedOrder, setSelectedOrder] = useState(null); // for Order Details Modal
+
+    // Profile Settings Form State
+    const [name, setName]                   = useState(customer?.name || '');
+    const [phone, setPhone]                 = useState(customer?.phone || '');
+    const [avatar, setAvatar]               = useState(customer?.avatar || '');
+    const [shippingAddress, setShippingAddress] = useState(customer?.shipping_address || '');
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [profileSuccess, setProfileSuccess] = useState('');
+    const [profileError, setProfileError]   = useState('');
+
+    useEffect(() => {
+        if (customer) {
+            setName(customer.name || '');
+            setPhone(customer.phone || '');
+            setAvatar(customer.avatar || '');
+            setShippingAddress(customer.shipping_address || '');
+        }
+    }, [customer]);
+
+    // Fetch Orders from API
+    const fetchOrders = useCallback(() => {
+        if (!customer) return;
+        setLoadingOrders(true);
+        apiGet(`${API}/marketplace/orders`).then(res => {
+            if (res && res.success && Array.isArray(res.orders)) {
+                setOrders(res.orders);
+            }
+            setLoadingOrders(false);
+        });
+    }, [customer]);
+
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
+
+    const handleSaveProfile = async (e) => {
+        e.preventDefault();
+        setProfileError(''); setProfileSuccess('');
+        if (!name.trim()) { setProfileError('Full Name is required.'); return; }
+        if (!phone.trim() || phone.trim().length < 10) { setProfileError('A valid Phone Number is required.'); return; }
+
+        setSavingProfile(true);
+        const res = await apiPost(`${API}/marketplace/profile`, {
+            name: name.trim(),
+            phone: phone.trim(),
+            avatar: avatar.trim(),
+            shipping_address: shippingAddress.trim(),
+        });
+        setSavingProfile(false);
+
+        if (res && res.success) {
+            setProfileSuccess('Profile updated successfully!');
+            if (res.customer) setCustomer(res.customer);
+            setTimeout(() => setProfileSuccess(''), 4000);
+        } else {
+            setProfileError(res?.message || 'Failed to update profile.');
+        }
+    };
+
+    if (!customer) {
+        return (
+            <div style={{ maxWidth: 650, margin: '4rem auto', padding: '3rem 2rem', textAlign: 'center', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20 }} className="fade-up">
+                <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔒</div>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: C.text }}>Sign in Required</h2>
+                <p style={{ color: C.muted, marginTop: '0.5rem', fontSize: '0.92rem' }}>Please sign in to access your GlobalShop customer dashboard, order history, and profile settings.</p>
+                <button className="btn-primary" onClick={onAuthRequest} style={{ marginTop: '1.5rem', padding: '0.8rem 1.8rem', fontSize: '0.95rem' }}>
+                    Sign In / Register
+                </button>
+            </div>
+        );
+    }
+
+    // Counts
+    const totalOrders = orders.length;
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    const completedOrders = orders.filter(o => o.status === 'completed');
+    const cancelledOrders = orders.filter(o => o.status === 'cancelled');
+
+    // Filter orders according to tab
+    const filteredOrders = (() => {
+        if (activeTab === 'pending') return pendingOrders;
+        if (activeTab === 'completed') return completedOrders;
+        if (activeTab === 'cancelled') return cancelledOrders;
+        return orders;
+    })();
+
+    const recentOrders = orders.slice(0, 5);
+
+    const avatarPresets = [
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
+        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
+    ];
+
+    return (
+        <div style={{ maxWidth: 1240, margin: '2rem auto', padding: '0 1.5rem' }} className="fade-up">
+            {/* Header Banner */}
+            <div style={{ background: `radial-gradient(ellipse at 70% top, rgba(99,102,241,0.18) 0%, transparent 60%), ${C.surface}`, border: `1px solid ${C.border}`, borderRadius: 20, padding: '1.8rem 2rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+                    <div style={{ width: 68, height: 68, borderRadius: '50%', background: C.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: `3px solid rgba(99,102,241,0.4)`, color: '#fff', fontSize: '2rem', flexShrink: 0 }}>
+                        {customer.avatar ? <img src={customer.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                    </div>
+                    <div>
+                        <span style={{ fontSize: '0.72rem', color: C.accent, textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 800, background: 'rgba(99,102,241,0.1)', padding: '0.2rem 0.6rem', borderRadius: 20 }}>
+                            Customer Dashboard
+                        </span>
+                        <h1 style={{ fontSize: '1.7rem', fontWeight: 800, color: C.text, marginTop: '0.35rem' }}>
+                            Welcome back, {customer.name || 'Shopper'} 👋
+                        </h1>
+                        <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.15rem' }}>
+                            📱 {customer.phone} {customer.shipping_address ? `• 📍 ${customer.shipping_address}` : ''}
+                        </p>
+                    </div>
+                </div>
+                <button className="btn-ghost" onClick={() => navigate('/shop')} style={{ padding: '0.6rem 1.1rem', fontSize: '0.85rem', borderRadius: 10 }}>
+                    ← Back to Storefront
+                </button>
+            </div>
+
+            {/* Layout Grid: Sidebar Tabs + Main View */}
+            <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '2rem', alignItems: 'start' }}>
+                {/* Sidebar Navigation */}
+                <aside style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', position: 'sticky', top: 80 }}>
+                    {[
+                        { id: 'overview', path: '/profile', label: '📊 Overview' },
+                        { id: 'orders', path: '/profile/orders', label: '📦 My Orders', badge: totalOrders },
+                        { id: 'pending', path: '/profile/pending', label: '⏳ Pending', badge: pendingOrders.length },
+                        { id: 'completed', path: '/profile/completed', label: '✅ Completed', badge: completedOrders.length },
+                        { id: 'cancelled', path: '/profile/cancelled', label: '❌ Cancelled', badge: cancelledOrders.length },
+                        { id: 'settings', path: '/profile/settings', label: '⚙️ Profile Settings' },
+                    ].map(tab => {
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                id={`profile-nav-${tab.id}`}
+                                onClick={() => navigate(tab.path)}
+                                style={{
+                                    width: '100%',
+                                    textAlign: 'left',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: 10,
+                                    background: isActive ? C.accent : 'transparent',
+                                    border: `1px solid ${isActive ? C.accent : 'transparent'}`,
+                                    color: isActive ? '#fff' : C.muted,
+                                    fontSize: '0.88rem',
+                                    fontWeight: isActive ? 700 : 500,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifySpace: 'space-between',
+                                    transition: 'all 0.18s',
+                                    fontFamily: 'Outfit, sans-serif'
+                                }}
+                            >
+                                <span>{tab.label}</span>
+                                {tab.badge !== undefined && (
+                                    <span style={{ background: isActive ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.06)', color: isActive ? '#fff' : C.faint, padding: '0.1rem 0.45rem', borderRadius: 12, fontSize: '0.72rem', fontWeight: 700 }}>
+                                        {tab.badge}
+                                    </span>
+                                )}
+                            </button>
+                        );
+                    })}
+                </aside>
+
+                {/* Main View Area */}
+                <main style={{ minWidth: 0 }}>
+                    {/* Overview Tab */}
+                    {activeTab === 'overview' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }} className="fade-up">
+                            {/* Summary Stat Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem' }}>
+                                <StatCard icon="📦" title="Total Orders" value={totalOrders} color={C.accent} onClick={() => navigate('/profile/orders')} />
+                                <StatCard icon="⏳" title="Pending Orders" value={pendingOrders.length} color={C.warning} onClick={() => navigate('/profile/pending')} />
+                                <StatCard icon="✅" title="Completed Orders" value={completedOrders.length} color={C.success} onClick={() => navigate('/profile/completed')} />
+                                <StatCard icon="❌" title="Cancelled Orders" value={cancelledOrders.length} color={C.danger} onClick={() => navigate('/profile/cancelled')} />
+                            </div>
+
+                            {/* User Profile Overview Info */}
+                            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, color: C.text, marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span>👤 User Information</span>
+                                    <button onClick={() => navigate('/profile/settings')} className="btn-ghost" style={{ padding: '0.35rem 0.8rem', fontSize: '0.78rem' }}>Edit Profile</button>
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', fontSize: '0.88rem' }}>
+                                    <div>
+                                        <p style={{ fontSize: '0.75rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Full Name</p>
+                                        <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem' }}>{customer.name || 'Not provided'}</p>
+                                    </div>
+                                    <div>
+                                        <p style={{ fontSize: '0.75rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Phone Number</p>
+                                        <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem' }}>{customer.phone}</p>
+                                    </div>
+                                    <div>
+                                        <p style={{ fontSize: '0.75rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Default Shipping Address</p>
+                                        <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem' }}>{customer.shipping_address || 'Not provided'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Recent Orders */}
+                            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '1.5rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.2rem' }}>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: C.text }}>🕒 Recent Orders</h3>
+                                    <button onClick={() => navigate('/profile/orders')} className="btn-ghost" style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}>View All Orders →</button>
+                                </div>
+                                <OrdersList orders={recentOrders} loading={loadingOrders} onSelectOrder={setSelectedOrder} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Orders Tabs (Orders / Pending / Completed / Cancelled) */}
+                    {(activeTab === 'orders' || activeTab === 'pending' || activeTab === 'completed' || activeTab === 'cancelled') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }} className="fade-up">
+                            {/* Filter Bar */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: C.text }}>
+                                        {activeTab === 'orders' && '📦 All Orders'}
+                                        {activeTab === 'pending' && '⏳ Pending Orders'}
+                                        {activeTab === 'completed' && '✅ Completed Orders'}
+                                        {activeTab === 'cancelled' && '❌ Cancelled Orders'}
+                                    </h2>
+                                    <p style={{ fontSize: '0.8rem', color: C.muted, marginTop: '0.2rem' }}>Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}</p>
+                                </div>
+                                <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '0.25rem', gap: '0.25rem' }}>
+                                    <button className={`tab-btn ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => navigate('/profile/orders')} style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>All ({totalOrders})</button>
+                                    <button className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`} onClick={() => navigate('/profile/pending')} style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>Pending ({pendingOrders.length})</button>
+                                    <button className={`tab-btn ${activeTab === 'completed' ? 'active' : ''}`} onClick={() => navigate('/profile/completed')} style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>Completed ({completedOrders.length})</button>
+                                    <button className={`tab-btn ${activeTab === 'cancelled' ? 'active' : ''}`} onClick={() => navigate('/profile/cancelled')} style={{ padding: '0.4rem 0.85rem', fontSize: '0.8rem' }}>Cancelled ({cancelledOrders.length})</button>
+                                </div>
+                            </div>
+
+                            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '1.5rem' }}>
+                                <OrdersList orders={filteredOrders} loading={loadingOrders} onSelectOrder={setSelectedOrder} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Profile Settings Tab */}
+                    {activeTab === 'settings' && (
+                        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '2rem' }} className="fade-up">
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: C.text, marginBottom: '0.35rem' }}>⚙️ Profile Settings</h2>
+                            <p style={{ fontSize: '0.85rem', color: C.muted, marginBottom: '1.5rem' }}>View and update your personal information and delivery address.</p>
+
+                            <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', maxWidth: 580 }}>
+                                <div>
+                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>
+                                        Profile Avatar
+                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+                                        <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.accent, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.5rem', flexShrink: 0 }}>
+                                            {avatar ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                                        </div>
+                                        <input className="inp" type="url" placeholder="Paste custom avatar URL..." value={avatar} onChange={e => setAvatar(e.target.value)} style={{ flex: 1, fontSize: '0.85rem' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                        {avatarPresets.map((preset, idx) => (
+                                            <button key={idx} type="button" onClick={() => setAvatar(preset)} style={{ width: 34, height: 34, borderRadius: '50%', border: avatar === preset ? `2px solid ${C.accent}` : `1px solid ${C.border}`, overflow: 'hidden', cursor: 'pointer', padding: 0 }}>
+                                                <img src={preset} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Full Name *</label>
+                                    <input id="settings-name" className="inp" type="text" value={name} onChange={e => setName(e.target.value)} required />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Phone Number *</label>
+                                    <input id="settings-phone" className="inp" type="tel" value={phone} onChange={e => setPhone(e.target.value)} required />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Default Shipping Address</label>
+                                    <textarea id="settings-address" className="inp" rows={3} placeholder="e.g. House 12, Road 4, Sector 3, Uttara, Dhaka" value={shippingAddress} onChange={e => setShippingAddress(e.target.value)} style={{ resize: 'none' }} />
+                                </div>
+
+                                {profileError && <p style={{ fontSize: '0.82rem', color: C.danger }}>{profileError}</p>}
+                                {profileSuccess && <p style={{ fontSize: '0.82rem', color: C.success }}>{profileSuccess}</p>}
+
+                                <button id="save-settings-btn" type="submit" className="btn-primary" disabled={savingProfile} style={{ padding: '0.85rem', fontSize: '0.92rem', width: 'fit-content', minWidth: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                    {savingProfile ? <Spinner size={18} color="#fff" /> : '💾 Save Profile Settings'}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+                </main>
+            </div>
+
+            {/* Order Detail Modal */}
+            {selectedOrder && (
+                <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+            )}
+        </div>
+    );
+}
+
+function StatCard({ icon, title, value, color, onClick }) {
+    return (
+        <div onClick={onClick} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: '1.2rem', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: '1rem' }}
+            onMouseOver={e => e.currentTarget.style.borderColor = color}
+            onMouseOut={e => e.currentTarget.style.borderColor = C.border}
+        >
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: `rgba(255,255,255,0.04)`, border: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', flexShrink: 0 }}>
+                {icon}
+            </div>
+            <div>
+                <p style={{ fontSize: '0.78rem', color: C.muted, fontWeight: 600 }}>{title}</p>
+                <p style={{ fontSize: '1.6rem', fontWeight: 800, color: C.text, marginTop: '0.1rem' }}>{value}</p>
+            </div>
+        </div>
+    );
+}
+
+function OrdersList({ orders, loading, onSelectOrder }) {
+    const [downloadingId, setDownloadingId] = useState(null);
+
+    if (loading) {
+        return (
+            <div style={{ padding: '3rem 1rem', textAlign: 'center', color: C.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}>
+                <Spinner size={22} /> Loading order history…
+            </div>
+        );
+    }
+
+    if (!orders || orders.length === 0) {
+        return (
+            <div style={{ padding: '3rem 1rem', textAlign: 'center', color: C.muted }}>
+                <div style={{ fontSize: '3rem', marginBottom: '0.8rem' }}>📦</div>
+                <p style={{ fontWeight: 600, fontSize: '0.98rem' }}>No orders found</p>
+                <p style={{ fontSize: '0.82rem', marginTop: '0.35rem' }}>You haven't placed any orders in this category yet.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {orders.map(order => {
+                const isCompleted = order.status === 'completed';
+                const isPending = order.status === 'pending';
+                const isCancelled = order.status === 'cancelled';
+                const dateStr = order.created_at ? new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recently';
+
+                return (
+                    <div key={order.id} style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, borderRadius: 14, padding: '1.1rem 1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', borderBottom: `1px solid ${C.border}`, paddingBottom: '0.75rem' }}>
+                            <div>
+                                <span style={{ fontWeight: 800, color: C.text, fontSize: '0.95rem' }}>📄 {order.invoice_number}</span>
+                                <span style={{ fontSize: '0.78rem', color: C.muted, marginLeft: '0.75rem' }}>{dateStr}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <span style={{
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    padding: '0.2rem 0.65rem',
+                                    borderRadius: 20,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.04em',
+                                    background: isCompleted ? 'rgba(16,185,129,0.15)' : isPending ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                                    color: isCompleted ? C.success : isPending ? C.warning : C.danger,
+                                    border: `1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : isPending ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`
+                                }}>
+                                    {order.status}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+                            <div>
+                                <p style={{ fontSize: '0.82rem', color: C.muted }}>
+                                    🏪 Seller Shop: <strong style={{ color: C.text }}>{order.shop?.name || 'Shop'}</strong>
+                                </p>
+                                <p style={{ fontSize: '0.82rem', color: C.muted, marginTop: '0.25rem' }}>
+                                    🛍️ Items ({order.items?.length || 0}): <span style={{ color: C.text }}>{order.items?.map(i => `${i.product_name} (x${i.quantity})`).join(', ')}</span>
+                                </p>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{ textAlign: 'right', marginRight: '0.2rem' }}>
+                                    <p style={{ fontSize: '0.75rem', color: C.muted }}>Order Total</p>
+                                    <p style={{ fontSize: '1.15rem', fontWeight: 800, color: C.accent }}>{formatPrice(order.total)}</p>
+                                </div>
+                                <button
+                                    id={`order-list-receipt-${order.id}`}
+                                    className="btn-ghost"
+                                    disabled={downloadingId === order.id}
+                                    onClick={() => downloadReceiptFile(order.id, order.invoice_number, setDownloadingId)}
+                                    style={{ padding: '0.5rem 0.85rem', fontSize: '0.8rem', borderRadius: 8, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                                >
+                                    {downloadingId === order.id ? <Spinner size={14} color={C.accent} /> : '📄 Download Receipt'}
+                                </button>
+                                <button className="btn-ghost" onClick={() => onSelectOrder(order)} style={{ padding: '0.5rem 0.95rem', fontSize: '0.82rem', borderRadius: 8 }}>
+                                    View Details →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+function OrderDetailModal({ order, onClose }) {
+    const [downloadingId, setDownloadingId] = useState(null);
+    if (!order) return null;
+
+    const isCompleted = order.status === 'completed';
+    const isPending = order.status === 'pending';
+    const dateStr = order.created_at ? new Date(order.created_at).toLocaleString() : 'Recent';
+
+    return (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 560, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer' }}>✕</button>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }} className="fade-up">
+                    <div>
+                        <span style={{ fontSize: '0.72rem', color: C.accent, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, background: 'rgba(99,102,241,0.1)', padding: '0.2rem 0.6rem', borderRadius: 20 }}>
+                            Order Details
+                        </span>
+                        <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginTop: '0.4rem' }}>
+                            Invoice #{order.invoice_number}
+                        </h2>
+                        <p style={{ fontSize: '0.8rem', color: C.muted, marginTop: '0.15rem' }}>Placed on {dateStr}</p>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '1rem', fontSize: '0.85rem' }}>
+                        <div>
+                            <p style={{ fontSize: '0.72rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Shop / Seller</p>
+                            <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem' }}>🏪 {order.shop?.name}</p>
+                        </div>
+                        <div>
+                            <p style={{ fontSize: '0.72rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Status</p>
+                            <p style={{ fontWeight: 700, color: isCompleted ? C.success : isPending ? C.warning : C.danger, marginTop: '0.2rem', textTransform: 'uppercase' }}>
+                                {order.status}
+                            </p>
+                        </div>
+                        <div>
+                            <p style={{ fontSize: '0.72rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Payment Method</p>
+                            <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem', textTransform: 'capitalize' }}>💳 {order.payment_method}</p>
+                        </div>
+                        <div>
+                            <p style={{ fontSize: '0.72rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Receiver Contact</p>
+                            <p style={{ fontWeight: 600, color: C.text, marginTop: '0.2rem' }}>📱 {order.customer_phone}</p>
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <p style={{ fontSize: '0.72rem', color: C.faint, fontWeight: 700, textTransform: 'uppercase' }}>Shipping Address</p>
+                            <p style={{ fontWeight: 500, color: C.muted, marginTop: '0.2rem' }}>📍 {order.shipping_address || 'N/A'}</p>
+                        </div>
+                    </div>
+
+                    {/* Order Items Table */}
+                    <div>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Purchased Items</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {order.items?.map((item, idx) => (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifySpace: 'space-between', padding: '0.65rem 0.85rem', background: 'rgba(255,255,255,0.02)', border: `1px solid ${C.border}`, borderRadius: 10, fontSize: '0.85rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        {item.image ? <img src={item.image} alt="" style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover' }} /> : <span style={{ fontSize: '1.2rem' }}>🛍️</span>}
+                                        <div>
+                                            <p style={{ fontWeight: 600, color: C.text }}>{item.product_name}</p>
+                                            <p style={{ fontSize: '0.75rem', color: C.muted }}>Qty: {item.quantity} x {formatPrice(item.price)}</p>
+                                        </div>
+                                    </div>
+                                    <span style={{ fontWeight: 700, color: C.accent }}>{formatPrice(item.total)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Total Summary */}
+                    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '0.85rem', marginTop: '0.3rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                        <div style={{ display: 'flex', justifySpace: 'space-between', fontSize: '0.85rem', color: C.muted }}>
+                            <span>Subtotal:</span>
+                            <span>{formatPrice(order.subtotal)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifySpace: 'space-between', fontSize: '1.1rem', fontWeight: 800, marginTop: '0.2rem' }}>
+                            <span>Order Total:</span>
+                            <span style={{ color: C.accent }}>{formatPrice(order.total)}</span>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                        <button
+                            id={`modal-download-receipt-${order.id}`}
+                            className="btn-ghost"
+                            disabled={downloadingId === order.id}
+                            onClick={() => downloadReceiptFile(order.id, order.invoice_number, setDownloadingId)}
+                            style={{ flex: 1, padding: '0.8rem', fontSize: '0.88rem', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                        >
+                            {downloadingId === order.id ? <Spinner size={16} color={C.accent} /> : '📄 Download Receipt'}
+                        </button>
+                        <button className="btn-primary" onClick={onClose} style={{ flex: 1, padding: '0.8rem', fontSize: '0.88rem', borderRadius: 10 }}>
+                            Close Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────
    Navbar
 ───────────────────────────────────────────── */
-function Navbar({ customer, cartCount, onCartClick, onAuthClick, onOpenProfile, onLogout, currentShopSlug }) {
+function Navbar({ customer, cartCount, onCartClick, onAuthClick, onLogout, currentShopSlug }) {
+    const navigate = useNavigate();
     return (
         <header style={{ position: 'sticky', top: 0, zIndex: 200, background: 'rgba(8,8,13,0.88)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${C.border}` }}>
             <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 2rem', height: 62, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -922,9 +1320,9 @@ function Navbar({ customer, cartCount, onCartClick, onAuthClick, onOpenProfile, 
                     </button>
 
                     {customer ? (
-                        <UserDropdown customer={customer} onOpenProfile={onOpenProfile} onLogout={onLogout} />
+                        <UserDropdown customer={customer} onNavigateProfile={() => navigate('/profile')} onLogout={onLogout} />
                     ) : (
-                        <button id="nav-signin-btn" className="btn-primary" onClick={onAuthClick} style={{ padding: '0.45rem 1.1rem', fontSize: '0.88rem', borderRadius: 8 }}>
+                        <button id="nav-signin-btn" className="btn-primary" onClick={() => navigate('/login')} style={{ padding: '0.45rem 1.1rem', fontSize: '0.88rem', borderRadius: 8 }}>
                             Sign In / Register
                         </button>
                     )}
@@ -1435,16 +1833,253 @@ function ProductDetailPage({ customer, addToCart, onBuyNow, onCartClick }) {
 }
 
 /* ─────────────────────────────────────────────
+   Direct Buy / Direct Checkout Modal (Single Product)
+───────────────────────────────────────────── */
+function DirectCheckoutModal({ product, customer, onClose, onAuthRequest }) {
+    const [quantity, setQuantity]           = useState(1);
+    const [name, setName]                   = useState('');
+    const [phone, setPhone]                 = useState('');
+    const [address, setAddress]             = useState('');
+    const [payment, setPayment]             = useState('cash'); // cash, mobile, card
+    const [loading, setLoading]             = useState(false);
+    const [error, setError]                 = useState('');
+    const [step, setStep]                   = useState(1); // 1 = form, 2 = order success
+    const [orderResults, setOrderResults]   = useState([]);
+    const [downloadingId, setDownloadingId] = useState(null);
+
+    const stock = product?.stock_quantity ?? 999;
+
+    useEffect(() => {
+        if (customer) {
+            setName(customer.name || '');
+            setPhone(customer.phone || '');
+            setAddress(customer.shipping_address || '');
+        }
+    }, [customer]);
+
+    const handleQtyChange = (delta) => {
+        setQuantity(prev => {
+            const next = prev + delta;
+            if (next < 1) return 1;
+            if (next > stock) return stock;
+            return next;
+        });
+    };
+
+    const subtotal = (product?.price || 0) * quantity;
+
+    const handlePlaceOrder = async () => {
+        if (!name.trim()) { setError('Receiver Name is mandatory.'); return; }
+        if (!phone.trim() || phone.trim().length < 10) { setError('A valid Phone Number is mandatory.'); return; }
+        if (!address.trim()) { setError('Shipping Address is mandatory.'); return; }
+        if (quantity > stock) { setError(`Requested quantity exceeds available stock (${stock}).`); return; }
+
+        setError('');
+        setLoading(true);
+
+        const payload = {
+            customer_name: name.trim(),
+            customer_phone: phone.trim(),
+            shipping_address: address.trim(),
+            payment_method: payment,
+            items: [
+                {
+                    product_id: product.id,
+                    quantity: quantity,
+                }
+            ]
+        };
+
+        const res = await apiPost(`${API}/marketplace/checkout`, payload);
+        setLoading(false);
+
+        if (res && res.success) {
+            setOrderResults(res.orders || []);
+            setStep(2);
+        } else {
+            setError(res?.message || 'Checkout failed. Please try again.');
+        }
+    };
+
+    if (!product) return null;
+
+    const img = product.images?.[0]?.image_url;
+
+    return (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+            <div className="modal-box" style={{ background: 'rgba(14,14,22,0.98)', border: `1px solid rgba(99,102,241,0.25)`, borderRadius: 20, padding: '2rem', width: '100%', maxWidth: 500, position: 'relative', boxShadow: '0 40px 80px rgba(0,0,0,0.7)', maxHeight: '90vh', overflowY: 'auto' }}>
+                <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: C.muted, fontSize: '1.3rem', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+
+                {step === 1 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }} className="fade-up">
+                        <div>
+                            <span style={{ fontSize: '0.72rem', color: C.accent, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800, background: 'rgba(99,102,241,0.1)', padding: '0.2rem 0.6rem', borderRadius: 20 }}>
+                                ⚡ Direct Checkout
+                            </span>
+                            <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: C.text, marginTop: '0.4rem' }}>
+                                Buy Product Now
+                            </h2>
+                            <p style={{ fontSize: '0.82rem', color: C.muted, marginTop: '0.15rem' }}>
+                                Single product instant purchase without affecting your shopping cart.
+                            </p>
+                        </div>
+
+                        {/* Product Summary Card */}
+                        <div style={{ display: 'flex', gap: '1rem', background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 14, padding: '0.85rem', alignItems: 'center' }}>
+                            <div style={{ width: 64, height: 64, borderRadius: 10, background: 'rgba(12,12,20,0.8)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {img ? <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '1.8rem' }}>🛍️</span>}
+                            </div>
+                            <div style={{ flexGrow: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: '0.92rem', fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</p>
+                                <p style={{ fontSize: '0.78rem', color: C.muted, marginTop: '0.15rem' }}>🏪 {product.shop?.name || 'Shop'}</p>
+                                <p style={{ fontSize: '0.9rem', fontWeight: 800, color: C.accent, marginTop: '0.25rem' }}>{formatPrice(product.price)} / unit</p>
+                            </div>
+                        </div>
+
+                        {/* Quantity Selector with + and - controls */}
+                        <div style={{ background: 'rgba(99,102,241,0.06)', border: `1px solid rgba(99,102,241,0.18)`, borderRadius: 14, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div>
+                                <label style={{ fontSize: '0.8rem', fontWeight: 700, color: C.text, display: 'block' }}>Select Quantity</label>
+                                <span style={{ fontSize: '0.75rem', color: C.muted }}>Available Stock: <strong style={{ color: stock > 0 ? C.text : C.danger }}>{stock}</strong></span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                <button
+                                    id="direct-qty-minus"
+                                    type="button"
+                                    onClick={() => handleQtyChange(-1)}
+                                    disabled={quantity <= 1}
+                                    style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.05)', color: C.text, fontSize: '1.1rem', cursor: quantity <= 1 ? 'not-allowed' : 'pointer', opacity: quantity <= 1 ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    −
+                                </button>
+                                <span id="direct-qty-value" style={{ fontSize: '1.1rem', fontWeight: 800, minWidth: 32, textAlign: 'center', color: C.accent }}>{quantity}</span>
+                                <button
+                                    id="direct-qty-plus"
+                                    type="button"
+                                    onClick={() => handleQtyChange(1)}
+                                    disabled={quantity >= stock}
+                                    style={{ width: 34, height: 34, borderRadius: 8, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.05)', color: C.text, fontSize: '1.1rem', cursor: quantity >= stock ? 'not-allowed' : 'pointer', opacity: quantity >= stock ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Checkout Form Inputs */}
+                        {!customer && (
+                            <div style={{ background: 'rgba(99,102,241,0.08)', border: `1px solid rgba(99,102,241,0.2)`, borderRadius: 10, padding: '0.65rem 0.9rem', fontSize: '0.8rem', color: C.muted }}>
+                                💡 <button onClick={() => { onClose(); onAuthRequest(); }} style={{ background: 'none', border: 'none', color: C.accent, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Sign in</button> to auto-fill details.
+                            </div>
+                        )}
+
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Receiver Name *</label>
+                            <input id="direct-checkout-name" className="inp" type="text" placeholder="e.g. Karim Ahmed" value={name} onChange={e => setName(e.target.value)} required />
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Contact Phone *</label>
+                            <input id="direct-checkout-phone" className="inp" type="tel" placeholder="e.g. +8801XXXXXXXXX" value={phone} onChange={e => setPhone(e.target.value)} required />
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.35rem' }}>Shipping Address *</label>
+                            <textarea id="direct-checkout-address" className="inp" placeholder="e.g. House 12, Road 4, Sector 3, Uttara, Dhaka" value={address} onChange={e => setAddress(e.target.value)} style={{ resize: 'none', height: 75 }} required />
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.78rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '0.4rem' }}>Payment Method</label>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                {[
+                                    { id: 'cash', label: '💵 COD (Cash)' },
+                                    { id: 'mobile', label: '📱 Mobile pay' },
+                                    { id: 'card', label: '💳 Card' },
+                                ].map(p => (
+                                    <button key={p.id} type="button" className={`tab-btn ${payment === p.id ? 'active' : ''}`} onClick={() => setPayment(p.id)} style={{ flex: 1, padding: '0.5rem', fontSize: '0.78rem', borderRadius: 8 }}>
+                                        {p.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Summary Total */}
+                        <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '0.85rem', marginTop: '0.3rem' }}>
+                            <div style={{ display: 'flex', justifySpace: 'space-between', fontSize: '0.88rem', color: C.muted, marginBottom: '0.4rem' }}>
+                                <span>Subtotal ({quantity} {quantity === 1 ? 'item' : 'items'}):</span>
+                                <span>{formatPrice(subtotal)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifySpace: 'space-between', fontSize: '1.05rem', fontWeight: 800, marginBottom: '0.85rem' }}>
+                                <span>Total Payable:</span>
+                                <span style={{ color: C.accent }}>{formatPrice(subtotal)}</span>
+                            </div>
+
+                            {error && <p style={{ fontSize: '0.82rem', color: C.danger, marginBottom: '0.75rem' }}>{error}</p>}
+
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button type="button" className="btn-ghost" onClick={onClose} style={{ flex: 1, padding: '0.8rem' }}>Cancel</button>
+                                <button id="direct-place-order-btn" type="button" className="btn-primary" onClick={handlePlaceOrder} disabled={loading || stock <= 0} style={{ flex: 2, padding: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                    {loading ? <Spinner size={18} color="#fff" /> : '⚡ Place Direct Order'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Step 2: Success Screen */}
+                {step === 2 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', textAlign: 'center', padding: '1rem 0.5rem' }} className="fade-up">
+                        <div style={{ fontSize: '3.5rem' }}>🎉</div>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: C.success }}>Order Placed Successfully!</h3>
+                            <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: '0.35rem' }}>Your direct order has been received by {product.shop?.name || 'the seller'}.</p>
+                        </div>
+
+                        <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}`, borderRadius: 12, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', textAlign: 'left' }}>
+                            <p style={{ fontSize: '0.8rem', fontWeight: 700, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Order Summary:</p>
+                            {orderResults.map((ord, idx) => (
+                                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifySpace: 'space-between', fontSize: '0.85rem', borderBottom: idx < orderResults.length - 1 ? `1px dashed ${C.border}` : 'none', paddingBottom: '0.6rem' }}>
+                                    <div>
+                                        <p style={{ fontWeight: 600 }}>🏪 {ord.shop_name}</p>
+                                        <p style={{ fontSize: '0.72rem', color: C.faint }}>{ord.invoice_number}</p>
+                                        <p style={{ fontSize: '0.75rem', color: C.muted, marginTop: '0.15rem' }}>Qty: {quantity} x {product.name}</p>
+                                        <p style={{ fontWeight: 700, color: C.accent, marginTop: '0.15rem' }}>{formatPrice(ord.total)}</p>
+                                    </div>
+                                    <button
+                                        id={`direct-receipt-btn-${ord.id || idx}`}
+                                        className="btn-ghost"
+                                        disabled={downloadingId === ord.id}
+                                        onClick={() => downloadReceiptFile(ord.id, ord.invoice_number, setDownloadingId)}
+                                        style={{ padding: '0.45rem 0.75rem', fontSize: '0.78rem', borderRadius: 8, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                    >
+                                        {downloadingId === ord.id ? <Spinner size={14} color={C.accent} /> : '📄 Download Receipt'}
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button className="btn-primary" onClick={onClose} style={{ padding: '0.75rem', width: '100%', fontSize: '0.88rem' }}>
+                            Continue Shopping
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ─────────────────────────────────────────────
    Root App — shared state + routing
 ───────────────────────────────────────────── */
 function MarketplaceApp() {
-    const [customer, setCustomer] = useState(null);       
-    const [allShops, setAllShops] = useState([]);         
-    const [bootDone, setBootDone] = useState(false);
-    const [isCartOpen, setIsCartOpen] = useState(false);
-    const [showAuth, setShowAuth] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
-    const [cartInitialStep, setCartInitialStep] = useState(1); // 1 = cart, 2 = checkout
+    const [customer, setCustomer]                 = useState(null);       
+    const [allShops, setAllShops]                 = useState([]);         
+    const [bootDone, setBootDone]                 = useState(false);
+    const [isCartOpen, setIsCartOpen]             = useState(false);
+    const [showAuth, setShowAuth]                 = useState(false);
+    const [showProfile, setShowProfile]           = useState(false);
+    const [directBuyProduct, setDirectBuyProduct] = useState(null);
+    const [cartInitialStep, setCartInitialStep]   = useState(1); // 1 = cart, 2 = checkout
+    const [toastMessage, setToastMessage]         = useState('');
 
     // Shopping Cart state
     const [cart, setCart] = useState(() => {
@@ -1457,6 +2092,13 @@ function MarketplaceApp() {
         localStorage.setItem('mkt_cart', JSON.stringify(cart));
     }, [cart]);
 
+    useEffect(() => {
+        if (toastMessage) {
+            const timer = setTimeout(() => setToastMessage(''), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [toastMessage]);
+
     const addToCart = (product) => {
         setCart(prev => {
             const existing = prev.find(item => item.product.id === product.id);
@@ -1467,15 +2109,12 @@ function MarketplaceApp() {
             }
             return [...prev, { product, quantity: 1 }];
         });
-        setCartInitialStep(1); // Reset to regular cart view on add
-        setIsCartOpen(true); 
+        setToastMessage(`Product "${product.name}" added to cart`);
     };
 
     const handleBuyNow = (product) => {
-        // Set cart to contain ONLY this product with quantity 1 for direct/express checkout
-        setCart([{ product, quantity: 1 }]);
-        setCartInitialStep(2); // Go directly to Checkout details form!
-        setIsCartOpen(true);
+        // Direct Buy Now does NOT modify or touch the cart
+        setDirectBuyProduct(product);
     };
 
     const updateCartQty = (productId, qty) => {
@@ -1524,23 +2163,15 @@ function MarketplaceApp() {
                 cartCount={totalCartItems} 
                 onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} 
                 onAuthClick={() => setShowAuth(true)} 
-                onOpenProfile={() => setShowProfile(true)}
                 onLogout={handleLogout} 
             />
 
-            {showAuth && (
-                <AuthModal 
-                    onClose={() => setShowAuth(false)} 
-                    onSuccess={c => { setCustomer(c); setShowAuth(false); }} 
-                    allShops={allShops} 
-                />
-            )}
-
-            {showProfile && customer && (
-                <ProfileModal 
+            {directBuyProduct && (
+                <DirectCheckoutModal 
+                    product={directBuyProduct} 
                     customer={customer} 
-                    onClose={() => setShowProfile(false)} 
-                    onUpdate={updated => { setCustomer(updated); setShowProfile(false); }} 
+                    onClose={() => setDirectBuyProduct(null)} 
+                    onAuthRequest={() => window.location.href = '/login'} 
                 />
             )}
 
@@ -1552,16 +2183,45 @@ function MarketplaceApp() {
                 removeItem={removeFromCart} 
                 clearCart={clearCart} 
                 customer={customer} 
-                onAuthRequest={() => setShowAuth(true)} 
+                onAuthRequest={() => window.location.href = '/login'} 
                 initialStep={cartInitialStep}
             />
 
             <Routes>
+                <Route path="/login"            element={customer ? <Navigate to="/" replace /> : <LoginPage setCustomer={setCustomer} />} />
+                <Route path="/register"         element={customer ? <Navigate to="/" replace /> : <RegisterPage setCustomer={setCustomer} />} />
+                <Route path="/profile/*"        element={customer ? <CustomerDashboard customer={customer} setCustomer={setCustomer} onAuthRequest={() => window.location.href = '/login'} /> : <Navigate to="/login" replace />} />
                 <Route path="/shop/product/:id" element={<ProductDetailPage customer={customer} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} />} />
-                <Route path="/shop/:slug"       element={<ShopPage customer={customer} setCustomer={setCustomer} allShops={allShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={showAuth} setShowAuth={setShowAuth} />} />
-                <Route path="/shop/*"           element={<MarketplacePage customer={customer} setCustomer={setCustomer} allShops={allShops} setAllShops={setAllShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={showAuth} setShowAuth={setShowAuth} />} />
-                <Route path="*"                 element={<MarketplacePage customer={customer} setCustomer={setCustomer} allShops={allShops} setAllShops={setAllShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={showAuth} setShowAuth={setShowAuth} />} />
+                <Route path="/shop/:slug"       element={<ShopPage customer={customer} setCustomer={setCustomer} allShops={allShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={false} setShowAuth={() => {}} />} />
+                <Route path="/shop/*"           element={<MarketplacePage customer={customer} setCustomer={setCustomer} allShops={allShops} setAllShops={setAllShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={false} setShowAuth={() => {}} />} />
+                <Route path="*"                 element={<MarketplacePage customer={customer} setCustomer={setCustomer} allShops={allShops} setAllShops={setAllShops} addToCart={addToCart} onBuyNow={handleBuyNow} onCartClick={() => { setCartInitialStep(1); setIsCartOpen(true); }} showAuth={false} setShowAuth={() => {}} />} />
             </Routes>
+
+            {toastMessage && (
+                <div id="marketplace-toast" style={{
+                    position: 'fixed',
+                    bottom: '2rem',
+                    right: '2rem',
+                    zIndex: 9999,
+                    background: 'rgba(15,15,23,0.95)',
+                    border: `1px solid ${C.accent}`,
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 20px rgba(99,102,241,0.2)',
+                    borderRadius: 12,
+                    padding: '0.85rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    color: C.text,
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    animation: 'fadeUp 0.3s ease both',
+                    backdropFilter: 'blur(12px)'
+                }}>
+                    <span style={{ fontSize: '1.2rem' }}>🛒</span>
+                    <span>{toastMessage}</span>
+                    <button onClick={() => setToastMessage('')} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', marginLeft: '0.5rem', fontSize: '0.9rem' }}>✕</button>
+                </div>
+            )}
         </BrowserRouter>
     );
 }

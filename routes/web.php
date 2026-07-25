@@ -27,13 +27,35 @@ Route::get('/', function (Request $request) {
     if (auth()->check()) {
         $user = auth()->user();
 
-        // Check if logged in user is Admin, Super Admin, Shop Owner, or Shop Employee
         $isShopOrAdminUser = $user->is_platform_admin
             || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
             || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
 
         if ($isShopOrAdminUser) {
-            // Logout first, then give access to root route
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+
+            return redirect('/login');
+        }
+    }
+
+    return view('marketplace');
+})->name('home');
+
+Route::get('/login', function (Request $request) {
+    if ($request->wantsJson()) {
+        return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+    }
+
+    if (auth()->check()) {
+        $user = auth()->user();
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -41,8 +63,58 @@ Route::get('/', function (Request $request) {
         }
     }
 
+    if (session()->has('marketplace_customer_id')) {
+        return redirect('/');
+    }
+
     return view('marketplace');
-})->name('home');
+})->name('login');
+
+Route::get('/register', function (Request $request) {
+    if ($request->wantsJson()) {
+        return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+    }
+
+    if (auth()->check()) {
+        $user = auth()->user();
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+        }
+    }
+
+    if (session()->has('marketplace_customer_id')) {
+        return redirect('/');
+    }
+
+    return view('marketplace');
+})->name('register');
+
+Route::get('/profile/{any?}', function (Request $request) {
+    if (auth()->check()) {
+        $user = auth()->user();
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+
+            return redirect('/login');
+        }
+    }
+
+    return view('marketplace');
+})->where('any', '.*')->name('customer.profile');
 
 // Demo Session Simulator Routes
 Route::prefix('demo')->group(function () {
@@ -596,10 +668,6 @@ Route::prefix('demo')->group(function () {
 });
 
 Route::get('/admin', [App\Http\Controllers\PlatformAdminController::class, 'index'])->name('platform.admin');
-
-Route::get('/login', function () {
-    return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
-})->name('login');
 
 Route::post('/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->name('logout');
 

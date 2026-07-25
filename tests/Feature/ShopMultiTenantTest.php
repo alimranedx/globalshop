@@ -256,27 +256,24 @@ class ShopMultiTenantTest extends TestCase
         $this->assertAuthenticatedAs($regularUser);
     }
 
-    public function test_non_regular_users_are_logged_out_when_accessing_root_route()
+    public function test_shop_and_admin_users_session_cleared_and_redirected_to_login_on_root_route()
     {
-        // 1. Super Admin visits / -> gets logged out first, then accesses /
+        // 1. Super Admin visits / -> session cleared, redirected to /login
         $this->actingAs($this->superAdmin);
         $responseSuper = $this->get('/');
-        $responseSuper->assertStatus(200);
-        $responseSuper->assertViewIs('marketplace');
+        $responseSuper->assertRedirect('/login');
         $this->assertGuest();
 
-        // 2. Shop Owner visits / -> gets logged out first, then accesses /
+        // 2. Shop Owner visits / -> session cleared, redirected to /login
         $this->actingAs($this->ownerAlpha);
         $responseOwner = $this->get('/');
-        $responseOwner->assertStatus(200);
-        $responseOwner->assertViewIs('marketplace');
+        $responseOwner->assertRedirect('/login');
         $this->assertGuest();
 
-        // 3. Shop Employee visits / -> gets logged out first, then accesses /
+        // 3. Shop Employee visits / -> session cleared, redirected to /login
         $this->actingAs($this->employeeAlpha);
         $responseEmployee = $this->get('/');
-        $responseEmployee->assertStatus(200);
-        $responseEmployee->assertViewIs('marketplace');
+        $responseEmployee->assertRedirect('/login');
         $this->assertGuest();
     }
 }

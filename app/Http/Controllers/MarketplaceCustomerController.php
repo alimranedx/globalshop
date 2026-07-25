@@ -368,6 +368,209 @@ class MarketplaceCustomerController extends Controller
     }
 
     /**
+     * Get all orders belonging to the authenticated customer.
+     *
+     * GET /api/v1/marketplace/orders
+     */
+    public function getOrders(Request $request): JsonResponse
+    {
+        $customerId = session('marketplace_customer_id');
+        if (!$customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $customer = MarketplaceCustomer::find($customerId);
+        if (!$customer) {
+            return response()->json(['success' => false, 'message' => 'Customer account not found.'], 404);
+        }
+
+        $phone = preg_replace('/\s+/', '', $customer->phone);
+
+        $query = Sale::withoutGlobalScope('tenant')
+            ->with(['shop:id,name,slug', 'items.product:id,name'])
+            ->where(function ($q) use ($customer, $phone) {
+                $q->where('marketplace_customer_id', $customer->id);
+                if ($phone) {
+                    $q->orWhere('customer_phone', $phone)
+                      ->orWhere('customer_phone', $customer->phone);
+                }
+            });
+
+        if ($request->has('status') && in_array($request->status, ['pending', 'completed', 'cancelled'])) {
+            $query->where('status', $request->status);
+        }
+
+        $sales = $query->orderBy('created_at', 'desc')->get();
+
+        $formatted = $sales->map(function ($s) {
+            return [
+                'id'               => $s->id,
+                'invoice_number'   => $s->invoice_number,
+                'created_at'       => $s->created_at ? $s->created_at->toISOString() : null,
+                'status'           => $s->status,
+                'payment_method'   => $s->payment_method,
+                'subtotal'         => (float) $s->subtotal,
+                'discount'         => (float) $s->discount,
+                'tax'              => (float) $s->tax,
+                'total'            => (float) $s->total,
+                'shipping_address' => $s->shipping_address,
+                'customer_name'    => $s->customer_name,
+                'customer_phone'   => $s->customer_phone,
+                'shop'             => $s->shop ? [
+                    'id'   => $s->shop->id,
+                    'name' => $s->shop->name,
+                    'slug' => $s->shop->slug,
+                ] : null,
+                'items'            => $s->items->map(fn($i) => [
+                    'id'           => $i->id,
+                    'product_id'   => $i->product_id,
+                    'product_name' => $i->product_name,
+                    'quantity'     => (float) $i->quantity,
+                    'price'        => (float) $i->price,
+                    'total'        => (float) $i->total,
+                    'image'        => ($i->product && $i->product->images->first()) ? $i->product->images->first()->image_url : null,
+                ]),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'orders'  => $formatted,
+        ]);
+    }
+
+    /**
+     * Get single order details with security check (only own orders).
+     *
+     * GET /api/v1/marketplace/orders/{id}
+     */
+    public function getOrderDetail(Request $request, $id): JsonResponse
+    {
+        $customerId = session('marketplace_customer_id');
+        if (!$customerId) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $customer = MarketplaceCustomer::find($customerId);
+        if (!$customer) {
+            return response()->json(['success' => false, 'message' => 'Customer account not found.'], 404);
+        }
+
+        $phone = preg_replace('/\s+/', '', $customer->phone);
+
+        $sale = Sale::withoutGlobalScope('tenant')
+            ->with(['shop:id,name,slug', 'items.product:id,name'])
+            ->where(function ($q) use ($customer, $phone) {
+                $q->where('marketplace_customer_id', $customer->id);
+                if ($phone) {
+                    $q->orWhere('customer_phone', $phone)
+                      ->orWhere('customer_phone', $customer->phone);
+                }
+            })
+            ->where('id', $id)
+            ->first();
+
+        if (!$sale) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found or unauthorized access.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'order'   => [
+                'id'               => $sale->id,
+                'invoice_number'   => $sale->invoice_number,
+                'created_at'       => $sale->created_at ? $sale->created_at->toISOString() : null,
+                'status'           => $sale->status,
+                'payment_method'   => $sale->payment_method,
+                'subtotal'         => (float) $sale->subtotal,
+                'discount'         => (float) $sale->discount,
+                'tax'              => (float) $sale->tax,
+                'total'            => (float) $sale->total,
+                'shipping_address' => $sale->shipping_address,
+                'customer_name'    => $sale->customer_name,
+                'customer_phone'   => $sale->customer_phone,
+                'shop'             => $sale->shop ? [
+                    'id'   => $sale->shop->id,
+                    'name' => $sale->shop->name,
+                    'slug' => $sale->shop->slug,
+                ] : null,
+                'items'            => $sale->items->map(fn($i) => [
+                    'id'           => $i->id,
+                    'product_id'   => $i->product_id,
+                    'product_name' => $i->product_name,
+                    'quantity'     => (float) $i->quantity,
+                    'price'        => (float) $i->price,
+                    'total'        => (float) $i->total,
+                    'image'        => ($i->product && $i->product->images->first()) ? $i->product->images->first()->image_url : null,
+                ]),
+            ],
+        ]);
+    }
+
+    /**
+     * Download PDF receipt for a customer order with security check.
+     *
+     * GET /api/v1/marketplace/orders/{id}/receipt
+     */
+    public function downloadReceipt(Request $request, $id)
+    {
+        $customerId = session('marketplace_customer_id');
+        $customer = $customerId ? MarketplaceCustomer::find($customerId) : null;
+        $phone = $customer ? preg_replace('/\s+/', '', $customer->phone) : null;
+
+        $sale = Sale::withoutGlobalScope('tenant')
+            ->with(['shop:id,name,slug', 'items.product:id,name'])
+            ->where('id', $id)
+            ->where(function ($q) use ($customer, $phone) {
+                if ($customer) {
+                    $q->where('marketplace_customer_id', $customer->id);
+                    if ($phone) {
+                        $q->orWhere('customer_phone', $phone)
+                          ->orWhere('customer_phone', $customer->phone);
+                    }
+                }
+            })
+            ->first();
+
+        if (!$sale) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found or unauthorized access.',
+            ], 404);
+        }
+
+        $filename = "GlobalShop-Order-{$sale->invoice_number}-Receipt.pdf";
+
+        // 1. Barryvdh DomPDF Facade (preferred)
+        if (class_exists(\Barryvdh\DomPDF\Facade\Pdf::class)) {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.receipt', [
+                'sale' => $sale,
+                'customer' => $customer,
+            ]);
+            return $pdf->download($filename);
+        }
+
+        // 2. Fallback using Dompdf directly
+        $options = new \Dompdf\Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
+        $dompdf = new \Dompdf\Dompdf($options);
+        $html = view('pdf.receipt', ['sale' => $sale, 'customer' => $customer])->render();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return response()->streamDownload(function () use ($dompdf) {
+            echo $dompdf->output();
+        }, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    /**
      * Update preferred shops list (replace entire set, max 5).
      *
      * POST /api/v1/marketplace/shops
@@ -551,10 +754,12 @@ class MarketplaceCustomerController extends Controller
                     ]);
 
                     // Create the Sale record under the target shop context
+                    $customerId = session('marketplace_customer_id');
                     $sale = Sale::create([
                         'shop_id' => $shopId,
                         'invoice_number' => $invoiceNumber,
                         'customer_id' => $shopCustomer->id,
+                        'marketplace_customer_id' => $customerId ?: null,
                         'customer_name' => $request->customer_name,
                         'customer_phone' => $request->customer_phone,
                         'customer_email' => $request->customer_email,
@@ -595,6 +800,7 @@ class MarketplaceCustomerController extends Controller
                     );
 
                     $invoicesCreated[] = [
+                        'id' => $sale->id,
                         'shop_name' => $shop->name,
                         'invoice_number' => $invoiceNumber,
                         'total' => $total,

@@ -43,6 +43,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout',     [\App\Http\Controllers\MarketplaceCustomerController::class, 'logout'])->name('marketplace.logout');
         Route::get('/shops/search',[\App\Http\Controllers\MarketplaceCustomerController::class, 'searchShops'])->name('marketplace.shops.search');
         Route::post('/checkout',   [\App\Http\Controllers\MarketplaceCustomerController::class, 'checkout'])->name('marketplace.checkout');
+        Route::get('/orders',      [\App\Http\Controllers\MarketplaceCustomerController::class, 'getOrders'])->name('marketplace.orders.index');
+        Route::get('/orders/{id}', [\App\Http\Controllers\MarketplaceCustomerController::class, 'getOrderDetail'])->name('marketplace.orders.show');
+        Route::get('/orders/{id}/receipt', [\App\Http\Controllers\MarketplaceCustomerController::class, 'downloadReceipt'])->name('marketplace.orders.receipt');
     });
 
     // 1. Customer Endpoints (Public)
