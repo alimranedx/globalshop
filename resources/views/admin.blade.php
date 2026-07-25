@@ -916,10 +916,16 @@
                             <td><span class="role-badge" style="background: rgba(99,102,241,0.15); color: var(--color-accent); border: 1px solid var(--border-glow);">${planName}</span></td>
                             <td><span class="status-badge status-${shop.status}">${shop.status}</span></td>
                             <td>
-                                ${actionButton}
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    ${actionButton}
+                                    <button class="btn-action" style="background: var(--color-accent);" onclick="openEditShopModal('${shop.id}', '${shop.name.replace(/'/g, "\\'")}', '${shop.slug}', '${(shop.domain || '').replace(/'/g, "\\'")}')">
+                                        Edit
+                                    </button>
+                                </div>
                             </td>
                         `;
                         tbody.appendChild(tr);
+
                     });
                 }
             } catch (e) {}
@@ -1352,6 +1358,83 @@
                 }
             } catch (e) {}
         }
+
+        function openEditShopModal(id, name, slug, domain) {
+            document.getElementById('edit-shop-id').value = id;
+            document.getElementById('edit-shop-name').value = name;
+            document.getElementById('edit-shop-slug').value = slug;
+            document.getElementById('edit-shop-domain').value = domain;
+            
+            document.getElementById('modal-overlay').style.display = 'block';
+            document.getElementById('edit-shop-modal').style.display = 'flex';
+        }
+
+        function closeEditShopModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+            document.getElementById('edit-shop-modal').style.display = 'none';
+        }
+
+        async function saveShopEdit(e) {
+            e.preventDefault();
+            const shopId = document.getElementById('edit-shop-id').value;
+            const name = document.getElementById('edit-shop-name').value;
+            const slug = document.getElementById('edit-shop-slug').value;
+            const domain = document.getElementById('edit-shop-domain').value;
+
+            try {
+                const response = await fetch(`/api/v1/platform/shops/${shopId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'Authorization': 'Bearer ' + currentUserEmail
+                    },
+                    body: JSON.stringify({ name, slug, domain })
+                });
+                const res = await response.json();
+                if (res.success) {
+                    showToast(res.message || 'Shop updated successfully!');
+                    closeEditShopModal();
+                    loadState();
+                } else {
+                    showToast(res.message || 'Update failed.', true);
+                }
+            } catch (err) {
+                showToast('Failed to update shop details.', true);
+            }
+        }
     </script>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.65); z-index: 1500; display: none;" onclick="closeEditShopModal()"></div>
+
+    <!-- Edit Shop Modal -->
+    <div id="edit-shop-modal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--bg-surface); backdrop-filter: blur(15px); border: 1px solid var(--color-accent); border-radius: 16px; width: 100%; max-width: 440px; padding: 2rem; box-shadow: 0 10px 40px rgba(0,0,0,0.6); display: none; flex-direction: column; gap: 1.25rem; z-index: 2000;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-light); padding-bottom: 0.75rem;">
+            <h3 style="font-size: 1.2rem; font-weight: 600; color: #fff;">Modify Merchant Settings</h3>
+            <button onclick="closeEditShopModal()" style="background: transparent; border: none; color: var(--text-secondary); font-size: 1.2rem; cursor: pointer;">✕</button>
+        </div>
+        <form onsubmit="saveShopEdit(event)" style="display: flex; flex-direction: column; gap: 1rem;">
+            <input type="hidden" id="edit-shop-id">
+            <div class="form-group">
+                <label for="edit-shop-name" style="margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-secondary);">Shop Name</label>
+                <input type="text" id="edit-shop-name" required placeholder="e.g. Shop Alpha" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-light); color: #fff; padding: 0.75rem; border-radius: 8px; outline: none;">
+            </div>
+            <div class="form-group">
+                <label for="edit-shop-slug" style="margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-secondary);">Subdomain / Base URL Path (Slug)</label>
+                <input type="text" id="edit-shop-slug" required placeholder="e.g. alpha" pattern="[a-zA-Z0-9\-_]+" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-light); color: #fff; padding: 0.75rem; border-radius: 8px; outline: none;">
+                <small style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; display: block;">Only alphanumeric characters, dashes, and underscores allowed.</small>
+            </div>
+            <div class="form-group">
+                <label for="edit-shop-domain" style="margin-bottom: 0.25rem; font-size: 0.85rem; color: var(--text-secondary);">Custom Domain (Optional)</label>
+                <input type="text" id="edit-shop-domain" placeholder="e.g. alpha.globalshop.test" style="width: 100%; background: var(--bg-card); border: 1px solid var(--border-light); color: #fff; padding: 0.75rem; border-radius: 8px; outline: none;">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 0.5rem; justify-content: flex-end;">
+                <button type="button" class="btn-logout" onclick="closeEditShopModal()" style="background: transparent; border: 1px solid var(--border-light); color: var(--text-secondary); padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer;">Cancel</button>
+                <button type="submit" class="btn-action" style="padding: 0.6rem 1.2rem;">Update Shop</button>
+            </div>
+        </form>
+    </div>
 </body>
 </html>
+

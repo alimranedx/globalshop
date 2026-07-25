@@ -93,4 +93,29 @@ class User extends Authenticatable
 
         return is_array($this->admin_permissions) && in_array($pageIdentifier, $this->admin_permissions);
     }
+
+    /**
+     * Check if user is authorized to manage/access a specific shop.
+     */
+    public function belongsToShop($shop): bool
+    {
+        $shopId = $shop instanceof Shop ? $shop->id : (int) $shop;
+
+        // Super Admin / Platform Admins can manage multi-shop system
+        if ($this->is_platform_admin) {
+            return true;
+        }
+
+        // Shop Owner check
+        if (Shop::where('id', $shopId)->where('owner_id', $this->id)->exists()) {
+            return true;
+        }
+
+        // Active Employee check
+        return \Illuminate\Support\Facades\DB::table('shop_user')
+            ->where('shop_id', $shopId)
+            ->where('user_id', $this->id)
+            ->where('status', 'active')
+            ->exists();
+    }
 }

@@ -39,10 +39,11 @@ class RegisterShopAction
             }
 
             // 2. Create the Shop
+            $slugInput = !empty($shopData['slug']) ? $shopData['slug'] : $shopData['name'];
             $shop = Shop::create([
                 'owner_id' => $owner->id,
                 'name' => $shopData['name'],
-                'slug' => Str::slug($shopData['slug'] ?? $shopData['name']),
+                'slug' => Shop::generateUniqueSlug($slugInput),
                 'domain' => $shopData['domain'] ?? null,
                 'status' => $status,
                 'currency' => $shopData['currency'] ?? 'USD',

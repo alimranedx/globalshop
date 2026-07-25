@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/shop.jsx'],
+            input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/shop.jsx', 'resources/js/marketplace.jsx'],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {

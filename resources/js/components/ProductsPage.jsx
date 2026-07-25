@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import Swal from 'sweetalert2';
 import { showToast } from '../store/uiSlice';
 import { fetchCatalogData, fetchState } from '../store/actions';
 import { getHeaders } from '../utils/api';
@@ -444,25 +445,47 @@ export default function ProductsPage() {
         }
     };
 
-    const deleteProduct = async (id) => {
-        if (!confirm('Are you sure you want to delete this product?')) return;
-        const headers = getHeaders();
-        try {
-            const response = await fetch(`/api/v1/tenant/products/${id}`, {
-                method: 'DELETE',
-                headers
-            });
-            const data = await response.json();
-            if (data.success) {
-                dispatch(showToast({ message: 'Product deleted', isError: false }));
+    const deleteProduct = (product) => {
+        const productId = typeof product === 'object' ? product.id : product;
+        const productName = typeof product === 'object' ? product.name : (products.find(item => item.id === productId)?.name || 'this product');
+
+        Swal.fire({
+            title: 'Delete Product?',
+            html: `<div style="font-size: 0.95rem; margin-top: 0.5rem;">Are you sure you want to delete <strong style="color: #ef4444;">${productName}</strong>?</div><div style="font-size: 0.8rem; color: #9ca3af; margin-top: 0.4rem;">This action cannot be undone.</div>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Delete Product',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            background: isDark ? '#141419' : '#ffffff',
+            color: isDark ? '#f3f4f6' : '#1f2937',
+            showLoaderOnConfirm: true,
+            allowOutsideClick: () => !Swal.isLoading(),
+            preConfirm: async () => {
+                const headers = getHeaders();
+                try {
+                    const response = await fetch(`/api/v1/tenant/products/${productId}`, {
+                        method: 'DELETE',
+                        headers
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || 'Failed to delete product');
+                    }
+                    return data;
+                } catch (error) {
+                    Swal.showValidationMessage(`Delete failed: ${error.message}`);
+                    return false;
+                }
+            }
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                dispatch(showToast({ message: `Product "${productName}" was deleted successfully`, isError: false }));
                 dispatch(fetchCatalogData());
                 dispatch(fetchState());
-            } else {
-                dispatch(showToast({ message: data.message || 'Failed to delete product', isError: true }));
             }
-        } catch (e) {
-            dispatch(showToast({ message: 'Failed to delete product', isError: true }));
-        }
+        });
     };
 
     return (
@@ -752,7 +775,7 @@ export default function ProductsPage() {
                                                             )}
                                                             {hasPermission('products.destroy') && (
                                                                 <button
-                                                                    onClick={() => deleteProduct(p.id)}
+                                                                    onClick={() => deleteProduct(p)}
                                                                     style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}
                                                                 >
                                                                     Delete

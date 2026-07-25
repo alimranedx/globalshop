@@ -26,13 +26,28 @@ class PlatformAdminController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->user();
-        if (!$user || !$user->is_platform_admin) {
-            abort(403, 'Platform administrative access required.');
+        if (!auth()->check()) {
+            return redirect('/');
+        }
+
+        $user = auth()->user();
+        if (!$user->is_platform_admin) {
+            $ownedShops = $user->ownedShops()->whereNull('shops.deleted_at')->get();
+            $employeeShops = $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->get();
+            $allShops = $ownedShops->merge($employeeShops)->unique('id');
+
+            if ($allShops->count() === 1) {
+                return redirect()->route('shop.dashboard', ['slug' => $allShops->first()->slug]);
+            } elseif ($allShops->count() > 1) {
+                return redirect()->route('shop.index');
+            }
+
+            return redirect('/');
         }
 
         return view('admin');
     }
+
 
     /**
      * Get platform stats/state.
@@ -296,6 +311,36 @@ class PlatformAdminController extends Controller
     }
 
     /**
+     * Update shop details (Platform Admin Only).
+     */
+    public function updateShop(Request $request, Shop $shop): JsonResponse
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'slug' => 'required|string|alpha_dash|unique:shops,slug,' . $shop->id,
+            'domain' => 'nullable|string|max:255',
+        ]);
+
+        $oldValues = $shop->toArray();
+        $shop->update($validated);
+
+        $this->logger->execute(
+            'shop.updated',
+            "Shop '{$shop->name}' details were updated by platform admin.",
+            $oldValues,
+            $shop->toArray(),
+            $shop->id,
+            $request->user()->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $shop,
+            'message' => 'Shop details updated successfully.'
+        ]);
+    }
+
+    /**
      * List all activity logs.
      */
     public function listLogs(): JsonResponse
@@ -307,3 +352,4 @@ class PlatformAdminController extends Controller
         ]);
     }
 }
+

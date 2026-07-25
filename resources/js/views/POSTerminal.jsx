@@ -40,6 +40,7 @@ export default function POSTerminal() {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedBrand, setSelectedBrand] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [selectedProductDetails, setSelectedProductDetails] = useState(null);
 
     // Auto clear cart when user switcher resets context
     useEffect(() => {
@@ -317,6 +318,27 @@ export default function POSTerminal() {
                                             <span style={{ fontSize: '1rem', fontWeight: '800', color: isDark ? '#10b981' : '#059669' }}>
                                                 {cur.format(prod.price)}
                                             </span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedProductDetails(prod);
+                                                }}
+                                                style={{
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    color: '#6366f1',
+                                                    fontSize: '0.78rem',
+                                                    fontWeight: '600',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.2rem',
+                                                    padding: '0.2rem'
+                                                }}
+                                            >
+                                                ℹ️ Info
+                                            </button>
                                         </div>
 
                                         {/* Action buttons */}
@@ -545,6 +567,109 @@ export default function POSTerminal() {
                     }}
                 />
             )}
+
+            {selectedProductDetails && (
+                <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.65)' }} onClick={() => setSelectedProductDetails(null)}>
+                    <div className="modal-box" style={{ 
+                        background: colors.cardBg, 
+                        border: `1px solid ${colors.border}`, 
+                        borderRadius: '16px', 
+                        padding: '1.5rem', 
+                        width: '100%', 
+                        maxWidth: '480px', 
+                        boxShadow: colors.shadow,
+                        position: 'relative'
+                    }} onClick={e => e.stopPropagation()}>
+                        
+                        {/* Close button */}
+                        <button 
+                            onClick={() => setSelectedProductDetails(null)} 
+                            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: colors.textMuted, fontSize: '1.2rem', cursor: 'pointer' }}
+                        >
+                            ✕
+                        </button>
+
+                        {/* Modal Title */}
+                        <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: colors.text, marginBottom: '1.25rem', borderBottom: `1px solid ${colors.border}`, paddingBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            📦 Product Information
+                        </h3>
+
+                        <div style={{ display: 'flex', gap: '1.2rem', flexDirection: 'column' }}>
+                            {/* Top Section: Image & Main Info */}
+                            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                                <div style={{ width: 100, height: 100, borderRadius: 12, overflow: 'hidden', background: isDark ? '#14141c' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${colors.border}`, flexShrink: 0 }}>
+                                    {selectedProductDetails.images && selectedProductDetails.images.length > 0 ? (
+                                        <img src={selectedProductDetails.images[0].image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <span style={{ fontSize: '2.5rem' }}>📦</span>
+                                    )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
+                                    <h4 style={{ fontSize: '1.05rem', fontWeight: '800', color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedProductDetails.name}</h4>
+                                    <p style={{ fontSize: '0.8rem', color: colors.textMuted }}>SKU: <strong style={{ color: colors.text }}>{selectedProductDetails.sku || 'N/A'}</strong></p>
+                                    <p style={{ fontSize: '0.8rem', color: colors.textMuted }}>Category: <strong style={{ color: '#6366f1' }}>{selectedProductDetails.category?.name || 'General'}</strong></p>
+                                    <p style={{ fontSize: '0.8rem', color: colors.textMuted }}>Brand: <strong style={{ color: colors.text }}>{selectedProductDetails.brand?.name || 'Generic'}</strong></p>
+                                </div>
+                            </div>
+
+                            {/* Stock & Finance Stats Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.85rem' }}>
+                                <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${colors.border}`, borderRadius: 10, padding: '0.65rem 0.85rem' }}>
+                                    <span style={{ fontSize: '0.7rem', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 700 }}>Inventory Stock</span>
+                                    <p style={{ fontSize: '1.15rem', fontWeight: '800', color: selectedProductDetails.stock_quantity > 0 ? (isDark ? '#10b981' : '#059669') : '#ef4444', marginTop: '0.15rem' }}>
+                                        {selectedProductDetails.stock_quantity} {selectedProductDetails.stock_unit || 'pcs'}
+                                    </p>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${colors.border}`, borderRadius: 10, padding: '0.65rem 0.85rem' }}>
+                                    <span style={{ fontSize: '0.7rem', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 700 }}>Selling Price</span>
+                                    <p style={{ fontSize: '1.15rem', fontWeight: '800', color: '#6366f1', marginTop: '0.15rem' }}>
+                                        {cur.format(selectedProductDetails.price)}
+                                    </p>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${colors.border}`, borderRadius: 10, padding: '0.65rem 0.85rem' }}>
+                                    <span style={{ fontSize: '0.7rem', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 700 }}>Cost Price</span>
+                                    <p style={{ fontSize: '1.15rem', fontWeight: '800', color: colors.text, marginTop: '0.15rem' }}>
+                                        {cur.format(selectedProductDetails.cost_price || 0)}
+                                    </p>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${colors.border}`, borderRadius: 10, padding: '0.65rem 0.85rem' }}>
+                                    <span style={{ fontSize: '0.7rem', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 700 }}>Gross Margin</span>
+                                    <p style={{ fontSize: '1.15rem', fontWeight: '800', color: '#8b5cf6', marginTop: '0.15rem' }}>
+                                        {selectedProductDetails.price > 0 
+                                            ? (((selectedProductDetails.price - (selectedProductDetails.cost_price || 0)) / selectedProductDetails.price) * 100).toFixed(1) + '%'
+                                            : '0%'
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <h5 style={{ fontSize: '0.78rem', color: colors.textMuted, textTransform: 'uppercase', fontWeight: 700, marginBottom: '0.35rem' }}>Description</h5>
+                                <p style={{ fontSize: '0.85rem', color: colors.text, lineHeight: 1.5, background: 'rgba(0,0,0,0.15)', padding: '0.6rem 0.8rem', borderRadius: 8, border: `1px solid ${colors.border}`, maxHeight: 110, overflowY: 'auto' }}>
+                                    {selectedProductDetails.description || 'No product description provided.'}
+                                </p>
+                            </div>
+
+                            {/* Actions in details */}
+                            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
+                                <button
+                                    className="btn-primary"
+                                    onClick={() => {
+                                        addToCart(selectedProductDetails);
+                                        setSelectedProductDetails(null);
+                                    }}
+                                    style={{ flex: 1, padding: '0.75rem', fontSize: '0.88rem', border: 'none', borderRadius: '8px', cursor: selectedProductDetails.stock_quantity <= 0 ? 'default' : 'pointer' }}
+                                    disabled={selectedProductDetails.stock_quantity <= 0}
+                                >
+                                    🛒 Add to Cart & Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
+

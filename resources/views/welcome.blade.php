@@ -780,10 +780,18 @@
         }
 
         async function initDemo() {
+            if (!confirm('⚠️ WARNING: Are you sure you want to initialize the demo database? This will completely clear all current sales transactions, products, categories, brands, and rebuild the catalog.')) {
+                return;
+            }
             try {
                 const response = await fetch('/demo/reset', {
+
                     method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': token }
+                    headers: { 
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json'
+                    }
+
                 });
                 const res = await response.json();
                 if (res.success) {

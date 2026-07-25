@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Modules\ShopManager\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ShopDailySummary extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'shop_id',
         'summary_date',

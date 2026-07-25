@@ -79,17 +79,40 @@ class AuthController extends Controller
         ]);
 
         if (Auth::attempt($request->only('email', 'password'))) {
-            $request->session()->regenerate();
             $user = Auth::user();
 
-            // Resolve active tenant shop scope
-            $shop = Shop::where('owner_id', $user->id)->first();
-            if (! $shop) {
-                $shopUser = \DB::table('shop_user')->where('user_id', $user->id)->first();
-                if ($shopUser) {
-                    $shop = Shop::find($shopUser->shop_id);
+            // Check if a specific shop slug/id was requested
+            $requestedSlug = $request->input('shop_slug');
+            $requestedId = $request->input('shop_id');
+            $targetShop = null;
+
+            if ($requestedSlug) {
+                $targetShop = Shop::where('slug', $requestedSlug)->first();
+            } elseif ($requestedId) {
+                $targetShop = Shop::find($requestedId);
+            }
+
+            if ($targetShop) {
+                if (!$user->belongsToShop($targetShop)) {
+                    Auth::logout();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "You are not authorized to access shop '{$targetShop->name}'."
+                    ], 403);
+                }
+                $shop = $targetShop;
+            } else {
+                // Resolve active tenant shop scope
+                $shop = Shop::where('owner_id', $user->id)->first();
+                if (! $shop) {
+                    $shopUser = \DB::table('shop_user')->where('user_id', $user->id)->first();
+                    if ($shopUser) {
+                        $shop = Shop::find($shopUser->shop_id);
+                    }
                 }
             }
+
+            $request->session()->regenerate();
 
             if ($user->is_platform_admin && ! $shop) {
                 session(['mock_active_tenant_id' => null]);
@@ -127,17 +150,21 @@ class AuthController extends Controller
     /**
      * Handle logout.
      */
-    public function logout(Request $request): JsonResponse
+    public function logout(Request $request)
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         session(['mock_active_tenant_id' => null]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Logged out successfully.',
-            'csrf_token' => csrf_token(),
-        ]);
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully.',
+                'csrf_token' => csrf_token(),
+            ]);
+        }
+
+        return redirect('/');
     }
 }

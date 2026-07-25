@@ -475,6 +475,8 @@ function ShopManagerApp() {
     );
 }
 
+const shopSlug = window.AppConfig?.shopSlug || 'alpha';
+
 // Render root element
 const rootEl = document.getElementById('shop-owner-root');
 if (rootEl) {
@@ -483,9 +485,10 @@ if (rootEl) {
     }
     window.__reactRoot.render(
         <Provider store={store}>
-            <BrowserRouter basename="/shop">
+            <BrowserRouter basename={`/shop/${shopSlug}`}>
                 <ShopManagerApp />
             </BrowserRouter>
         </Provider>
     );
 }
+

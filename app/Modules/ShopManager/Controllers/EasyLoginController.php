@@ -207,7 +207,8 @@ class EasyLoginController extends Controller
 
         try {
             $service->authenticate($request, $shop, $user);
-            return redirect()->route('shop.panel', ['any' => 'dashboard']);
+            return redirect()->route('shop.dashboard', ['slug' => $shop->slug]);
+
         } catch (Exception $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }

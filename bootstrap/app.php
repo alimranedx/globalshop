@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToGroup('api', \Illuminate\Cookie\Middleware\EncryptCookies::class);
         $middleware->alias([
             'tenant.resolve' => ResolveTenant::class,
+            'shop.access' => \App\Modules\ShopManager\Middleware\EnsureShopAccess::class,
             'page.authorize' => AuthorizePageAccess::class,
         ]);
     })

@@ -20,7 +20,7 @@ class ProductController extends Controller
         // Bypass active tenant scoping to perform global search
         $query = Product::withoutGlobalScope('tenant')
             ->where('status', 'published')
-            ->with(['shop', 'category', 'brand']);
+            ->with(['shop', 'category', 'brand', 'images']);
 
         // 1. Keyword search (name / description)
         if ($request->has('q')) {
@@ -70,6 +70,14 @@ class ProductController extends Controller
 
         $products = $query->paginate(20);
 
+        $products->getCollection()->transform(function ($prod) {
+            $prod->images->transform(function ($img) {
+                $img->image_url = asset('storage/' . $img->path);
+                return $img;
+            });
+            return $prod;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $products->items(),
@@ -108,11 +116,20 @@ class ProductController extends Controller
     {
         $shop = Shop::where('slug', $shopSlug)->firstOrFail();
 
-        // Get products without tenant scope, filtered by shop id
+        // Get products without tenant scope, filtered by shop id, latest first
         $products = Product::withoutGlobalScope('tenant')
             ->where('shop_id', $shop->id)
             ->where('status', 'published')
-            ->get();
+            ->with(['shop', 'category', 'brand', 'images'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($prod) {
+                $prod->images->map(function ($img) {
+                    $img->image_url = asset('storage/' . $img->path);
+                    return $img;
+                });
+                return $prod;
+            });
 
         return response()->json([
             'success' => true,
@@ -298,6 +315,26 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Product deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Display the specified product details publicly.
+     */
+    public function show(int $id): JsonResponse
+    {
+        $product = Product::withoutGlobalScope('tenant')
+            ->with(['shop', 'category', 'brand', 'images'])
+            ->findOrFail($id);
+
+        $product->images->map(function ($img) {
+            $img->image_url = asset('storage/' . $img->path);
+            return $img;
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $product,
         ]);
     }
 }

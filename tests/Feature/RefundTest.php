@@ -284,7 +284,7 @@ class RefundTest extends TestCase
             'refund_method' => 'store_credit',
             'reason' => 'Store Credit requested',
             'customer_name' => 'Alice Member',
-            'customer_phone' => '12345678',
+            'customer_phone' => '01712345678',
             'customer_email' => 'alice@test.com',
             'items' => [
                 [
@@ -302,7 +302,7 @@ class RefundTest extends TestCase
         $response->assertStatus(201);
 
         // Assert customer was registered
-        $customer = Customer::where('phone', '12345678')->first();
+        $customer = Customer::where('phone', '01712345678')->first();
         $this->assertNotNull($customer);
         $this->assertEquals('Alice Member', $customer->name);
         $this->assertEquals(150.00, $customer->store_credit_balance);

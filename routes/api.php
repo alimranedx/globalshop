@@ -17,17 +17,38 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // Public Shop Discovery & Search Endpoint
+    Route::get('/shops/search', [\App\Http\Controllers\ShopDiscoveryController::class, 'search'])->name('shops.search');
+
+    // Shop-Aware Authentication Endpoints (Public)
+    Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('api.shop.login');
+    Route::post('/shop/{slug}/register', [\App\Http\Controllers\ShopAuthController::class, 'register'])->name('api.shop.register');
+
     // Authentication Endpoints (Public)
     Route::post('/auth/register-owner', [AuthController::class, 'registerOwner'])->name('auth.register');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
+    // ──────────────────────────────────────────────────────
+    // Marketplace Customer Auth (Public — phone OTP, session-based)
+    // ──────────────────────────────────────────────────────
+    Route::prefix('marketplace')->group(function () {
+        Route::post('/send-otp',   [\App\Http\Controllers\MarketplaceCustomerController::class, 'sendOtp'])->name('marketplace.send-otp');
+        Route::post('/verify-otp', [\App\Http\Controllers\MarketplaceCustomerController::class, 'verifyOtp'])->name('marketplace.verify-otp');
+        Route::get('/me',          [\App\Http\Controllers\MarketplaceCustomerController::class, 'me'])->name('marketplace.me');
+        Route::post('/shops',      [\App\Http\Controllers\MarketplaceCustomerController::class, 'updateShops'])->name('marketplace.update-shops');
+        Route::post('/logout',     [\App\Http\Controllers\MarketplaceCustomerController::class, 'logout'])->name('marketplace.logout');
+        Route::get('/shops/search',[\App\Http\Controllers\MarketplaceCustomerController::class, 'searchShops'])->name('marketplace.shops.search');
+        Route::post('/checkout',   [\App\Http\Controllers\MarketplaceCustomerController::class, 'checkout'])->name('marketplace.checkout');
+    });
+
     // 1. Customer Endpoints (Public)
     Route::get('/products', [ProductController::class, 'index'])->name('public.products.index');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->name('public.products.show');
     Route::get('/shops/{shop_slug}/products', [ProductController::class, 'shopProducts'])->name('public.shop.products');
 
-    // 2. Tenant Authenticated Endpoints (Requires ResolveTenant, standard auth, and optional API token auth)
-    Route::middleware(['tenant.resolve', 'auth', 'page.authorize'])->prefix('tenant')->group(function () {
+    // 2. Tenant Authenticated Endpoints (Requires ShopAccess authorization, standard auth, and page authorization)
+    Route::middleware(['shop.access', 'auth', 'page.authorize'])->prefix('tenant')->group(function () {
         // Product Catalog Management
         Route::get('products', [ProductController::class, 'tenantIndex'])->name('products.index');
         Route::apiResource('products', ProductController::class)->except(['index']);
@@ -79,6 +100,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/shops', [App\Http\Controllers\PlatformAdminController::class, 'listShops'])->name('admin.shops');
         Route::post('/shops/{shop}/toggle-suspension', [App\Http\Controllers\PlatformAdminController::class, 'toggleSuspension'])->name('admin.shops');
         Route::post('/shops/{shop}/approve', [App\Http\Controllers\PlatformAdminController::class, 'approveShop'])->name('admin.shops');
+        Route::put('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'updateShop'])->name('admin.shops');
+
 
         Route::get('/plans', [App\Http\Controllers\PlatformAdminController::class, 'listPlans'])->name('admin.plans');
         Route::post('/plans', [App\Http\Controllers\PlatformAdminController::class, 'storePlan'])->name('admin.plans');

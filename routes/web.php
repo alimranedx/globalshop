@@ -23,176 +23,302 @@ use Illuminate\Validation\ValidationException;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', function (Request $request) {
+    if (auth()->check()) {
+        $user = auth()->user();
+
+        // Check if logged in user is Admin, Super Admin, Shop Owner, or Shop Employee
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
+            // Logout first, then give access to root route
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+        }
+    }
+
+    return view('marketplace');
+})->name('home');
 
 // Demo Session Simulator Routes
 Route::prefix('demo')->group(function () {
 
     // 1. Initialize/Reset Demo Database Records
     Route::post('/reset', function () {
-        // Clear old database records
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        \App\Models\SaleItem::truncate();
-        \App\Models\Sale::truncate();
-        ActivityLog::truncate();
-        Product::truncate();
-        Category::truncate();
-        Subscription::truncate();
-        RolePage::truncate();
-        Role::truncate();
-        DB::table('shop_user')->truncate();
-        Shop::truncate();
-        User::truncate();
-        Plan::truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+        try {
+            // Clear old database records
+            DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+            \App\Models\SaleItem::truncate();
+            \App\Models\Sale::truncate();
+            ActivityLog::truncate();
+            Product::truncate();
+            Category::truncate();
+            \App\Models\Brand::withoutGlobalScopes()->truncate();
+            \App\Models\ProductImage::truncate();
+            Subscription::truncate();
+            RolePage::truncate();
+            Role::truncate();
+            DB::table('shop_user')->truncate();
+            Shop::truncate();
+            User::truncate();
+            Plan::truncate();
+            DB::statement('SET FOREIGN_KEY_CHECKS=1;');
 
-        // Create standard plan (Trial: 100 products limit)
-        $trialPlan = Plan::create([
-            'name' => 'Free Trial Plan',
-            'price' => 0.00,
-            'limits' => [
-                'max_products' => 100,
-                'max_images_per_product' => 2,
-                'max_employees' => 5,
-                'max_categories' => 25,
-                'max_brands' => 50,
-            ],
-        ]);
+            // Create standard plan (Trial: 100 products limit)
+            $trialPlan = Plan::create([
+                'name' => 'Free Trial Plan',
+                'price' => 0.00,
+                'limits' => [
+                    'max_products' => 100,
+                    'max_images_per_product' => 2,
+                    'max_employees' => 5,
+                    'max_categories' => 25,
+                    'max_brands' => 50,
+                ],
+            ]);
 
-        // Create global Category
-        Category::create([
-            'name' => 'Fashion & Footwear',
-            'slug' => 'fashion-footwear',
-        ]);
+            // Create global Category
+            Category::create([
+                'name' => 'Fashion & Footwear',
+                'slug' => 'fashion-footwear',
+            ]);
 
-        // Create Super Admin
-        $superAdmin = User::create([
-            'name' => 'Super Admin',
-            'email' => 'superadmin@marketplace.com',
-            'password' => bcrypt('password'),
-            'is_platform_admin' => true,
-        ]);
+            // Create Super Admin
+            $superAdmin = User::create([
+                'name' => 'Super Admin',
+                'email' => 'superadmin@marketplace.com',
+                'password' => bcrypt('password'),
+                'is_platform_admin' => true,
+            ]);
 
-        // Create Platform Admin (Grace Admin)
-        $graceAdmin = User::create([
-            'name' => 'Grace Admin',
-            'email' => 'grace@marketplace.com',
-            'password' => bcrypt('password'),
-            'is_platform_admin' => true,
-            'admin_permissions' => [], // Initially empty as per "no default full access Admin" rule
-        ]);
+            // Create Platform Admin (Grace Admin)
+            $graceAdmin = User::create([
+                'name' => 'Grace Admin',
+                'email' => 'grace@marketplace.com',
+                'password' => bcrypt('password'),
+                'is_platform_admin' => true,
+                'admin_permissions' => [], // Initially empty as per "no default full access Admin" rule
+            ]);
 
-        // Create Customer
-        User::create([
-            'name' => 'Alice Customer',
-            'email' => 'alice@customer.com',
-            'password' => bcrypt('password'),
-        ]);
+            // Create Customer
+            User::create([
+                'name' => 'Alice Customer',
+                'email' => 'alice@customer.com',
+                'password' => bcrypt('password'),
+            ]);
 
-        // Onboard Shop Alpha via RegisterShopAction
-        $registrar = resolve(RegisterShopAction::class);
-        $shop = $registrar->execute(
-            ['name' => 'Shop Alpha', 'slug' => 'alpha', 'domain' => 'alpha.globalshop.test'],
-            ['name' => 'John Owner', 'email' => 'john@alpha.com', 'password' => 'password'],
-            $trialPlan->id,
-            'active'
-        );
+            // Onboard Shop Alpha via RegisterShopAction
+            $registrar = resolve(RegisterShopAction::class);
+            $shop = $registrar->execute(
+                ['name' => 'Shop Alpha', 'slug' => 'alpha', 'domain' => 'alpha.globalshop.test'],
+                ['name' => 'John Owner', 'email' => 'john@alpha.com', 'password' => 'password'],
+                $trialPlan->id,
+                'active'
+            );
 
-        // Retrieve created roles
-        $managerRole = Role::where('shop_id', $shop->id)->where('name', 'Manager')->first();
-        $workerRole = Role::where('shop_id', $shop->id)->where('name', 'Worker')->first();
+            // Retrieve created roles
+            $managerRole = Role::where('shop_id', $shop->id)->where('name', 'Manager')->first();
+            $workerRole = Role::where('shop_id', $shop->id)->where('name', 'Worker')->first();
 
-        // 1. Assign Manager Role Permissions
-        $managerPermissions = [
-            'categories.index', 'brands.index', 
-            'products.index', 'products.create', 'products.edit', 'products.destroy',
-            'employees.index', 'roles.index', 
-            'settings.general', 'settings.shop', 'settings.subscription',
-            'sales.index', 'sales.create'
-        ];
-        foreach ($managerPermissions as $perm) {
-            RolePage::create([
+            // 1. Assign Manager Role Permissions
+            $managerPermissions = [
+                'categories.index', 'brands.index', 
+                'products.index', 'products.create', 'products.edit', 'products.destroy',
+                'employees.index', 'roles.index', 
+                'settings.general', 'settings.shop', 'settings.subscription',
+                'sales.index', 'sales.create'
+            ];
+            foreach ($managerPermissions as $perm) {
+                RolePage::create([
+                    'role_id' => $managerRole->id,
+                    'page_identifier' => $perm,
+                ]);
+            }
+
+            // 2. Assign Worker Role Permissions (View Only)
+            $workerPermissions = [
+                'products.index'
+            ];
+            foreach ($workerPermissions as $perm) {
+                RolePage::create([
+                    'role_id' => $workerRole->id,
+                    'page_identifier' => $perm,
+                ]);
+            }
+
+            // 3. Create Sales Manager Role and Permissions
+            $salesManagerRole = Role::create([
+                'shop_id' => $shop->id,
+                'name' => 'Sales Manager',
+                'is_custom' => false,
+            ]);
+            $salesManagerPermissions = [
+                'products.index', 'sales.index', 'sales.create'
+            ];
+            foreach ($salesManagerPermissions as $perm) {
+                RolePage::create([
+                    'role_id' => $salesManagerRole->id,
+                    'page_identifier' => $perm,
+                ]);
+            }
+
+            // Create Manager account
+            $manager = User::create([
+                'name' => 'Bob Manager',
+                'email' => 'bob@alpha.com',
+                'password' => bcrypt('password'),
+            ]);
+            DB::table('shop_user')->insert([
+                'shop_id' => $shop->id,
+                'user_id' => $manager->id,
                 'role_id' => $managerRole->id,
-                'page_identifier' => $perm,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        }
 
-        // 2. Assign Worker Role Permissions (View Only)
-        $workerPermissions = [
-            'products.index'
-        ];
-        foreach ($workerPermissions as $perm) {
-            RolePage::create([
+            // Create Worker account
+            $worker = User::create([
+                'name' => 'Charlie Worker',
+                'email' => 'charlie@alpha.com',
+                'password' => bcrypt('password'),
+            ]);
+            DB::table('shop_user')->insert([
+                'shop_id' => $shop->id,
+                'user_id' => $worker->id,
                 'role_id' => $workerRole->id,
-                'page_identifier' => $perm,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        }
 
-        // 3. Create Sales Manager Role and Permissions
-        $salesManagerRole = Role::create([
-            'shop_id' => $shop->id,
-            'name' => 'Sales Manager',
-            'is_custom' => false,
-        ]);
-        $salesManagerPermissions = [
-            'products.index', 'sales.index', 'sales.create'
-        ];
-        foreach ($salesManagerPermissions as $perm) {
-            RolePage::create([
+            // Create Sales Manager account
+            $salesManager = User::create([
+                'name' => 'Sam Sales',
+                'email' => 'sam@alpha.com',
+                'password' => bcrypt('password'),
+            ]);
+            DB::table('shop_user')->insert([
+                'shop_id' => $shop->id,
+                'user_id' => $salesManager->id,
                 'role_id' => $salesManagerRole->id,
-                'page_identifier' => $perm,
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
+
+            // Prepare placeholder logo files in public storage
+            $logoPath = 'logos/placeholder.png';
+            if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($logoPath)) {
+                if (\Illuminate\Support\Facades\Storage::disk('public')->exists('products/smartwatch.png')) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->copy('products/smartwatch.png', $logoPath);
+                } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists('products/earbuds.png')) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->copy('products/earbuds.png', $logoPath);
+                } else {
+                    \Illuminate\Support\Facades\Storage::disk('public')->put($logoPath, 'dummy logo content');
+                }
+            }
+
+            // Seed 10 Categories
+            $categoryNames = [
+                'Smartphones & Devices', 'Laptops & Computers', 'Audio & Music', 'Home Entertainment',
+                'Kitchen & Dining', 'Smart Home Tech', 'Wearables & Watches', 'Sports & Fitness',
+                'Outdoor & Camping', 'Men\'s Fashion'
+            ];
+            $categories = [];
+            foreach ($categoryNames as $index => $name) {
+                $categories[] = Category::create([
+                    'shop_id' => $shop->id,
+                    'name' => $name,
+                    'slug' => \Illuminate\Support\Str::slug($name) . '-' . \Illuminate\Support\Str::random(4),
+                    'logo_path' => $logoPath,
+                ]);
+            }
+
+            // Seed 20 Brands
+            $brandNames = [
+                'ApexTech', 'Bolt', 'Chrono', 'Dynamo', 'Eclipse', 'Flux', 'Glide', 'Halo',
+                'Infinity', 'Nova', 'Onyx', 'Pulse', 'Quantum', 'Rift', 'Summit', 'Titan',
+                'Ultra', 'Vector', 'Wave', 'Zenith'
+            ];
+            $brands = [];
+            foreach ($brandNames as $index => $name) {
+                $associatedCat = $categories[$index % count($categories)];
+                $brands[] = \App\Models\Brand::create([
+                    'shop_id' => $shop->id,
+                    'category_id' => $associatedCat->id,
+                    'name' => $name,
+                    'slug' => \Illuminate\Support\Str::slug($name) . '-' . \Illuminate\Support\Str::random(4),
+                    'logo_path' => $logoPath,
+                ]);
+            }
+
+            // Seed 30 Products
+            for ($i = 1; $i <= 30; $i++) {
+                $cat = $categories[$i % count($categories)];
+                $brand = $brands[$i % count($brands)];
+
+                $price = round(rand(120, 14900) / 10, 2);
+                $costPrice = round($price * 0.62, 2);
+
+                $prod = Product::create([
+                    'shop_id' => $shop->id,
+                    'category_id' => $cat->id,
+                    'brand_id' => $brand->id,
+                    'name' => "{$brand->name} {$cat->name} Series " . chr(65 + ($i % 26)),
+                    'slug' => \Illuminate\Support\Str::slug("{$brand->name}-{$cat->name}-series-{$i}") . '-' . \Illuminate\Support\Str::random(4),
+                    'description' => "Experience premium utility with the {$brand->name} {$cat->name} Series. Meticulously designed, reliable, and perfectly integrated into your lifestyle.",
+                    'price' => $price,
+                    'cost_price' => $costPrice,
+                    'stock_quantity' => rand(25, 120),
+                    'stock_unit' => 'pcs',
+                    'status' => 'published',
+                    'created_by' => $shop->owner_id,
+                    'updated_by' => $shop->owner_id,
+                ]);
+
+                // Odd products get 2 images, even products get 1 image
+                if ($i % 2 === 1) {
+                    // Multiple images
+                    \App\Models\ProductImage::create([
+                        'shop_id' => $shop->id,
+                        'product_id' => $prod->id,
+                        'path' => 'products/smartwatch.png',
+                        'sort_order' => 1,
+                    ]);
+                    \App\Models\ProductImage::create([
+                        'shop_id' => $shop->id,
+                        'product_id' => $prod->id,
+                        'path' => 'products/earbuds.png',
+                        'sort_order' => 2,
+                    ]);
+                } else {
+                    // Single image
+                    $path = ($i % 4 === 0) ? 'products/smartwatch.png' : 'products/earbuds.png';
+                    \App\Models\ProductImage::create([
+                        'shop_id' => $shop->id,
+                        'product_id' => $prod->id,
+                        'path' => $path,
+                        'sort_order' => 1,
+                    ]);
+                }
+            }
+
+            return response()->json(['success' => true, 'message' => 'Demo Database Reset Completed Successfully!']);
+
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Demo Reset Failed: ' . $e->getMessage(), [
+                'exception' => $e,
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['success' => false, 'message' => 'Demo Reset Failed: ' . $e->getMessage()], 500);
         }
-
-        // Create Manager account
-        $manager = User::create([
-            'name' => 'Bob Manager',
-            'email' => 'bob@alpha.com',
-            'password' => bcrypt('password'),
-        ]);
-        DB::table('shop_user')->insert([
-            'shop_id' => $shop->id,
-            'user_id' => $manager->id,
-            'role_id' => $managerRole->id,
-            'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Create Worker account
-        $worker = User::create([
-            'name' => 'Charlie Worker',
-            'email' => 'charlie@alpha.com',
-            'password' => bcrypt('password'),
-        ]);
-        DB::table('shop_user')->insert([
-            'shop_id' => $shop->id,
-            'user_id' => $worker->id,
-            'role_id' => $workerRole->id,
-            'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        // Create Sales Manager account
-        $salesManager = User::create([
-            'name' => 'Sam Sales',
-            'email' => 'sam@alpha.com',
-            'password' => bcrypt('password'),
-        ]);
-        DB::table('shop_user')->insert([
-            'shop_id' => $shop->id,
-            'user_id' => $salesManager->id,
-            'role_id' => $salesManagerRole->id,
-            'status' => 'active',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        return response()->json(['success' => true, 'message' => 'Demo Database Reset Completed Successfully!']);
     });
+
 
     // 2. Perform mock login session mapping
     Route::post('/login', function (Request $request) {
@@ -469,11 +595,13 @@ Route::prefix('demo')->group(function () {
     });
 });
 
-Route::middleware(['auth'])->get('/admin', [App\Http\Controllers\PlatformAdminController::class, 'index'])->name('platform.admin');
+Route::get('/admin', [App\Http\Controllers\PlatformAdminController::class, 'index'])->name('platform.admin');
 
 Route::get('/login', function () {
     return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
 })->name('login');
+
+Route::post('/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->name('logout');
 
 // Local developer Easy Login routes
 if (app()->environment('local') || config('app.debug')) {
@@ -484,7 +612,32 @@ if (app()->environment('local') || config('app.debug')) {
     });
 }
 
-Route::get('/shop/{any?}', function () {
-    return view('shop');
-})->where('any', '.*')->name('shop.panel');
+// 1. Central Shop Discovery / Selection Page
+Route::get('/shop', [\App\Http\Controllers\ShopDiscoveryController::class, 'index'])->name('shop.index');
+
+// 2. Protected Authenticated Shop Panel Routes
+Route::middleware(['auth', 'shop.access'])->group(function () {
+    Route::get('/shop/{slug}/dashboard', function (string $slug) {
+        $shop = \App\Models\Shop::where('slug', $slug)->first();
+        if (!$shop) {
+            abort(404, 'Shop not found');
+        }
+        return view('shop', ['shopSlug' => $slug]);
+    })->name('shop.dashboard');
+
+    Route::get('/shop/{slug}/{any}', function (string $slug, string $any) {
+        $shop = \App\Models\Shop::where('slug', $slug)->first();
+        if (!$shop) {
+            abort(404, 'Shop not found');
+        }
+        return view('shop', ['shopSlug' => $slug]);
+    })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*')->name('shop.panel');
+});
+
+// 3. Shop Public & Auth Entry Page
+Route::get('/shop/{slug}', [\App\Http\Controllers\ShopAuthController::class, 'showEntry'])->name('shop.entry');
+Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('shop.login');
+Route::post('/shop/{slug}/register', [\App\Http\Controllers\ShopAuthController::class, 'register'])->name('shop.register');
+
+
 

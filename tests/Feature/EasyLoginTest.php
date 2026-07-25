@@ -112,7 +112,8 @@ class EasyLoginTest extends TestCase
         ]);
 
         // Should redirect to shop dashboard
-        $response->assertRedirect('/shop/dashboard');
+        $response->assertRedirect('/shop/' . $this->shop->slug . '/dashboard');
+
 
         // Target user should be authenticated
         $this->assertTrue(Auth::check());

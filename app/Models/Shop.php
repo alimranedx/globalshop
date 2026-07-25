@@ -89,4 +89,59 @@ class Shop extends Model
             ->withPivot('role_id', 'status')
             ->withTimestamps();
     }
+
+    /**
+     * Generate a unique slug for a shop.
+     */
+    public static function generateUniqueSlug(string $name, ?int $ignoreShopId = null): string
+    {
+        $baseSlug = \Illuminate\Support\Str::slug($name);
+        if (empty($baseSlug)) {
+            $baseSlug = 'shop';
+        }
+
+        $slug = $baseSlug;
+        $counter = 1;
+
+        while (static::where('slug', $slug)
+            ->when($ignoreShopId, fn ($q) => $q->where('id', '!=', $ignoreShopId))
+            ->exists()) {
+            $counter++;
+            $slug = "{$baseSlug}-{$counter}";
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Check if a user is a member or owner of this shop.
+     */
+    public function hasMember(User $user): bool
+    {
+        if ($user->is_platform_admin) {
+            return true;
+        }
+
+        if ($this->owner_id === $user->id) {
+            return true;
+        }
+
+        return \Illuminate\Support\Facades\DB::table('shop_user')
+            ->where('shop_id', $this->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    /**
+     * Get member role in this shop.
+     */
+    public function getMemberRole(User $user): ?Role
+    {
+        if ($this->owner_id === $user->id) {
+            return Role::where('shop_id', $this->id)->where('name', 'Owner')->first();
+        }
+
+        return $user->getTenantRole($this->id);
+    }
 }
