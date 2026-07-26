@@ -69,10 +69,39 @@ class AuthController extends Controller
     }
 
     /**
+     * Return the currently authenticated user's profile.
+     * Used by the Admin Panel React SPA to verify session on page load.
+     */
+    public function me(\Illuminate\Http\Request $request): JsonResponse
+    {
+        if (!$request->user()) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+        }
+
+        $user = $request->user();
+        $shop = \App\Models\Shop::where('owner_id', $user->id)->first();
+
+        return response()->json([
+            'success' => true,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'is_platform_admin' => $user->is_platform_admin,
+                'admin_permissions' => $user->admin_permissions ?? [],
+                'role' => $user->is_platform_admin
+                    ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin')
+                    : 'Customer/Guest',
+            ],
+        ]);
+    }
+
+    /**
      * Handle user login.
      */
     public function login(Request $request): JsonResponse
     {
+
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',

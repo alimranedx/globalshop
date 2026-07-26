@@ -8,12 +8,17 @@ This document provides a comprehensive list of all application entry points, use
 
 | Interface | URL Path | Description |
 | :--- | :--- | :--- |
-| **Public Marketplace** | `/shop` (or `/`) | Public e-commerce portal where customers browse products, search by name/category, filter by shop, and place orders. |
+| **Public Marketplace** | `/` | Public e-commerce portal where customers browse products, search by name/category, filter by shop, and place orders. |
+| **Marketplace Login** | `/login` | Dedicated marketplace customer login page (phone + password). |
+| **Marketplace Register** | `/register` | Customer registration page. |
+| **Customer Dashboard** | `/profile` | Logged-in customer dashboard — orders, profile settings. |
 | **Easy Login Hub** | `/shop/easy-login` | Developer & QA single-click account switcher listing all test credentials and active shops. |
 | **Shop Management SPA** | `/shop/{slug}/dashboard` | React-based Shop Management portal (Dashboard, Products, POS Terminal, Staff, Settings, Refunds). |
+| **Admin Login** | `/admin/login` | Dedicated Platform Admin / Super Admin login page (public, no auth required). |
 | **Platform Admin Panel** | `/admin` | Super Admin / Platform Admin portal for managing shops, approving pending registrations, subscription plans, and audit logs. |
 
 ---
+
 
 ## 🔑 Default Accounts & Credentials
 
@@ -68,7 +73,11 @@ All test accounts use the default password: **`password`**
 5. Complete checkout by filling in recipient details and payment method.
 
 ### Workflow 4: Platform Admin Control
-1. Log in as **`superadmin@marketplace.com`** via `/admin` or standard login.
-2. View platform statistics (total active shops, suspended shops, revenue plans).
-3. Toggle Shop Alpha status between **Active** and **Suspended**.
-4. Manage subscription plans or view global activity logs.
+1. Navigate to **`/admin/login`** and log in as **`superadmin@marketplace.com`** / `password`.
+2. You will be redirected to the Admin Console Dashboard at `/admin`.
+3. View platform statistics (total active shops, suspended shops, subscription plans, admin accounts, audit logs).
+4. Navigate to **Shop Directory** → Toggle Shop Alpha status between **Active** and **Suspended**.
+5. Navigate to **Subscription Plans** → Create or edit plan quotas.
+6. Navigate to **Admin Accounts** → Create new admin, or configure Grace Admin's explicit permissions.
+7. Navigate to **Audit Logs** → View all platform activity.
+8. Click **Sign Out** to return to the Admin Login page.

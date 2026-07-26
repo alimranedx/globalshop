@@ -22,16 +22,18 @@ class PlatformAdminController extends Controller
     }
 
     /**
-     * Display the Platform Admin blade view.
+     * Display the Platform Admin blade view (React SPA).
+     * Unauthenticated users are redirected to the Admin Login page.
      */
     public function index(Request $request)
     {
         if (!auth()->check()) {
-            return redirect('/');
+            return redirect('/admin/login');
         }
 
         $user = auth()->user();
         if (!$user->is_platform_admin) {
+            // Shop owners/employees get redirected to their shop panel
             $ownedShops = $user->ownedShops()->whereNull('shops.deleted_at')->get();
             $employeeShops = $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->get();
             $allShops = $ownedShops->merge($employeeShops)->unique('id');
@@ -42,11 +44,26 @@ class PlatformAdminController extends Controller
                 return redirect()->route('shop.index');
             }
 
-            return redirect('/');
+            // Plain marketplace customer tried to access /admin
+            return redirect('/admin/login');
         }
 
         return view('admin');
     }
+
+    /**
+     * Display the Admin Login page (public — no auth required).
+     * If already authenticated as admin, redirect to /admin.
+     */
+    public function loginPage(Request $request)
+    {
+        if (auth()->check() && auth()->user()->is_platform_admin) {
+            return redirect('/admin');
+        }
+
+        return view('admin');
+    }
+
 
 
     /**

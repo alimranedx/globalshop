@@ -667,7 +667,12 @@ Route::prefix('demo')->group(function () {
     });
 });
 
-Route::get('/admin', [App\Http\Controllers\PlatformAdminController::class, 'index'])->name('platform.admin');
+// Admin Login — public, no auth required
+Route::get('/admin/login', [App\Http\Controllers\PlatformAdminController::class, 'loginPage'])->name('admin.login');
+
+// Admin Panel SPA — protected (unauthenticated users are redirected to /admin/login by the controller)
+Route::get('/admin/{any?}', [App\Http\Controllers\PlatformAdminController::class, 'index'])->where('any', '.*')->name('platform.admin');
+
 
 Route::post('/logout', [\App\Http\Controllers\AuthController::class, 'logout'])->name('logout');
 

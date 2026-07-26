@@ -28,6 +28,8 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/register-owner', [AuthController::class, 'registerOwner'])->name('auth.register');
     Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+    Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
+
 
     // ──────────────────────────────────────────────────────
     // Marketplace Customer Auth (Public — phone OTP, session-based)
