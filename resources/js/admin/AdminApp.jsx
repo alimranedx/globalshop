@@ -2,9 +2,36 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams } from 'react-router-dom';
 
 /* ─────────────────────────────────────────────────────────────
-   API Helpers
+   API & Option Constants
 ───────────────────────────────────────────────────────────── */
 const API = '/api/v1';
+
+const CURRENCY_OPTIONS = [
+    { value: 'USD', label: 'USD ($) — US Dollar' },
+    { value: 'BDT', label: 'BDT (৳) — Bangladeshi Taka' },
+    { value: 'EUR', label: 'EUR (€) — Euro' },
+    { value: 'GBP', label: 'GBP (£) — British Pound' },
+    { value: 'CAD', label: 'CAD ($) — Canadian Dollar' },
+    { value: 'AUD', label: 'AUD ($) — Australian Dollar' },
+    { value: 'JPY', label: 'JPY (¥) — Japanese Yen' },
+    { value: 'INR', label: 'INR (₹) — Indian Rupee' },
+];
+
+const TIMEZONE_OPTIONS = [
+    { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+    { value: 'Asia/Dhaka', label: 'Asia/Dhaka (BST / GMT+6)' },
+    { value: 'America/New_York', label: 'America/New_York (EST / GMT-5)' },
+    { value: 'America/Chicago', label: 'America/Chicago (CST / GMT-6)' },
+    { value: 'America/Denver', label: 'America/Denver (MST / GMT-7)' },
+    { value: 'America/Los_Angeles', label: 'America/Los_Angeles (PST / GMT-8)' },
+    { value: 'Europe/London', label: 'Europe/London (GMT / BST)' },
+    { value: 'Europe/Paris', label: 'Europe/Paris (CET / GMT+1)' },
+    { value: 'Asia/Dubai', label: 'Asia/Dubai (GST / GMT+4)' },
+    { value: 'Asia/Kolkata', label: 'Asia/Kolkata (IST / GMT+5:30)' },
+    { value: 'Asia/Singapore', label: 'Asia/Singapore (SGT / GMT+8)' },
+    { value: 'Asia/Tokyo', label: 'Asia/Tokyo (JST / GMT+9)' },
+    { value: 'Australia/Sydney', label: 'Australia/Sydney (AEST / GMT+10)' },
+];
 
 const getCsrf = () =>
     document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -919,8 +946,46 @@ function CreateShopWizardModal({ plans, onClose, onCreated }) {
                         <FormField label="Shop Phone" id="wiz-phone" value={form.phone} onChange={e => updateForm('phone', e.target.value)} placeholder="+1 555-0192" />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <FormField label="Currency" id="wiz-currency" value={form.currency} onChange={e => updateForm('currency', e.target.value)} placeholder="USD" />
-                        <FormField label="Timezone" id="wiz-tz" value={form.timezone} onChange={e => updateForm('timezone', e.target.value)} placeholder="UTC" />
+                        <div>
+                            <label htmlFor="wiz-currency" style={{ display: 'block', color: '#9ca3af', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                                Shop Currency *
+                            </label>
+                            <select
+                                id="wiz-currency"
+                                value={form.currency}
+                                onChange={e => updateForm('currency', e.target.value)}
+                                style={{
+                                    width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px',
+                                    background: '#141419', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: '#f3f4f6', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+                                    fontFamily: "'Outfit', sans-serif", cursor: 'pointer',
+                                }}
+                            >
+                                {CURRENCY_OPTIONS.map(c => (
+                                    <option key={c.value} value={c.value}>{c.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="wiz-tz" style={{ display: 'block', color: '#9ca3af', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                                Shop Timezone *
+                            </label>
+                            <select
+                                id="wiz-tz"
+                                value={form.timezone}
+                                onChange={e => updateForm('timezone', e.target.value)}
+                                style={{
+                                    width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px',
+                                    background: '#141419', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: '#f3f4f6', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+                                    fontFamily: "'Outfit', sans-serif", cursor: 'pointer',
+                                }}
+                            >
+                                {TIMEZONE_OPTIONS.map(t => (
+                                    <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
             )}
@@ -2008,7 +2073,48 @@ function EditShopModal({ shop, onClose, onSaved }) {
                     <FormField label="Phone" id="edit-shop-phone" value={phone} onChange={e => setPhone(e.target.value)} />
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <FormField label="Currency" id="edit-shop-curr" value={currency} onChange={e => setCurrency(e.target.value)} />
+                    <div>
+                        <label htmlFor="edit-shop-curr" style={{ display: 'block', color: '#9ca3af', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                            Currency
+                        </label>
+                        <select
+                            id="edit-shop-curr"
+                            value={currency}
+                            onChange={e => setCurrency(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px',
+                                background: '#141419', border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#f3f4f6', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+                                fontFamily: "'Outfit', sans-serif", cursor: 'pointer',
+                            }}
+                        >
+                            {CURRENCY_OPTIONS.map(c => (
+                                <option key={c.value} value={c.value}>{c.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="edit-shop-tz" style={{ display: 'block', color: '#9ca3af', fontSize: '0.78rem', fontWeight: 600, marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                            Timezone
+                        </label>
+                        <select
+                            id="edit-shop-tz"
+                            value={timezone}
+                            onChange={e => setTimezone(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px',
+                                background: '#141419', border: '1px solid rgba(255,255,255,0.1)',
+                                color: '#f3f4f6', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+                                fontFamily: "'Outfit', sans-serif", cursor: 'pointer',
+                            }}
+                        >
+                            {TIMEZONE_OPTIONS.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div style={{ marginTop: '0.5rem' }}>
                     <FormField label="Refund Window (Days)" id="edit-shop-ref" type="number" value={refundDays} onChange={e => setRefundDays(e.target.value)} />
                 </div>
                 {error && <ErrorAlert msg={error} />}

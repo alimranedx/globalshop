@@ -213,8 +213,8 @@ class PlatformAdminController extends Controller
             'address' => 'nullable|string|max:500',
             'city' => 'nullable|string|max:100',
             'country' => 'nullable|string|max:100',
-            'currency' => 'nullable|string|max:10',
-            'timezone' => 'nullable|string|max:50',
+            'currency' => 'nullable|string|in:USD,BDT,EUR,GBP,CAD,AUD,JPY,INR',
+            'timezone' => 'nullable|string|max:100',
             'status' => 'nullable|string|in:draft,setup_in_progress,ready_for_handover,active,suspended,pending',
             'plan_id' => 'nullable|exists:plans,id',
             'owner_id' => 'nullable|exists:users,id',
@@ -1134,6 +1134,11 @@ class PlatformAdminController extends Controller
             'name' => 'required|string|max:255',
             'slug' => 'required|string|alpha_dash|unique:shops,slug,' . $shop->id,
             'domain' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:50',
+            'currency' => 'nullable|string|in:USD,BDT,EUR,GBP,CAD,AUD,JPY,INR',
+            'timezone' => 'nullable|string|max:100',
+            'refund_window_days' => 'nullable|integer|min:0|max:365',
         ]);
 
         $oldValues = $shop->toArray();
