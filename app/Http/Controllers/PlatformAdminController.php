@@ -1138,11 +1138,34 @@ class PlatformAdminController extends Controller
             'phone' => 'nullable|string|max:50',
             'currency' => 'nullable|string|in:USD,BDT,EUR,GBP,CAD,AUD,JPY,INR',
             'timezone' => 'nullable|string|max:100',
+            'status' => 'nullable|string|in:draft,setup_in_progress,ready_for_handover,active,suspended,pending',
+            'plan_id' => 'nullable|exists:plans,id',
             'refund_window_days' => 'nullable|integer|min:0|max:365',
         ]);
 
         $oldValues = $shop->toArray();
+
+        $planId = $validated['plan_id'] ?? null;
+        unset($validated['plan_id']);
+
         $shop->update($validated);
+
+        if (!empty($planId)) {
+            $activeSub = $shop->activeSubscription;
+            if ($activeSub) {
+                $activeSub->update(['plan_id' => $planId]);
+            } else {
+                Subscription::create([
+                    'shop_id' => $shop->id,
+                    'plan_id' => $planId,
+                    'status' => 'active',
+                    'starts_at' => now(),
+                    'ends_at' => now()->addMonth(),
+                ]);
+            }
+        }
+
+        $shop->load(['owner', 'activeSubscription.plan']);
 
         $this->logger->execute(
             'shop.updated',
