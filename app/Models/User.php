@@ -19,7 +19,10 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
+        'status',
+        'last_login_at',
         'is_platform_admin',
         'admin_permissions',
     ];
@@ -43,6 +46,14 @@ class User extends Authenticatable
             'is_platform_admin' => 'boolean',
             'admin_permissions' => 'array',
         ];
+    }
+
+    /**
+     * Support tickets created by or assigned to the user.
+     */
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class, 'user_id');
     }
 
     /**

@@ -148,5 +148,33 @@ Route::prefix('v1')->group(function () {
         Route::put('/admins/{user}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'updateAdminPermissions'])->name('admin.admins');
 
         Route::get('/logs', [App\Http\Controllers\PlatformAdminController::class, 'listLogs'])->name('admin.logs');
+
+        // Admin User Directory
+        Route::get('/directory/customers', [App\Http\Controllers\AdminUserDirectoryController::class, 'getCustomers'])->name('admin.customers');
+        Route::put('/directory/customers/{customer}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateCustomerStatus'])->name('admin.customers');
+        Route::post('/directory/customers/{customer}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetCustomerPassword'])->name('admin.customers');
+
+        Route::get('/directory/shop-owners', [App\Http\Controllers\AdminUserDirectoryController::class, 'getShopOwners'])->name('admin.shops');
+        Route::get('/directory/employees', [App\Http\Controllers\AdminUserDirectoryController::class, 'getEmployees'])->name('admin.shops');
+        Route::put('/directory/users/{user}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateUserStatus'])->name('admin.shops');
+        Route::post('/directory/users/{user}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetUserPassword'])->name('admin.shops');
+
+        // Admin Support Tickets Management
+        Route::get('/support-tickets', [App\Http\Controllers\AdminSupportTicketController::class, 'index'])->name('admin.tickets');
+        Route::get('/support-tickets/{ticket}', [App\Http\Controllers\AdminSupportTicketController::class, 'show'])->name('admin.tickets');
+        Route::post('/support-tickets/{ticket}/reply', [App\Http\Controllers\AdminSupportTicketController::class, 'reply'])->name('admin.tickets');
+        Route::put('/support-tickets/{ticket}/status', [App\Http\Controllers\AdminSupportTicketController::class, 'updateStatus'])->name('admin.tickets');
     });
 });
+
+// Public Support Ticket Routes
+Route::post('/v1/support/tickets/public', [App\Http\Controllers\SupportTicketController::class, 'createPublicTicket']);
+
+// Authenticated & Session Support Ticket Routes
+Route::prefix('v1/support')->group(function () {
+    Route::post('/tickets', [App\Http\Controllers\SupportTicketController::class, 'createAuthTicket']);
+    Route::get('/tickets', [App\Http\Controllers\SupportTicketController::class, 'getUserTickets']);
+    Route::get('/tickets/{ticket}', [App\Http\Controllers\SupportTicketController::class, 'getUserTicketDetails']);
+    Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\SupportTicketController::class, 'replyUserTicket']);
+});
+

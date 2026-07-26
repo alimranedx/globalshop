@@ -9,9 +9,12 @@ class MarketplaceCustomer extends Model
 {
     protected $fillable = [
         'phone',
+        'email',
         'name',
         'avatar',
         'password',
+        'status',
+        'last_login_at',
         'shipping_address',
         'otp',
         'otp_expires_at',
@@ -21,6 +24,7 @@ class MarketplaceCustomer extends Model
     protected $casts = [
         'otp_expires_at' => 'datetime',
         'verified_at'    => 'datetime',
+        'last_login_at'   => 'datetime',
         'password'       => 'hashed',
     ];
 
@@ -29,6 +33,14 @@ class MarketplaceCustomer extends Model
         'otp',
         'otp_expires_at',
     ];
+
+    /**
+     * Support tickets created by this customer.
+     */
+    public function supportTickets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SupportTicket::class, 'customer_id');
+    }
 
     /**
      * The shops this customer has subscribed/preferred.

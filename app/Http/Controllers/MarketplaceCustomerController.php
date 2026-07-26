@@ -49,6 +49,16 @@ class MarketplaceCustomerController extends Controller
             ], 422);
         }
 
+        if ($customer->status && $customer->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'account_suspended' => true,
+                'message' => "Your account is currently {$customer->status}. Please contact support for assistance.",
+            ], 403);
+        }
+
+        $customer->update(['last_login_at' => now()]);
+
         session(['marketplace_customer_id' => $customer->id]);
         $customer->load('preferredShops');
 

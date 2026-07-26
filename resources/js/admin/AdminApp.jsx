@@ -10,6 +10,11 @@ import { ShopDirectoryPage } from './shops/pages/ShopDirectoryPage';
 import { CreateShopPage } from './shops/pages/CreateShopPage';
 import { EditShopPage } from './shops/pages/EditShopPage';
 import { ShopHubPage } from './shops/pages/ShopHubPage';
+import { CustomerDirectoryPage } from './customers/pages/CustomerDirectoryPage';
+import { ShopOwnerDirectoryPage } from './shop-owners/pages/ShopOwnerDirectoryPage';
+import { EmployeeDirectoryPage } from './employees/pages/EmployeeDirectoryPage';
+import { TicketDirectoryPage } from './support-tickets/pages/TicketDirectoryPage';
+import { TicketDetailsPage } from './support-tickets/pages/TicketDetailsPage';
 import { PlansPage } from './subscriptions/pages/PlansPage';
 import { AdminsPage } from './admin-accounts/pages/AdminsPage';
 import { LogsPage } from './audit-logs/pages/LogsPage';
@@ -56,6 +61,31 @@ export default function AdminApp() {
                         <Route path="/admin/shops/:shopId/manage" element={
                             <RequireAdmin>
                                 <AdminLayout><ShopHubPage /></AdminLayout>
+                            </RequireAdmin>
+                        } />
+                        <Route path="/admin/customers" element={
+                            <RequireAdmin>
+                                <AdminLayout><CustomerDirectoryPage /></AdminLayout>
+                            </RequireAdmin>
+                        } />
+                        <Route path="/admin/shop-owners" element={
+                            <RequireAdmin>
+                                <AdminLayout><ShopOwnerDirectoryPage /></AdminLayout>
+                            </RequireAdmin>
+                        } />
+                        <Route path="/admin/employees" element={
+                            <RequireAdmin>
+                                <AdminLayout><EmployeeDirectoryPage /></AdminLayout>
+                            </RequireAdmin>
+                        } />
+                        <Route path="/admin/support-tickets" element={
+                            <RequireAdmin>
+                                <AdminLayout><TicketDirectoryPage /></AdminLayout>
+                            </RequireAdmin>
+                        } />
+                        <Route path="/admin/support-tickets/:ticketId" element={
+                            <RequireAdmin>
+                                <AdminLayout><TicketDetailsPage /></AdminLayout>
                             </RequireAdmin>
                         } />
                         <Route path="/admin/plans" element={

@@ -110,6 +110,17 @@ class AuthController extends Controller
         if (Auth::attempt($request->only('email', 'password'))) {
             $user = Auth::user();
 
+            if ($user->status && $user->status !== 'active') {
+                Auth::logout();
+                return response()->json([
+                    'success' => false,
+                    'account_suspended' => true,
+                    'message' => "Your account is currently {$user->status}. Please contact support for assistance."
+                ], 403);
+            }
+
+            $user->update(['last_login_at' => now()]);
+
             // Check if a specific shop slug/id was requested
             $requestedSlug = $request->input('shop_slug');
             $requestedId = $request->input('shop_id');

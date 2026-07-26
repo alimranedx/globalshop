@@ -5,6 +5,10 @@ import { useAuth } from '../context/AuthContext';
 const NAV_ITEMS = [
     { id: 'dashboard', path: '/admin', label: 'Dashboard', icon: '📊', exact: true },
     { id: 'shops', path: '/admin/shops', label: 'Shop Directory', icon: '🏢' },
+    { id: 'customers', path: '/admin/customers', label: 'Customers', icon: '🛍️' },
+    { id: 'shop-owners', path: '/admin/shop-owners', label: 'Shop Owners', icon: '👑' },
+    { id: 'employees', path: '/admin/employees', label: 'Shop Staff', icon: '👔' },
+    { id: 'tickets', path: '/admin/support-tickets', label: 'Support Tickets Desk', icon: '🎫' },
     { id: 'plans', path: '/admin/plans', label: 'Subscription Plans', icon: '💳' },
     { id: 'admins', path: '/admin/admins', label: 'Admin Accounts', icon: '👥' },
     { id: 'logs', path: '/admin/logs', label: 'Audit Logs', icon: '📜' },
