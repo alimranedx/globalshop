@@ -265,10 +265,29 @@ Page-level permissions are stored in `config/permissions.php` and enforced by `A
 |---|---|---|---|
 | GET | `/api/v1/auth/me` | Any authenticated | Current user profile |
 | GET | `/api/v1/platform/state` | Platform Admin | Platform overview stats |
-| GET | `/api/v1/platform/shops` | `admin.shops` | List all shops |
-| POST | `/api/v1/platform/shops/{shop}/approve` | `admin.shops` | Approve pending shop |
-| POST | `/api/v1/platform/shops/{shop}/toggle-suspension` | `admin.shops` | Suspend/activate shop |
-| PUT | `/api/v1/platform/shops/{shop}` | `admin.shops` | Edit shop details |
+| GET | `/api/v1/platform/shops` | `admin.shops` | List all shops with search, status & plan filters |
+| POST | `/api/v1/platform/shops` | `admin.shops` | Provision new shop (Wizard) |
+| GET | `/api/v1/platform/shops/{shop}` | `admin.shops` | Show shop hub details + checklist + progress % |
+| PUT | `/api/v1/platform/shops/{shop}` | `admin.shops` | Update shop details |
+| DELETE | `/api/v1/platform/shops/{shop}` | `admin.shops` | Soft-delete shop safely |
+| POST | `/api/v1/platform/shops/{shop}/handover` | `admin.shops` | Update handover status (`draft` → `ready_for_handover` → `active`) |
+| GET | `/api/v1/platform/users` | `admin.shops` | List users for owner/employee selection |
+| POST | `/api/v1/platform/shops/{shop}/owner` | `admin.shops` | Assign existing or create new Shop Owner |
+| GET | `/api/v1/platform/shops/{shop}/employees` | `admin.shops` | List shop staff & assigned roles |
+| POST | `/api/v1/platform/shops/{shop}/employees` | `admin.shops` | Add employee to shop |
+| PUT | `/api/v1/platform/shops/{shop}/employees/{user}` | `admin.shops` | Update employee role/status/password |
+| DELETE | `/api/v1/platform/shops/{shop}/employees/{user}` | `admin.shops` | Remove employee from shop |
+| GET | `/api/v1/platform/shops/{shop}/roles` | `admin.shops` | List shop roles |
+| POST | `/api/v1/platform/shops/{shop}/roles` | `admin.shops` | Create custom role for shop |
+| PUT | `/api/v1/platform/shops/{shop}/roles/{role}` | `admin.shops` | Edit role name |
+| DELETE | `/api/v1/platform/shops/{shop}/roles/{role}` | `admin.shops` | Delete role (if not in use) |
+| GET | `/api/v1/platform/shops/{shop}/roles/{role}/permissions` | `admin.shops` | Get role page permissions tree |
+| PUT | `/api/v1/platform/shops/{shop}/roles/{role}/permissions` | `admin.shops` | Sync page permissions for role |
+| GET | `/api/v1/platform/shops/{shop}/products` | `admin.shops` | List products for shop |
+| POST | `/api/v1/platform/shops/{shop}/products` | `admin.shops` | Add product to shop |
+| PUT | `/api/v1/platform/shops/{shop}/products/{product}` | `admin.shops` | Update product |
+| DELETE | `/api/v1/platform/shops/{shop}/products/{product}` | `admin.shops` | Delete product |
+| GET | `/api/v1/platform/shops/{shop}/logs` | `admin.shops` | List activity logs for shop |
 | GET | `/api/v1/platform/plans` | `admin.plans` | List subscription plans |
 | POST | `/api/v1/platform/plans` | `admin.plans` | Create plan |
 | PUT | `/api/v1/platform/plans/{plan}` | `admin.plans` | Update plan |
@@ -276,6 +295,38 @@ Page-level permissions are stored in `config/permissions.php` and enforced by `A
 | POST | `/api/v1/platform/admins` | `admin.admins` | Create admin account |
 | PUT | `/api/v1/platform/admins/{user}/permissions` | Super Admin only | Update admin permissions |
 | GET | `/api/v1/platform/logs` | `admin.logs` | Platform audit logs |
+
+---
+
+## 🛠️ How Super Admin Provisioning & Shop Handover Works
+
+```
+Super Admin Creates Shop (Wizard)
+        ↓
+Super Admin Configures Shop Details (Name, Logo, Contact, Currency, Timezone)
+        ↓
+Super Admin Creates or Assigns Shop Owner
+        ↓
+Super Admin Adds Shop Employees & Configures Custom Roles
+        ↓
+Super Admin Assigns Page-Level Permissions (Module → Submodule → Page)
+        ↓
+Super Admin Seeds Initial Products Catalog
+        ↓
+Shop Provisioning Progress reaches 100% (Checklist Verified)
+        ↓
+Super Admin Marks Shop "Ready for Handover" or "Active"
+        ↓
+Shop Owner logs in & starts operating immediately with zero setup hassle!
+```
+
+### Handover Lifecycle Statuses
+
+1. **`draft`**: Initial shop state created by Super Admin. Accessible only to Super Admin for configuration.
+2. **`setup_in_progress`**: Provisioning in progress. Non-admin owner access restricted.
+3. **`ready_for_handover`**: All required checklist items completed. Owner is ready to receive credentials and log in.
+4. **`active`**: Fully operational shop running live.
+5. **`suspended`**: Operation blocked by platform administrator.
 
 ---
 

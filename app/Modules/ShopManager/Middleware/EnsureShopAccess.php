@@ -62,6 +62,15 @@ class EnsureShopAccess
             }
         }
 
+        if (in_array($shop->status, ['draft', 'setup_in_progress'])) {
+            if (!$user || !$user->is_platform_admin) {
+                if ($request->expectsJson() || $request->is('api/*')) {
+                    return response()->json(['success' => false, 'message' => 'This shop is undergoing setup and is not yet available.'], 403);
+                }
+                abort(403, 'This shop is undergoing setup and is not yet available.');
+            }
+        }
+
         // 5. Establish active tenant scope
         TenantManager::setTenant($shop);
         session(['mock_active_tenant_id' => $shop->id, 'active_shop_slug' => $shop->slug]);

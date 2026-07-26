@@ -106,10 +106,38 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth', 'page.authorize'])->prefix('platform')->group(function () {
         Route::get('/state', [App\Http\Controllers\PlatformAdminController::class, 'state'])->name('platform.state');
         Route::get('/shops', [App\Http\Controllers\PlatformAdminController::class, 'listShops'])->name('admin.shops');
+        Route::post('/shops', [App\Http\Controllers\PlatformAdminController::class, 'storeShop'])->name('admin.shops');
+        Route::get('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'showShop'])->name('admin.shops');
+        Route::put('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'updateShop'])->name('admin.shops');
+        Route::delete('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShop'])->name('admin.shops');
         Route::post('/shops/{shop}/toggle-suspension', [App\Http\Controllers\PlatformAdminController::class, 'toggleSuspension'])->name('admin.shops');
         Route::post('/shops/{shop}/approve', [App\Http\Controllers\PlatformAdminController::class, 'approveShop'])->name('admin.shops');
-        Route::put('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'updateShop'])->name('admin.shops');
+        Route::post('/shops/{shop}/handover', [App\Http\Controllers\PlatformAdminController::class, 'updateHandover'])->name('admin.shops');
+        Route::get('/users', [App\Http\Controllers\PlatformAdminController::class, 'listUsers'])->name('admin.shops');
+        Route::post('/shops/{shop}/owner', [App\Http\Controllers\PlatformAdminController::class, 'assignOwner'])->name('admin.shops');
 
+        // Shop Employees Management
+        Route::get('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'listShopEmployees'])->name('admin.shops');
+        Route::post('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'addShopEmployee'])->name('admin.shops');
+        Route::put('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopEmployee'])->name('admin.shops');
+        Route::delete('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'removeShopEmployee'])->name('admin.shops');
+
+        // Shop Roles & Permissions Management
+        Route::get('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'listShopRoles'])->name('admin.shops');
+        Route::post('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'storeShopRole'])->name('admin.shops');
+        Route::put('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopRole'])->name('admin.shops');
+        Route::delete('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopRole'])->name('admin.shops');
+        Route::get('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'getShopRolePermissions'])->name('admin.shops');
+        Route::put('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'syncShopRolePermissions'])->name('admin.shops');
+
+        // Shop Products Management
+        Route::get('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'listShopProducts'])->name('admin.shops');
+        Route::post('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'storeShopProduct'])->name('admin.shops');
+        Route::put('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopProduct'])->name('admin.shops');
+        Route::delete('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopProduct'])->name('admin.shops');
+
+        // Shop Audit Logs
+        Route::get('/shops/{shop}/logs', [App\Http\Controllers\PlatformAdminController::class, 'listShopLogs'])->name('admin.shops');
 
         Route::get('/plans', [App\Http\Controllers\PlatformAdminController::class, 'listPlans'])->name('admin.plans');
         Route::post('/plans', [App\Http\Controllers\PlatformAdminController::class, 'storePlan'])->name('admin.plans');

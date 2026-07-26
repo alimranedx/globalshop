@@ -22,6 +22,14 @@ class Shop extends Model
         'status',
         'currency',
         'language',
+        'logo_url',
+        'email',
+        'phone',
+        'address',
+        'city',
+        'country',
+        'timezone',
+        'refund_window_days',
     ];
 
     /**
