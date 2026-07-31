@@ -18,6 +18,49 @@
 
 ---
 
+## 🔑 Default Test Credentials Reference
+
+> [!NOTE]
+> All pre-configured test accounts use the standard password: **`password`**
+
+### 1. Platform Admin Accounts (`/admin/login`)
+
+| Role | Name | Email | Password | Access Rights & Scope |
+|---|---|---|---|---|
+| **Super Admin** | Super Admin | `superadmin@marketplace.com` | `password` | Full system access, platform admin control, admin permission management. |
+| **Platform Admin** | Grace Admin | `grace@marketplace.com` | `password` | Platform management access (Shops, Plans, System Audit Logs). |
+
+### 2. Multi-Tenant Shop Accounts (`/shop/{slug}/login` or `/shop/easy-login`)
+
+#### Shop Alpha (`/shop/alpha/dashboard`)
+
+| Role | Name | Email | Password | Scope & Permissions |
+|---|---|---|---|---|
+| **Shop Owner** | John Owner | `john@alpha.com` | `password` | Full Shop Owner access (Products, Staff, POS Sales, Settings, Subscription). |
+| **Shop Manager** | Bob Manager | `bob@alpha.com` | `password` | Managing products, categories, brands, staff, and sales terminal. |
+| **Sales Manager** | Sam Sales | `sam@alpha.com` | `password` | Products catalog view & POS Sales Terminal execution (`sales.create`). |
+| **Shop Worker** | Charlie Worker | `charlie@alpha.com` | `password` | View-only product catalog access (`products.index`). |
+
+#### Additional Tenant Shops
+
+| Shop Name | Tenant Slug | Owner Name | Owner Email | Password | Target Dashboard URL |
+|---|---|---|---|---|---|
+| **Shop Beta** | `beta` | Betty Owner | `owner.b@beta.com` | `password` | `/shop/beta/dashboard` |
+| **Shop Gamma** | `gamma` | George Owner | `owner.c@gamma.com` | `password` | `/shop/gamma/dashboard` |
+| **Shop Delta** | `delta` | David Owner | `owner.d@delta.com` | `password` | `/shop/delta/dashboard` |
+
+### 3. Marketplace Customer Accounts (`/login` or `/register`)
+
+| Role | Name | Email / Phone | Password | Access Rights & Scope |
+|---|---|---|---|---|
+| **Customer** | Alice Customer | `alice@customer.com` <br> `01700000001` | `password` | Marketplace shopping, cart drawer, customer profile, order history. |
+| **Customer** | Bob Customer | `bob@customer.com` <br> `01700000002` | `password` | Customer checkout & order tracking. |
+
+> [!TIP]
+> In local development, navigate to **`/shop/easy-login`** to access the 1-click single-click account switcher listing all test credentials and active tenant shops.
+
+---
+
 ## 🏗️ Application Panels Overview
 
 | Panel | Base URL Path | React Entry Point | Audience & Key Features |
@@ -74,15 +117,4 @@ Visit the application locally at:
 
 ---
 
-## 🔑 Default Test Credentials
-
-All test accounts use the default password: **`password`**
-
-* **Super Admin:** `superadmin@marketplace.com`
-* **Platform Admin:** `grace@marketplace.com`
-* **Shop Alpha Owner:** `john@alpha.com`
-* **Shop Alpha Manager:** `bob@alpha.com`
-* **Shop Alpha Sales POS:** `sam@alpha.com`
-* **Customer Account:** `alice@customer.com`
-
-For complete testing details, refer to **[docs/CREDENTIALS_AND_URLS.md](./docs/CREDENTIALS_AND_URLS.md)** and **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+For complete setup, architecture, and deployment procedures, refer to **[DEPLOYMENT.md](./DEPLOYMENT.md)** and **[docs/CREDENTIALS_AND_URLS.md](./docs/CREDENTIALS_AND_URLS.md)**.
