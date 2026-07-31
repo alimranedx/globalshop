@@ -1,58 +1,88 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# GlobalShop — Multi-Tenant SaaS E-Commerce Marketplace
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+[![Laravel Framework](https://img.shields.io/badge/Laravel-13.8-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
+[![React](https://img.shields.io/badge/React-19.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
+[![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](https://mysql.com)
 
-## About Laravel
+**GlobalShop** is a modern, high-performance **multi-tenant SaaS e-commerce marketplace** powered by a single **Laravel 13** backend. It features **three distinct React 19 Single Page Application (SPA) panels** sharing business logic, database, and tenant isolation:
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 📚 Documentation & Setup Guides
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+* 🚀 **[Deployment & Setup Guide (DEPLOYMENT.md)](./DEPLOYMENT.md)** — Step-by-step local development setup (Windows + Laragon), production Linux (Ubuntu + Nginx + PHP 8.3-FPM) deployment guide, `.env` matrix, queue workers, and troubleshooting.
+* 📐 **[System Architecture Guide (docs/ARCHITECTURE.md)](./docs/ARCHITECTURE.md)** — Detailed technical architecture, panel routing, blade entry points, and module structure.
+* 🔑 **[Credentials & System URLs (docs/CREDENTIALS_AND_URLS.md)](./docs/CREDENTIALS_AND_URLS.md)** — Complete reference of default accounts, test credentials, role access, and verification workflows.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🏗️ Application Panels Overview
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+| Panel | Base URL Path | React Entry Point | Audience & Key Features |
+|---|---|---|---|
+| 🛒 **Public Marketplace** | `/` | `marketplace.jsx` | Browse products, category/shop filtering, shopping cart, customer checkout, orders. |
+| 🏪 **Shop Management** | `/shop/{slug}/*` | `shop.jsx` | Multi-tenant shop dashboard, catalog hub (products, categories, brands), POS sales terminal, staff roles. |
+| ⚙️ **Platform Admin** | `/admin/*` | `admin.jsx` | Super Admin & Platform Admin portal for shop approvals, subscription plans, admin permissions, and audit logs. |
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
+## ⚡ Quick Start (Local Development)
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Prerequisites
+
+* **PHP:** `^8.3` (with `bcmath`, `curl`, `gd`, `intl`, `mbstring`, `pdo_mysql`, `pdo_sqlite`, `sqlite3`, `zip`)
+* **Node.js:** `^20.0` or `^24.0` LTS & **npm** `^10.0`
+* **Composer:** `^2.8`
+* **MySQL:** `^8.0` or MariaDB `10.4+`
+
+### 1. Clone & Configure
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/alimranedx/globalshop.git
+cd globalshop
+git checkout dev
+copy .env.example .env
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Install Dependencies & Setup App
 
-## Contributing
+```bash
+composer install
+php artisan key:generate
+npm install
+php artisan migrate
+php artisan db:seed
+php artisan storage:link
+npm run build
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Start Development Servers
 
-## Code of Conduct
+Run all background services simultaneously:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+composer run dev
+```
 
-## Security Vulnerabilities
+Visit the application locally at:
+* **Public Marketplace:** `http://localhost:8000/`
+* **Developer Easy Login Hub:** `http://localhost:8000/shop/easy-login`
+* **Shop Alpha Dashboard:** `http://localhost:8000/shop/alpha/dashboard`
+* **Admin Login:** `http://localhost:8000/admin/login`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🔑 Default Test Credentials
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+All test accounts use the default password: **`password`**
+
+* **Super Admin:** `superadmin@marketplace.com`
+* **Platform Admin:** `grace@marketplace.com`
+* **Shop Alpha Owner:** `john@alpha.com`
+* **Shop Alpha Manager:** `bob@alpha.com`
+* **Shop Alpha Sales POS:** `sam@alpha.com`
+* **Customer Account:** `alice@customer.com`
+
+For complete testing details, refer to **[docs/CREDENTIALS_AND_URLS.md](./docs/CREDENTIALS_AND_URLS.md)** and **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
