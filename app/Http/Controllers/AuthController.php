@@ -205,6 +205,6 @@ class AuthController extends Controller
             ]);
         }
 
-        return redirect('/');
+        return redirect()->back()->with('success', 'Logged out successfully. Please log in with your account.');
     }
 }

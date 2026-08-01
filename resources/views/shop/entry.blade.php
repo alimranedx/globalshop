@@ -101,7 +101,7 @@
                         <a href="{{ url('/shop/' . $shop->slug . '/dashboard') }}" class="btn btn-indigo btn-lg w-100 mb-2 py-2 fs-6">
                             <i class="bi bi-speedometer2 me-2"></i> Go to Shop Dashboard
                         </a>
-                        <form action="{{ route('auth.logout') }}" method="POST" class="mt-2">
+                        <form action="{{ route('logout') }}" method="POST" class="mt-2">
                             @csrf
                             <button type="submit" class="btn btn-sm btn-link text-danger text-decoration-none">
                                 Log in with a different account
@@ -120,7 +120,7 @@
                             <a href="{{ url('/shop') }}" class="btn btn-outline-secondary w-100">
                                 <i class="bi bi-building me-1"></i> Return to Shop Directory
                             </a>
-                            <form action="{{ route('auth.logout') }}" method="POST">
+                            <form action="{{ route('logout') }}" method="POST">
                                 @csrf
                                 <button type="submit" class="btn btn-danger w-100">
                                     <i class="bi bi-box-arrow-right me-1"></i> Log Out & Switch Account

@@ -5,7 +5,7 @@ import { Provider, useSelector, useDispatch } from 'react-redux';
 
 import store from './store';
 import { clearAuthState } from './store/authSlice';
-import { clearShopState } from './store/shopSlice';
+import { clearShopState, setUserLanguage } from './store/shopSlice';
 import { clearCatalogState } from './store/catalogSlice';
 import { clearEmployeesState } from './store/employeesSlice';
 import { clearUiState, showToast, clearToast } from './store/uiSlice';
@@ -57,6 +57,7 @@ function ShopManagerApp() {
     const shop = useSelector(state => state.shop.shop);
     const toast = useSelector(state => state.ui.toast);
     const currentUserEmail = useSelector(state => state.auth.currentUserEmail);
+    const activeLanguage = useSelector(state => state.shop.userLanguage || state.shop.shop?.language || localStorage.getItem('app_language') || 'en');
 
     const hasPermission = useHasPermission();
 
@@ -142,28 +143,25 @@ function ShopManagerApp() {
     };
 
     const handleLanguageChange = async (newLang) => {
-        if (!shop) return;
-        const headers = getHeaders();
-        try {
-            const response = await fetch('/api/v1/tenant/settings', {
-                method: 'PUT',
-                headers: { ...headers, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: shop.name,
-                    status: shop.status,
-                    currency: shop.currency || 'USD',
-                    language: newLang
-                })
-            });
-            const res = await response.json();
-            if (res.success) {
-                dispatch(showToast({ message: 'Language updated successfully!', isError: false }));
-                dispatch(fetchState());
-            } else {
-                dispatch(showToast({ message: res.message || 'Failed to update language.', isError: true }));
+        dispatch(setUserLanguage(newLang));
+        dispatch(showToast({ message: newLang === 'bn' ? 'ভাষা বাংলায় পরিবর্তিত হয়েছে' : 'Language changed to English', isError: false }));
+
+        if (shop && (user?.id === shop?.owner_id || user?.is_platform_admin)) {
+            const headers = getHeaders();
+            try {
+                await fetch('/api/v1/tenant/settings', {
+                    method: 'PUT',
+                    headers: { ...headers, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: shop.name,
+                        status: shop.status,
+                        currency: shop.currency || 'USD',
+                        language: newLang
+                    })
+                });
+            } catch (err) {
+                // Ignore silent network sync error for tenant settings
             }
-        } catch (err) {
-            dispatch(showToast({ message: 'Connection error.', isError: true }));
         }
     };
 
@@ -313,8 +311,8 @@ function ShopManagerApp() {
                                         <button 
                                             onClick={() => handleLanguageChange('en')}
                                             style={{ 
-                                                background: shop?.language === 'en' ? '#6366f1' : 'transparent',
-                                                color: shop?.language === 'en' ? '#fff' : colors.textMuted,
+                                                background: activeLanguage === 'en' ? '#6366f1' : 'transparent',
+                                                color: activeLanguage === 'en' ? '#fff' : colors.textMuted,
                                                 border: 'none',
                                                 padding: '0.35rem 0.8rem',
                                                 borderRadius: '6px',
@@ -323,7 +321,7 @@ function ShopManagerApp() {
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 outline: 'none',
-                                                boxShadow: shop?.language === 'en' ? '0 2px 6px rgba(99, 102, 241, 0.4)' : 'none'
+                                                boxShadow: activeLanguage === 'en' ? '0 2px 6px rgba(99, 102, 241, 0.4)' : 'none'
                                             }}
                                         >
                                             EN
@@ -331,8 +329,8 @@ function ShopManagerApp() {
                                         <button 
                                             onClick={() => handleLanguageChange('bn')}
                                             style={{ 
-                                                background: shop?.language === 'bn' ? '#6366f1' : 'transparent',
-                                                color: shop?.language === 'bn' ? '#fff' : colors.textMuted,
+                                                background: activeLanguage === 'bn' ? '#6366f1' : 'transparent',
+                                                color: activeLanguage === 'bn' ? '#fff' : colors.textMuted,
                                                 border: 'none',
                                                 padding: '0.35rem 0.8rem',
                                                 borderRadius: '6px',
@@ -341,7 +339,7 @@ function ShopManagerApp() {
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 outline: 'none',
-                                                boxShadow: shop?.language === 'bn' ? '0 2px 6px rgba(99, 102, 241, 0.4)' : 'none'
+                                                boxShadow: activeLanguage === 'bn' ? '0 2px 6px rgba(99, 102, 241, 0.4)' : 'none'
                                             }}
                                         >
                                             বাংলা
