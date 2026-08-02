@@ -23,3 +23,11 @@ This document tracks permanent business rules established for GlobalShop feature
 ### 4. Admin Console Access Control
 - **Rule:** Only users with `is_platform_admin = true` can access `/admin/*` routes.
 - **Reason:** Platform security and shop privacy.
+
+### 5. Interactive Client-Side Image Editing (HTML5 Canvas Engine)
+- **Rule:** All profile photo and product catalog image uploads must present an interactive 2D canvas editor modal allowing zoom, rotation, panning, and cropping before sending edited JPEG Blobs to the backend API.
+- **Reason:** Prevents distorted avatars/product photos, optimizes storage sizes, and provides modern e-commerce visual standards.
+
+### 6. Unauthenticated Guest & Logout Route Navigation
+- **Rule:** Logging out or accessing protected shop panel routes while unauthenticated MUST update the browser location bar cleanly to `/shop/{slug}/login` without recursive 302 redirect loops.
+- **Reason:** Eliminates browser URL mismatches (`ERR_TOO_MANY_REDIRECTS`), keeps history stack clean, and ensures consistent SPA entry points.
