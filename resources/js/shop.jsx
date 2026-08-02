@@ -132,7 +132,7 @@ function ShopManagerApp() {
                 dispatch(clearEmployeesState());
                 dispatch(clearUiState());
                 dispatch(showToast({ message: 'Logged out successfully.', isError: false }));
-                navigate('/dashboard');
+                navigate('/login', { replace: true });
             } else {
                 dispatch(showToast({ message: res.message || 'Logout failed.', isError: true }));
             }
@@ -142,6 +142,7 @@ function ShopManagerApp() {
             dispatch(clearCatalogState());
             dispatch(clearEmployeesState());
             dispatch(clearUiState());
+            navigate('/login', { replace: true });
         }
     };
 
@@ -180,8 +181,9 @@ function ShopManagerApp() {
         return (
             <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at top right, #181824 0%, #0a0a0c 100%)', display: 'flex', justifyContent: 'center', alignItems: 'center', fontFamily: 'Outfit', padding: '2rem' }}>
                 <Routes>
+                    <Route path="/login" element={<LoginView />} />
                     <Route path="/register" element={<RegisterView />} />
-                    <Route path="*" element={<LoginView />} />
+                    <Route path="*" element={<Navigate to="/login" replace />} />
                 </Routes>
                 {toast.show && (
                     <div style={{

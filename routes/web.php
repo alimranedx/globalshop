@@ -696,7 +696,27 @@ if (app()->environment('local') || config('app.debug')) {
 // 1. Central Shop Discovery / Selection Page
 Route::get('/shop', [\App\Http\Controllers\ShopDiscoveryController::class, 'index'])->name('shop.index');
 
-// 2. Protected Authenticated Shop Panel Routes
+// 2. Unauthenticated Shop Public & Auth View Routes
+Route::get('/shop/{slug}/login', function (string $slug) {
+    $shop = \App\Models\Shop::where('slug', $slug)->first();
+    if (!$shop) {
+        abort(404, 'Shop not found');
+    }
+    return view('shop', ['shopSlug' => $slug]);
+})->name('shop.login.view');
+
+Route::get('/shop/{slug}/register', function (string $slug) {
+    $shop = \App\Models\Shop::where('slug', $slug)->first();
+    if (!$shop) {
+        abort(404, 'Shop not found');
+    }
+    return view('shop', ['shopSlug' => $slug]);
+})->name('shop.register.view');
+
+Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('shop.login');
+Route::post('/shop/{slug}/register', [\App\Http\Controllers\ShopAuthController::class, 'register'])->name('shop.register');
+
+// 3. Protected Authenticated Shop Panel Routes
 Route::middleware(['auth', 'shop.access'])->group(function () {
     Route::get('/shop/{slug}/dashboard', function (string $slug) {
         $shop = \App\Models\Shop::where('slug', $slug)->first();
@@ -715,10 +735,8 @@ Route::middleware(['auth', 'shop.access'])->group(function () {
     })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('shop.panel');
 });
 
-// 3. Shop Public & Auth Entry Page
+// 4. Shop Public & Auth Entry Page
 Route::get('/shop/{slug}', [\App\Http\Controllers\ShopAuthController::class, 'showEntry'])->name('shop.entry');
-Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('shop.login');
-Route::post('/shop/{slug}/register', [\App\Http\Controllers\ShopAuthController::class, 'register'])->name('shop.register');
 
 
 

@@ -15,6 +15,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('*/login') || $request->is('*/register') || $request->is('login') || $request->is('register')) {
+                return null;
+            }
+            if (preg_match('#^/shop/([^/]+)#', $request->getPathInfo(), $matches)) {
+                return "/shop/{$matches[1]}/login";
+            }
+            return '/login';
+        });
         $middleware->validateCsrfTokens(except: [
             'demo/*',
         ]);
