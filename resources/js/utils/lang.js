@@ -8,6 +8,7 @@ export const translations = {
         staff: '👥 Staff & Roles',
         settings: '⚙️ Shop Settings',
         logs: '📜 Activity Logs',
+        profile: '👤 My Profile',
 
         // Dashboard stats
         welcome_back: 'Welcome back',
@@ -87,6 +88,7 @@ export const translations = {
         staff: '👥 স্টাফ ও রোলস',
         settings: '⚙️ শপ সেটিংস',
         logs: '📜 অ্যাক্টিভিটি লগস',
+        profile: '👤 মাই প্রোফাইল',
 
         // Dashboard stats
         welcome_back: 'স্বাগতম',

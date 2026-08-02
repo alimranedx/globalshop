@@ -165,8 +165,12 @@ class AuthController extends Controller
                 'message' => 'Logged in successfully.',
                 'csrf_token' => csrf_token(),
                 'user' => [
+                    'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'phone' => $user->phone,
+                    'avatar' => $user->avatar,
+                    'avatar_url' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                     'is_platform_admin' => $user->is_platform_admin,
                     'role' => $shop ? ($user->id === $shop->owner_id ? 'Owner' : $user->getTenantRole($shop->id)?->name) : ($user->is_platform_admin ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin') : 'Customer/Guest'),
                 ],

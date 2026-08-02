@@ -423,8 +423,12 @@ Route::prefix('demo')->group(function () {
         return response()->json([
             'success' => true,
             'user' => [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'phone' => $user->phone,
+                'avatar' => $user->avatar,
+                'avatar_url' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                 'is_platform_admin' => $user->is_platform_admin,
                 'role' => $shop ? ($user->id === $shop->owner_id ? 'Owner' : $user->getTenantRole($shop->id)?->name) : ($user->is_platform_admin ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin') : 'Customer/Guest'),
             ],
@@ -497,8 +501,12 @@ Route::prefix('demo')->group(function () {
             'toast' => session()->pull('easy_login_toast'),
             'authenticated' => $user !== null,
             'user' => $user ? [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'phone' => $user->phone,
+                'avatar' => $user->avatar,
+                'avatar_url' => $user->avatar ? asset('storage/' . $user->avatar) : null,
                 'is_platform_admin' => $user->is_platform_admin,
                 'role' => $shop ? ($user->id === $shop->owner_id ? 'Owner' : $user->getTenantRole($shop->id)?->name) : ($user->is_platform_admin ? ($user->email === 'superadmin@marketplace.com' ? 'Super Admin' : 'Admin') : 'Customer/Guest'),
             ] : null,
@@ -704,7 +712,7 @@ Route::middleware(['auth', 'shop.access'])->group(function () {
             abort(404, 'Shop not found');
         }
         return view('shop', ['shopSlug' => $slug]);
-    })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*')->name('shop.panel');
+    })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('shop.panel');
 });
 
 // 3. Shop Public & Auth Entry Page

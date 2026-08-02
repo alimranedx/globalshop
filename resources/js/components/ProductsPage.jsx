@@ -8,6 +8,7 @@ import useHasPermission from '../hooks/useHasPermission';
 import useCurrency from '../hooks/useCurrency';
 import useTheme from '../hooks/useTheme';
 import SmartDateRangePicker from './SmartDateRangePicker';
+import ProductImageEditorModal from './ProductImageEditorModal';
 import { STOCK_UNITS, getStockUnitLabel } from '../constants/stockUnits';
 
 function is_null(val) {
@@ -327,6 +328,87 @@ export default function ProductsPage() {
 
     const [existingProductImages, setExistingProductImages] = useState([]);
     const [deleteImageIds, setDeleteImageIds] = useState([]);
+    const [editingProductImage, setEditingProductImage] = useState(null);
+
+    const handleAddProductImageFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            dispatch(showToast({ message: 'Please select a valid image file (JPEG, PNG, WebP).', isError: true }));
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            setEditingProductImage({
+                src: reader.result,
+                index: -1,
+                isExisting: false
+            });
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
+
+    const handleEditStagedImage = (idx) => {
+        const item = productForm.imageFiles[idx];
+        if (item instanceof Blob || item instanceof File) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                setEditingProductImage({
+                    src: reader.result,
+                    index: idx,
+                    isExisting: false
+                });
+            };
+            reader.readAsDataURL(item);
+        }
+    };
+
+    const handleEditExistingImage = (img) => {
+        setEditingProductImage({
+            src: img.image_url,
+            index: null,
+            isExisting: true,
+            existingId: img.id
+        });
+    };
+
+    const handleSaveEditedProductImage = (blob) => {
+        if (!editingProductImage) return;
+
+        if (editingProductImage.isExisting) {
+            setDeleteImageIds(prev => [...new Set([...prev, editingProductImage.existingId])]);
+            setProductForm(f => ({
+                ...f,
+                imageFiles: [...f.imageFiles, blob]
+            }));
+            dispatch(showToast({ message: 'Edited product image staged!', isError: false }));
+        } else if (editingProductImage.index === -1) {
+            setProductForm(f => ({
+                ...f,
+                imageFiles: [...f.imageFiles, blob]
+            }));
+            dispatch(showToast({ message: 'Product image added and cropped!', isError: false }));
+        } else if (editingProductImage.index >= 0) {
+            setProductForm(f => {
+                const updated = [...f.imageFiles];
+                updated[editingProductImage.index] = blob;
+                return { ...f, imageFiles: updated };
+            });
+            dispatch(showToast({ message: 'Product image updated!', isError: false }));
+        }
+
+        setEditingProductImage(null);
+    };
+
+    const handleRemoveStagedImage = (idx) => {
+        setProductForm(f => ({
+            ...f,
+            imageFiles: f.imageFiles.filter((_, i) => i !== idx)
+        }));
+    };
 
     // Filter states
     const [searchQuery, setSearchQuery] = useState('');
@@ -567,43 +649,164 @@ export default function ProductsPage() {
                             />
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                            <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Upload Product Images</label>
-                            <input 
-                                type="file" 
-                                multiple 
-                                accept="image/*" 
-                                onChange={e => setProductForm({ ...productForm, imageFiles: Array.from(e.target.files) })}
-                                style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }}
-                            />
-                        </div>
-
-                        {existingProductImages.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Active Images (Click to delete):</label>
-                                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
-                                    {existingProductImages.map(img => {
-                                        const isDeleted = deleteImageIds.includes(img.id);
-                                        return (
-                                            <div 
-                                                key={img.id}
-                                                onClick={() => {
-                                                    if (isDeleted) {
-                                                        setDeleteImageIds(deleteImageIds.filter(id => id !== img.id));
-                                                    } else {
-                                                        setDeleteImageIds([...deleteImageIds, img.id]);
-                                                    }
-                                                }}
-                                                style={{ position: 'relative', width: '60px', height: '60px', borderRadius: '8px', cursor: 'pointer', border: isDeleted ? '2px solid #ef4444' : `1px solid ${colors.border}`, overflow: 'hidden', opacity: isDeleted ? 0.35 : 1 }}
-                                            >
-                                                <img src={img.image_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                {isDeleted && <span style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.4)', color: '#ef4444', fontWeight: 'bold', fontSize: '0.8rem' }}>DEL</span>}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                        {/* Product Image Section */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.9rem', fontWeight: '600', color: colors.text }}>
+                                    🖼️ Product Images
+                                </label>
+                                <label style={{
+                                    background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                                    color: '#fff',
+                                    padding: '0.45rem 0.9rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.82rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.3rem',
+                                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)'
+                                }}>
+                                    📸 Add Product Image
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        onChange={handleAddProductImageFile} 
+                                        style={{ display: 'none' }} 
+                                    />
+                                </label>
                             </div>
-                        )}
+
+                            {/* Staged & Existing Images Gallery */}
+                            <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                                {/* Staged New Edited Images */}
+                                {productForm.imageFiles.map((fileItem, idx) => {
+                                    const thumbUrl = fileItem instanceof Blob ? URL.createObjectURL(fileItem) : (typeof fileItem === 'string' ? fileItem : '');
+                                    return (
+                                        <div 
+                                            key={`staged_${idx}`} 
+                                            style={{
+                                                position: 'relative',
+                                                width: '90px',
+                                                height: '90px',
+                                                borderRadius: '8px',
+                                                border: '2px solid #6366f1',
+                                                overflow: 'hidden',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                                background: '#000'
+                                            }}
+                                        >
+                                            <img src={thumbUrl} alt="Product Staged" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            
+                                            {/* Action Overlay */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                inset: 0,
+                                                background: 'rgba(0,0,0,0.65)',
+                                                display: 'flex',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                gap: '0.4rem',
+                                                opacity: 0,
+                                                transition: 'opacity 0.2s'
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                            onMouseLeave={e => e.currentTarget.style.opacity = '0'}
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleEditStagedImage(idx)}
+                                                    style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                                                    title="Edit / Crop Image"
+                                                >
+                                                    ✏️ Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveStagedImage(idx)}
+                                                    style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                                                    title="Remove Image"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Existing Database Images */}
+                                {existingProductImages.map((img) => {
+                                    const isDeleted = deleteImageIds.includes(img.id);
+                                    return (
+                                        <div 
+                                            key={`exist_${img.id}`} 
+                                            style={{
+                                                position: 'relative',
+                                                width: '90px',
+                                                height: '90px',
+                                                borderRadius: '8px',
+                                                border: isDeleted ? '2px solid #ef4444' : `1px solid ${colors.border}`,
+                                                overflow: 'hidden',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                                                opacity: isDeleted ? 0.4 : 1,
+                                                background: '#000'
+                                            }}
+                                        >
+                                            <img src={img.image_url} alt="Product Image" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            
+                                            {isDeleted ? (
+                                                <div 
+                                                    onClick={() => setDeleteImageIds(deleteImageIds.filter(id => id !== img.id))}
+                                                    style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', color: '#ef4444', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                                                >
+                                                    <span>DELETED</span>
+                                                    <span style={{ fontSize: '0.65rem', textDecoration: 'underline', color: '#fff', marginTop: '2px' }}>Undo</span>
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    background: 'rgba(0,0,0,0.65)',
+                                                    display: 'flex',
+                                                    justifyContent: 'center',
+                                                    alignItems: 'center',
+                                                    gap: '0.4rem',
+                                                    opacity: 0,
+                                                    transition: 'opacity 0.2s'
+                                                }}
+                                                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                                                onMouseLeave={e => e.currentTarget.style.opacity = '0'}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleEditExistingImage(img)}
+                                                        style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                                                        title="Edit / Crop Image"
+                                                    >
+                                                        ✏️ Edit
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeleteImageIds([...deleteImageIds, img.id])}
+                                                        style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', padding: '0.25rem 0.4rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: '600' }}
+                                                        title="Delete Image"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {productForm.imageFiles.length === 0 && existingProductImages.length === 0 && (
+                                    <div style={{ fontSize: '0.8rem', color: colors.textMuted, padding: '0.5rem 0' }}>
+                                        No product images added yet. Click "Add Product Image" to select and edit.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                             <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
@@ -810,6 +1013,15 @@ export default function ProductsPage() {
                     );
                 })()}
             </div>
+
+            {/* Product Image Editor Modal */}
+            {editingProductImage && (
+                <ProductImageEditorModal
+                    imageSrc={editingProductImage.src}
+                    onClose={() => setEditingProductImage(null)}
+                    onSave={handleSaveEditedProductImage}
+                />
+            )}
         </div>
     );
 }

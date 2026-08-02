@@ -29,6 +29,7 @@ import RegisterView from './views/RegisterView';
 import SettingsView from './views/SettingsView';
 import StaffAndRolesHub from './views/StaffAndRolesHub';
 import SalesHubView from './views/SalesHubView';
+import ProfileView from './views/ProfileView';
 
 function CatalogRedirect() {
     const hasPermission = useHasPermission();
@@ -94,6 +95,8 @@ function ShopManagerApp() {
             setActiveTab('settings');
         } else if (location.pathname === '/logs') {
             setActiveTab('logs');
+        } else if (location.pathname === '/profile') {
+            setActiveTab('profile');
         } else {
             setActiveTab('dashboard');
         }
@@ -251,7 +254,8 @@ function ShopManagerApp() {
                             { id: 'customers', label: t('customers') || 'Customers', visible: hasPermission('customers.index') || hasPermission('customers.edit') },
                             { id: 'staff', label: t('staff'), visible: hasPermission('employees.index') || hasPermission('roles.index') },
                             { id: 'settings', label: t('settings'), visible: hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription') },
-                            { id: 'logs', label: t('logs'), visible: user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index')) }
+                            { id: 'logs', label: t('logs'), visible: user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index')) },
+                            { id: 'profile', label: t('profile'), visible: true }
                         ].filter(tab => tab.visible).map(tab => (
                             <li key={tab.id}>
                                 <button 
@@ -365,10 +369,70 @@ function ShopManagerApp() {
                                     >
                                         {isDark ? '☀️ Light' : '🌙 Dark'}
                                     </button>
-                                    <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '4px', fontWeight: '600', textTransform: 'uppercase', background: '#6366f1', color: '#fff' }}>
-                                        {user.role}
-                                    </span>
-                                    <span style={{ fontWeight: '500', color: colors.text }}>{user.name}</span>
+                                     <div 
+                                        onClick={() => navigate('/profile')}
+                                        style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer', padding: '0.2rem 0.5rem', borderRadius: '8px', transition: 'background 0.2s', background: activeTab === 'profile' ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent' }}
+                                        title="View Profile"
+                                    >
+                                        {user.avatar_url ? (
+                                            <img 
+                                                src={user.avatar_url} 
+                                                alt={user.name} 
+                                                style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #6366f1' }} 
+                                            />
+                                        ) : (
+                                            <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.85rem', fontWeight: '700' }}>
+                                                {user.name ? (user.name.split(' ').length >= 2 ? (user.name.split(' ')[0][0] + user.name.split(' ')[1][0]).toUpperCase() : user.name.slice(0, 2).toUpperCase()) : 'U'}
+                                            </div>
+                                        )}
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                            <span style={{ fontWeight: '600', color: colors.text, fontSize: '0.88rem', lineHeight: '1.2' }}>{user.name}</span>
+                                            <span style={{ fontSize: '0.7rem', color: colors.textMuted, lineHeight: '1.2' }}>{user.role}</span>
+                                        </div>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => navigate('/profile')}
+                                        style={{ 
+                                            background: activeTab === 'profile' ? 'rgba(99, 102, 241, 0.2)' : colors.cardBg, 
+                                            border: `1px solid ${activeTab === 'profile' ? '#6366f1' : colors.border}`, 
+                                            color: activeTab === 'profile' ? (colors.isDark ? '#fff' : '#4f46e5') : colors.text, 
+                                            padding: '0.4rem 0.8rem', 
+                                            borderRadius: '6px', 
+                                            fontSize: '0.85rem', 
+                                            cursor: 'pointer', 
+                                            fontWeight: '600',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.3rem',
+                                            outline: 'none'
+                                        }}
+                                    >
+                                        Profile
+                                    </button>
+
+                                    {(hasPermission('settings.general') || hasPermission('settings.shop') || hasPermission('settings.subscription')) && (
+                                        <button 
+                                            onClick={() => navigate('/settings')}
+                                            style={{ 
+                                                background: activeTab === 'settings' ? 'rgba(99, 102, 241, 0.2)' : colors.cardBg, 
+                                                border: `1px solid ${activeTab === 'settings' ? '#6366f1' : colors.border}`, 
+                                                color: activeTab === 'settings' ? (colors.isDark ? '#fff' : '#4f46e5') : colors.text, 
+                                                padding: '0.4rem 0.8rem', 
+                                                borderRadius: '6px', 
+                                                fontSize: '0.85rem', 
+                                                cursor: 'pointer', 
+                                                fontWeight: '600',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.3rem',
+                                                outline: 'none'
+                                            }}
+                                        >
+                                            Settings
+                                        </button>
+                                    )}
+
                                     <button 
                                         onClick={handleLogout}
                                         style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '0.4rem 0.8rem', borderRadius: '6px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: '500' }}
@@ -445,6 +509,8 @@ function ShopManagerApp() {
                             <Route path="/logs" element={
                                 (user && (user.role === 'Owner' || user.role === 'Super Admin' || hasPermission('roles.index'))) ? <LogsView /> : <AccessDeniedView />
                             } />
+
+                            <Route path="/profile" element={<ProfileView />} />
                             
                             <Route path="*" element={<DashboardView />} />
                         </Routes>

@@ -20,6 +20,7 @@ class User extends Authenticatable
         'name',
         'email',
         'phone',
+        'avatar',
         'password',
         'status',
         'last_login_at',
@@ -45,6 +46,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_platform_admin' => 'boolean',
             'admin_permissions' => 'array',
+            'last_login_at' => 'datetime',
         ];
     }
 

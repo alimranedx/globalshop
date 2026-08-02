@@ -30,6 +30,14 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
     Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
 
+    // Authenticated User Profile Endpoints
+    Route::middleware('auth')->prefix('profile')->group(function () {
+        Route::get('/', [\App\Http\Controllers\ProfileController::class, 'show'])->name('profile.show');
+        Route::put('/', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/avatar', [\App\Http\Controllers\ProfileController::class, 'uploadAvatar'])->name('profile.avatar.upload');
+        Route::delete('/avatar', [\App\Http\Controllers\ProfileController::class, 'deleteAvatar'])->name('profile.avatar.delete');
+    });
+
 
     // ──────────────────────────────────────────────────────
     // Marketplace Customer Auth (Public — phone OTP, session-based)

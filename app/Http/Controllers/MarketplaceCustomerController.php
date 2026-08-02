@@ -416,7 +416,7 @@ class MarketplaceCustomerController extends Controller
             return [
                 'id'               => $s->id,
                 'invoice_number'   => $s->invoice_number,
-                'created_at'       => $s->created_at ? $s->created_at->toISOString() : null,
+                'created_at'       => $s->created_at ? $s->created_at->toIso8601String() : null,
                 'status'           => $s->status,
                 'payment_method'   => $s->payment_method,
                 'subtotal'         => (float) $s->subtotal,
@@ -492,7 +492,7 @@ class MarketplaceCustomerController extends Controller
             'order'   => [
                 'id'               => $sale->id,
                 'invoice_number'   => $sale->invoice_number,
-                'created_at'       => $sale->created_at ? $sale->created_at->toISOString() : null,
+                'created_at'       => $sale->created_at ? $sale->created_at->toIso8601String() : null,
                 'status'           => $sale->status,
                 'payment_method'   => $sale->payment_method,
                 'subtotal'         => (float) $sale->subtotal,
