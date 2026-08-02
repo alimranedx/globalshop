@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { shopService } from '../services/shopService';
+import { STOCK_UNITS, getStockUnitLabel } from '../../../constants/stockUnits';
 import { PageLoader } from '../../shared/components/PageLoader';
 import { SectionCard } from '../../shared/components/SectionCard';
 import { DataTable } from '../../shared/components/DataTable';
@@ -57,7 +58,7 @@ export function ShopProductsTab({ shop, onRefresh, showToast }) {
                         </div>,
                         <span style={{ color: '#34d399', fontWeight: 700 }}>${Number(p.price).toFixed(2)}</span>,
                         <span style={{ color: p.stock_quantity > 0 ? '#e5e7eb' : '#f87171', fontWeight: 600 }}>
-                            {p.stock_quantity} {p.stock_unit || 'pcs'}
+                            {p.stock_quantity} {getStockUnitLabel(p.stock_unit)}
                         </span>,
                         <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{p.category?.name || 'Uncategorized'}</span>,
                         p.status === 'active'
@@ -114,7 +115,20 @@ function AddProductModal({ shop, onClose, onSaved }) {
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                     <FormField label="Stock Quantity *" id="prod-stock" type="number" value={form.stock_quantity} onChange={set('stock_quantity')} required />
-                    <FormField label="Stock Unit" id="prod-unit" value={form.stock_unit} onChange={set('stock_unit')} placeholder="pcs" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: '#374151' }}>Stock Unit *</label>
+                        <select
+                            id="prod-unit"
+                            value={form.stock_unit}
+                            onChange={set('stock_unit')}
+                            required
+                            style={{ padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.875rem' }}
+                        >
+                            {STOCK_UNITS.map(u => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                     <button type="button" onClick={onClose} style={ghostBtnStyle}>Cancel</button>
@@ -149,9 +163,23 @@ function EditProductModal({ shop, product, onClose, onSaved }) {
         <Modal title={`Edit ${product.name}`} onClose={onClose}>
             <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <FormField label="Product Name" id="eprod-name" value={form.name} onChange={set('name')} required />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                     <FormField label="Selling Price ($)" id="eprod-price" type="number" step="0.01" value={form.price} onChange={set('price')} required />
                     <FormField label="Stock Quantity" id="eprod-stock" type="number" value={form.stock_quantity} onChange={set('stock_quantity')} required />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: 500, color: '#374151' }}>Stock Unit *</label>
+                        <select
+                            id="eprod-unit"
+                            value={form.stock_unit}
+                            onChange={set('stock_unit')}
+                            required
+                            style={{ padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #d1d5db', background: '#fff', fontSize: '0.875rem' }}
+                        >
+                            {STOCK_UNITS.map(u => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
                     <button type="button" onClick={onClose} style={ghostBtnStyle}>Cancel</button>

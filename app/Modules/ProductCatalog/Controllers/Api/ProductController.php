@@ -2,6 +2,7 @@
 
 namespace App\Modules\ProductCatalog\Controllers\Api;
 
+use App\Enums\StockUnit;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\Shop;
@@ -9,6 +10,7 @@ use App\Modules\ShopManager\TenantManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -149,7 +151,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
             'stock_quantity' => 'required|numeric|min:0',
-            'stock_unit' => 'required|string|in:pcs,kg,ltr',
+            'stock_unit' => ['required', 'string', Rule::enum(StockUnit::class)],
             'status' => 'required|string|in:draft,published,archived',
             'images' => 'nullable|array',
             'images.*' => 'image|max:2048',
@@ -224,7 +226,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
             'stock_quantity' => 'sometimes|required|numeric|min:0',
-            'stock_unit' => 'sometimes|required|string|in:pcs,kg,ltr',
+            'stock_unit' => ['sometimes', 'required', 'string', Rule::enum(StockUnit::class)],
             'status' => 'sometimes|required|string|in:draft,published,archived',
             'images' => 'nullable|array',
             'images.*' => 'image|max:2048',
@@ -335,6 +337,17 @@ class ProductController extends Controller
         return response()->json([
             'success' => true,
             'data' => $product,
+        ]);
+    }
+
+    /**
+     * Get available stock units options.
+     */
+    public function stockUnits(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => StockUnit::options(),
         ]);
     }
 }

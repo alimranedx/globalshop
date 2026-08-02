@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\StockUnit;
 use App\Models\ActivityLog;
 use App\Models\Brand;
 use App\Models\Category;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class PlatformAdminController extends Controller
 {
@@ -775,7 +777,7 @@ class PlatformAdminController extends Controller
             'price' => 'required|numeric|min:0',
             'cost_price' => 'nullable|numeric|min:0',
             'stock_quantity' => 'required|numeric|min:0',
-            'stock_unit' => 'nullable|string|max:50',
+            'stock_unit' => ['nullable', 'string', Rule::enum(StockUnit::class)],
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'description' => 'nullable|string',
@@ -829,7 +831,7 @@ class PlatformAdminController extends Controller
             'price' => 'sometimes|required|numeric|min:0',
             'cost_price' => 'nullable|numeric|min:0',
             'stock_quantity' => 'sometimes|required|numeric|min:0',
-            'stock_unit' => 'nullable|string|max:50',
+            'stock_unit' => ['nullable', 'string', Rule::enum(StockUnit::class)],
             'category_id' => 'nullable|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id',
             'description' => 'nullable|string',

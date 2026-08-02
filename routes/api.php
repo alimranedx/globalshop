@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function () {
     // 2. Tenant Authenticated Endpoints (Requires ShopAccess authorization, standard auth, and page authorization)
     Route::middleware(['shop.access', 'auth', 'page.authorize'])->prefix('tenant')->group(function () {
         // Product Catalog Management
+        Route::get('stock-units', [ProductController::class, 'stockUnits'])->name('stock-units.index');
         Route::get('products', [ProductController::class, 'tenantIndex'])->name('products.index');
         Route::apiResource('products', ProductController::class)->except(['index']);
 

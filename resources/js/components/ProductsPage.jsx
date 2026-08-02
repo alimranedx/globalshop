@@ -8,6 +8,7 @@ import useHasPermission from '../hooks/useHasPermission';
 import useCurrency from '../hooks/useCurrency';
 import useTheme from '../hooks/useTheme';
 import SmartDateRangePicker from './SmartDateRangePicker';
+import { STOCK_UNITS, getStockUnitLabel } from '../constants/stockUnits';
 
 function is_null(val) {
     return val === null || val === undefined;
@@ -556,10 +557,14 @@ export default function ProductsPage() {
                                 <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Stock Quantity</label>
                                 <input type="number" value={productForm.stock_quantity} onChange={e => setProductForm({ ...productForm, stock_quantity: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Stock Unit</label>
-                                <input type="text" value={productForm.stock_unit} onChange={e => setProductForm({ ...productForm, stock_unit: e.target.value })} style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
-                            </div>
+                            <SearchableSelect 
+                                label="Stock Unit"
+                                value={productForm.stock_unit}
+                                options={STOCK_UNITS}
+                                onChange={val => setProductForm({ ...productForm, stock_unit: val })}
+                                placeholder="Select stock unit..."
+                                required={true}
+                            />
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -745,7 +750,7 @@ export default function ProductsPage() {
                                                 </td>
                                                 <td style={{ color: colors.text }}>{p.brand ? p.brand.name : '—'}</td>
                                                 <td style={{ padding: '0.8rem', color: isDark ? '#10b981' : '#059669', fontWeight: '600' }}>{cur.format(p.price)}</td>
-                                                <td style={{ padding: '0.8rem', color: colors.text }}>{parseFloat(p.stock_quantity)} {p.stock_unit || 'pcs'}</td>
+                                                <td style={{ padding: '0.8rem', color: colors.text }}>{parseFloat(p.stock_quantity)} {getStockUnitLabel(p.stock_unit)}</td>
                                                 <td style={{ padding: '0.8rem' }}>
                                                     {!isSuspended && (
                                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
