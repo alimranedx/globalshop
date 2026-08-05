@@ -1,24 +1,27 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { showToast } from '../store/uiSlice';
+import { setShopRoles } from '../store/employeesSlice';
 import { fetchState, fetchCatalogData } from '../store/actions';
 import { getHeaders } from '../utils/api';
 import useTheme from '../hooks/useTheme';
+import useHasPermission from '../hooks/useHasPermission';
+import { confirmModal } from '../shared/services/confirmService';
 
 export default function StaffAndRolesHub() {
     const dispatch = useDispatch();
     const { colors, isDark } = useTheme();
+    const hasPermission = useHasPermission();
 
     const employees = useSelector(state => state.employees.employees);
     const shopRoles = useSelector(state => state.employees.shopRoles);
     const permissionsConfig = useSelector(state => state.auth.permissionsConfig);
-    const userRole = useSelector(state => state.auth.user?.role);
-    const isOwner = userRole === 'Owner';
-    const isSuspended = useSelector(state => state.shop.shop?.status === 'suspended');
+    const currentUser = useSelector(state => state.auth.user);
+    const activeShop = useSelector(state => state.shop.shop);
+    const isSuspended = activeShop?.status === 'suspended';
 
-    const userPermissions = useSelector(state => state.auth.userPermissions);
-    const canManageStaff = isOwner || userPermissions.includes('employees.index');
-    const canManageRoles = isOwner || userPermissions.includes('roles.index');
+    const canManageStaff = hasPermission('employees.index');
+    const canManageRoles = hasPermission('roles.index');
 
     const [activeSubTab, setActiveSubTab] = useState(canManageStaff ? 'employees' : 'roles');
     const [rolesList, setRolesList] = useState([]);
@@ -194,15 +197,18 @@ export default function StaffAndRolesHub() {
     const refreshRoles = async () => {
         setLoadingRoles(true);
         const data = await fetchRoles();
-        setRolesList(data);
+        if (Array.isArray(data)) {
+            setRolesList(data);
+            dispatch(setShopRoles(data));
+        }
         setLoadingRoles(false);
     };
 
     useEffect(() => {
-        if (canManageRoles) {
+        if (canManageRoles || canManageStaff) {
             refreshRoles();
         }
-    }, []);
+    }, [canManageRoles, canManageStaff]);
 
     const handleSelectRole = async (role) => {
         setSelectedRole(role);
@@ -222,21 +228,31 @@ export default function StaffAndRolesHub() {
         const res = await createRole(newRoleName);
         if (res.success) {
             setNewRoleName('');
-            refreshRoles();
+            await refreshRoles();
         }
     };
 
-    const handleDeleteRoleClick = async (roleId) => {
-        if (confirm('Are you sure you want to delete this custom role?')) {
-            const res = await deleteRole(roleId);
-            if (res.success) {
-                if (selectedRole && selectedRole.id === roleId) {
-                    setSelectedRole(null);
-                    setRolePerms([]);
+    const handleDeleteRoleClick = async (roleId, roleName) => {
+        await confirmModal({
+            variant: 'delete',
+            title: 'Delete Role?',
+            message: `Are you sure you want to delete ${roleName ? `the role "${roleName}"` : 'this role'}?\nAll associated permission mappings and staff member role assignments will be permanently removed.`,
+            confirmText: 'Delete Role',
+            onConfirm: async () => {
+                const res = await deleteRole(roleId);
+                if (res.success) {
+                    if (selectedRole && selectedRole.id === roleId) {
+                        setSelectedRole(null);
+                        setRolePerms([]);
+                    }
+                    refreshRoles();
+                    dispatch(fetchCatalogData());
+                    dispatch(fetchState());
+                } else {
+                    throw new Error(res.message || 'Failed to delete role.');
                 }
-                refreshRoles();
             }
-        }
+        });
     };
 
     const handleSavePermissions = async () => {
@@ -291,12 +307,15 @@ export default function StaffAndRolesHub() {
             {activeSubTab === 'employees' && canManageStaff && (
                 <StaffView
                     employees={employees}
-                    shopRoles={shopRoles}
+                    shopRoles={rolesList.length > 0 ? rolesList : shopRoles}
                     onAddEmployee={handleAddEmployee}
                     onUpdateEmployee={handleUpdateEmployee}
                     onDeleteEmployee={handleDeleteEmployee}
-                    isOwner={isOwner}
+                    canManageStaff={canManageStaff}
+                    currentUser={currentUser}
+                    activeShop={activeShop}
                     isSuspended={isSuspended}
+                    onOpenAddModal={refreshRoles}
                 />
             )}
 
@@ -304,7 +323,7 @@ export default function StaffAndRolesHub() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '2rem', alignItems: 'start' }}>
                     {/* Left Column: Create custom role form and role list */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                        {isOwner && !isSuspended && (
+                        {canManageRoles && !isSuspended && (
                             <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '1.5rem', borderRadius: '16px', boxShadow: colors.shadow }}>
                                 <h4 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: colors.text }}>Create Custom Role</h4>
                                 <form onSubmit={handleCreateRoleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -363,12 +382,13 @@ export default function StaffAndRolesHub() {
                                                         {role.is_custom ? 'Custom' : 'System'} • {role.member_count} {role.member_count === 1 ? 'member' : 'members'}
                                                     </span>
                                                 </div>
-                                                {role.is_custom && role.member_count === 0 && isOwner && !isSuspended && (
+                                                {canManageRoles && !isSuspended && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleDeleteRoleClick(role.id);
+                                                            handleDeleteRoleClick(role.id, role.name);
                                                         }}
+                                                        title={`Delete ${role.name} role`}
                                                         style={{
                                                             background: 'transparent',
                                                             border: 'none',
@@ -376,7 +396,9 @@ export default function StaffAndRolesHub() {
                                                             cursor: 'pointer',
                                                             fontSize: '0.8rem',
                                                             fontWeight: '600',
-                                                            padding: '0.2rem'
+                                                            padding: '0.25rem 0.4rem',
+                                                            borderRadius: '4px',
+                                                            transition: 'background 0.15s'
                                                         }}
                                                     >
                                                         🗑️
@@ -390,6 +412,7 @@ export default function StaffAndRolesHub() {
                         </div>
                     </div>
 
+
                     {/* Right Column: permissions checklist for active role */}
                     <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '2rem', borderRadius: '16px', boxShadow: colors.shadow }}>
                         {selectedRole ? (
@@ -401,7 +424,7 @@ export default function StaffAndRolesHub() {
                                             {selectedRole.is_custom ? 'Custom' : 'System'} Role Permissions Mapping
                                         </p>
                                     </div>
-                                    {isOwner && !isSuspended && (
+                                    {canManageRoles && !isSuspended && (
                                         <button
                                             onClick={handleSavePermissions}
                                             style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit' }}
@@ -434,14 +457,14 @@ export default function StaffAndRolesHub() {
                                                                         const pageLabel = sub.pages[pageKey];
                                                                         const isChecked = rolePerms.includes(pageKey);
                                                                         return (
-                                                                            <label key={pageKey} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: colors.textMuted, cursor: (isOwner && !isSuspended) ? 'pointer' : 'default' }}>
+                                                                            <label key={pageKey} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: colors.textMuted, cursor: (canManageRoles && !isSuspended) ? 'pointer' : 'default' }}>
                                                                                 <input
                                                                                     type="checkbox"
                                                                                     name="role-permissions[]"
                                                                                     value={pageKey}
                                                                                     defaultChecked={isChecked}
                                                                                     key={`${selectedRole.id}-${pageKey}-${isChecked}`} // force reset state on role update
-                                                                                    disabled={!isOwner || isSuspended}
+                                                                                    disabled={!canManageRoles || isSuspended}
                                                                                 />
                                                                                 <span>{pageLabel} (<code>{pageKey}</code>)</span>
                                                                             </label>
@@ -469,7 +492,7 @@ export default function StaffAndRolesHub() {
     );
 }
 
-function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDeleteEmployee, isOwner, isSuspended }) {
+function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDeleteEmployee, canManageStaff, currentUser, activeShop, isSuspended, onOpenAddModal }) {
     // Add employee form
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -478,6 +501,11 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
     const [submitting, setSubmitting] = useState(false);
     const [addError, setAddError] = useState('');
     const [showAddModal, setShowAddModal] = useState(false);
+
+    const handleOpenAddModal = () => {
+        if (onOpenAddModal) onOpenAddModal();
+        setShowAddModal(true);
+    };
 
     // Edit employee modal
     const [editingEmployee, setEditingEmployee] = useState(null);
@@ -488,10 +516,20 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
     const [editError, setEditError] = useState('');
     const [updating, setUpdating] = useState(false);
 
-    // Custom confirm dialog for delete
-    const [confirmTarget, setConfirmTarget] = useState(null); // employee to delete
-
     const { colors, isDark } = useTheme();
+
+    // ── Remove Employee with Global confirmModal ─────────────────
+    const handleRemoveClick = async (emp) => {
+        await confirmModal({
+            variant: 'delete',
+            title: 'Remove Employee?',
+            message: `Are you sure you want to remove "${emp.name}" (${emp.email}) from the shop?\nThis will revoke their shop access immediately.`,
+            confirmText: 'Remove Employee',
+            onConfirm: async () => {
+                await onDeleteEmployee(emp.id);
+            }
+        });
+    };
 
     // ── Add Employee ───────────────────────────────────────────
     const handleAdd = async (e) => {
@@ -575,47 +613,6 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
 
     return (
         <>
-            {/* ══ Custom Delete Confirm Dialog ══ */}
-            {confirmTarget && (
-                <div style={modalOverlayStyle} onClick={() => setConfirmTarget(null)}>
-                    <div style={{ ...cardStyle('400px'), textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                        {/* Danger icon */}
-                        <div style={{
-                            width: '64px', height: '64px', borderRadius: '50%',
-                            background: 'rgba(239,68,68,0.15)', border: '2px solid rgba(239,68,68,0.4)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            margin: '0 auto 1.2rem', fontSize: '1.8rem'
-                        }}>🗑️</div>
-                        <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.text, margin: '0 0 0.5rem' }}>
-                            Remove Employee?
-                        </h3>
-                        <p style={{ fontSize: '0.88rem', color: colors.textMuted, margin: '0 0 0.3rem' }}>
-                            You're about to remove
-                        </p>
-                        <p style={{ fontSize: '1rem', fontWeight: '700', color: '#ef4444', margin: '0 0 1.4rem' }}>
-                            {confirmTarget.name}
-                        </p>
-                        <p style={{ fontSize: '0.82rem', color: colors.textMuted, margin: '0 0 1.8rem', lineHeight: 1.5 }}>
-                            This will revoke their shop access immediately. Their user account will not be deleted.
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.8rem' }}>
-                            <button
-                                onClick={() => { onDeleteEmployee(confirmTarget.id); setConfirmTarget(null); }}
-                                style={{ flex: 1, background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', color: '#fff', border: 'none', padding: '0.75rem', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem', boxShadow: '0 4px 15px rgba(239,68,68,0.35)' }}
-                            >
-                                Yes, Remove
-                            </button>
-                            <button
-                                onClick={() => setConfirmTarget(null)}
-                                style={{ flex: 1, background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.75rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'Outfit', fontSize: '0.9rem' }}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* ══ Add Employee Modal ══ */}
             {showAddModal && (
                 <div style={modalOverlayStyle} onClick={closeAddModal}>
@@ -650,7 +647,7 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
             )}
 
             {/* ══ Edit Employee Modal ══ */}
-            {editingEmployee && isOwner && !isSuspended && (
+            {editingEmployee && canManageStaff && !isSuspended && (
                 <div style={modalOverlayStyle} onClick={closeEditModal}>
                     <div style={cardStyle('500px')} onClick={e => e.stopPropagation()}>
                         <button onClick={closeEditModal} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: colors.textMuted, cursor: 'pointer', fontSize: '1.3rem' }}>✕</button>
@@ -704,8 +701,8 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                         <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: colors.text, margin: 0 }}>👥 Shop Employees</h3>
                         <p style={{ fontSize: '0.82rem', color: colors.textMuted, marginTop: '0.25rem' }}>{employees.length} team member{employees.length !== 1 ? 's' : ''} registered</p>
                     </div>
-                    {isOwner && !isSuspended && (
-                        <button onClick={() => setShowAddModal(true)} style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: isDark ? '0 4px 15px rgba(99,102,241,0.3)' : '0 2px 8px rgba(99,102,241,0.25)', fontFamily: 'Outfit' }}>
+                    {canManageStaff && !isSuspended && (
+                        <button onClick={handleOpenAddModal} style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.6rem 1.2rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: isDark ? '0 4px 15px rgba(99,102,241,0.3)' : '0 2px 8px rgba(99,102,241,0.25)', fontFamily: 'Outfit' }}>
                             ➕ Add Employee
                         </button>
                     )}
@@ -718,7 +715,7 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Name</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Email</th>
                                 <th style={{ textAlign: 'left', padding: '0.8rem', color: colors.tableHeaderColor }}>Role</th>
-                                {isOwner && !isSuspended && <th style={{ textAlign: 'center', padding: '0.8rem', color: colors.tableHeaderColor }}>Actions</th>}
+                                {canManageStaff && !isSuspended && <th style={{ textAlign: 'center', padding: '0.8rem', color: colors.tableHeaderColor }}>Actions</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -727,9 +724,9 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                                     <td colSpan="4" style={{ textAlign: 'center', padding: '3rem', color: colors.textMuted }}>
                                         <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👤</div>
                                         No employees registered yet.
-                                        {isOwner && !isSuspended && (
+                                        {canManageStaff && !isSuspended && (
                                             <div style={{ marginTop: '0.8rem' }}>
-                                                <button onClick={() => setShowAddModal(true)} style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'Outfit' }}>
+                                                <button onClick={handleOpenAddModal} style={{ background: 'rgba(99,102,241,0.15)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.3)', padding: '0.4rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'Outfit' }}>
                                                     Add your first employee →
                                                 </button>
                                             </div>
@@ -737,43 +734,59 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
                                     </td>
                                 </tr>
                             ) : (
-                                employees.map(emp => (
-                                    <tr key={emp.id}
-                                        style={{ borderBottom: `1px solid ${colors.tableRowBorder}`, transition: 'background 0.15s' }}
-                                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
-                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                    >
-                                        <td style={{ padding: '0.9rem 0.8rem', color: colors.text, fontWeight: '600' }}>{emp.name}</td>
-                                        <td style={{ padding: '0.9rem 0.8rem', color: colors.textMuted }}>{emp.email}</td>
-                                        <td style={{ padding: '0.9rem 0.8rem' }}>
-                                            <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(99,102,241,0.15)', color: isDark ? '#818cf8' : '#4f46e5', fontWeight: '600' }}>
-                                                {emp.role_name}
-                                            </span>
-                                        </td>
-                                        {isOwner && !isSuspended && (
-                                            <td style={{ padding: '0.9rem 0.8rem', textAlign: 'center' }}>
-                                                {emp.role_name !== 'Owner' ? (
-                                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                                                        <button
-                                                            onClick={() => openEditModal(emp)}
-                                                            style={{ background: 'rgba(251,191,36,0.15)', color: '#f59e0b', border: '1px solid rgba(251,191,36,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
-                                                        >
-                                                            ✏️ Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setConfirmTarget(emp)}
-                                                            style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
-                                                        >
-                                                            🗑️ Remove
-                                                        </button>
-                                                    </div>
+                                employees.map(emp => {
+                                    const isOwnerAccount = emp.id === activeShop?.owner_id || emp.role_name === 'Owner';
+                                    const isSelfAccount = emp.id === currentUser?.id;
+
+                                    return (
+                                        <tr key={emp.id}
+                                            style={{ borderBottom: `1px solid ${colors.tableRowBorder}`, transition: 'background 0.15s' }}
+                                            onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <td style={{ padding: '0.9rem 0.8rem', color: colors.text, fontWeight: '600' }}>
+                                                {emp.name} {isSelfAccount && <span style={{ fontSize: '0.7rem', background: 'rgba(99,102,241,0.2)', color: '#6366f1', padding: '0.1rem 0.4rem', borderRadius: '4px', marginLeft: '0.3rem' }}>You</span>}
+                                            </td>
+                                            <td style={{ padding: '0.9rem 0.8rem', color: colors.textMuted }}>{emp.email}</td>
+                                            <td style={{ padding: '0.9rem 0.8rem' }}>
+                                                {emp.role_name === 'No Role Assigned' || !emp.role_id ? (
+                                                    <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontWeight: '700', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                                        ⚠️ No Role Assigned
+                                                    </span>
                                                 ) : (
-                                                    <span style={{ fontSize: '0.75rem', color: colors.textMuted }}>—</span>
+                                                    <span style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', borderRadius: '20px', background: 'rgba(99,102,241,0.15)', color: isDark ? '#818cf8' : '#4f46e5', fontWeight: '600' }}>
+                                                        {emp.role_name}
+                                                    </span>
                                                 )}
                                             </td>
-                                        )}
-                                    </tr>
-                                ))
+
+                                            {canManageStaff && !isSuspended && (
+                                                <td style={{ padding: '0.9rem 0.8rem', textAlign: 'center' }}>
+                                                    {!isOwnerAccount ? (
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                            <button
+                                                                onClick={() => openEditModal(emp)}
+                                                                style={{ background: 'rgba(251,191,36,0.15)', color: '#f59e0b', border: '1px solid rgba(251,191,36,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                                                            >
+                                                                ✏️ Edit
+                                                            </button>
+                                                            {!isSelfAccount && (
+                                                                <button
+                                                                    onClick={() => handleRemoveClick(emp)}
+                                                                    style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: '600' }}
+                                                                >
+                                                                    🗑️ Remove
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ fontSize: '0.75rem', color: colors.textMuted, fontStyle: 'italic' }}>Owner Account</span>
+                                                    )}
+                                                </td>
+                                            )}
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -782,4 +795,5 @@ function StaffView({ employees, shopRoles, onAddEmployee, onUpdateEmployee, onDe
         </>
     );
 }
+
 

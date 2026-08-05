@@ -5,7 +5,7 @@ const themes = {
     dark: {
         background: '#0a0a0c',
         surface: 'rgba(20, 20, 25, 0.75)',
-        surfaceHeader: 'rgba(15, 15, 20, 0.45)',
+        surfaceHeader: 'rgba(12, 12, 18, 0.85)',
         sidebarBg: 'rgba(15, 15, 20, 0.85)',
         cardBg: 'rgba(30, 30, 38, 0.45)',
         cardGradient: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.01) 100%)',
@@ -25,7 +25,7 @@ const themes = {
     light: {
         background: '#f3f4f6',
         surface: '#ffffff',
-        surfaceHeader: '#f9fafb',
+        surfaceHeader: 'rgba(255, 255, 255, 0.9)',
         sidebarBg: '#ffffff',
         cardBg: '#ffffff',
         cardGradient: 'linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%)',

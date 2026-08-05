@@ -32,10 +32,10 @@ class EmployeeController extends Controller
             return response()->json(['success' => false, 'message' => 'No active tenant.'], 403);
         }
 
-        // Get employees with role details
+        // Get employees with role details (leftJoin so unassigned employees remain listed)
         $employees = DB::table('shop_user')
             ->join('users', 'shop_user.user_id', '=', 'users.id')
-            ->join('roles', 'shop_user.role_id', '=', 'roles.id')
+            ->leftJoin('roles', 'shop_user.role_id', '=', 'roles.id')
             ->where('shop_user.shop_id', $shop->id)
             ->select('users.id', 'users.name', 'users.email', 'roles.name as role_name', 'roles.id as role_id')
             ->get()
@@ -44,10 +44,11 @@ class EmployeeController extends Controller
                     'id' => $emp->id,
                     'name' => $emp->name,
                     'email' => $emp->email,
-                    'role_name' => $emp->role_name,
+                    'role_name' => $emp->role_name ?? 'No Role Assigned',
                     'role_id' => $emp->role_id,
                 ];
             });
+
 
         // Prepend owner
         $owner = $shop->owner;
@@ -168,6 +169,11 @@ class EmployeeController extends Controller
             return response()->json(['success' => false, 'message' => 'No active tenant.'], 403);
         }
 
+        // Protection Rule 1: Employees cannot modify the Shop Owner account
+        if ($employee->id === $shop->owner_id && auth()->id() !== $shop->owner_id) {
+            return response()->json(['success' => false, 'message' => 'Only the Shop Owner can modify the Shop Owner account.'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'role_id'  => 'required|exists:roles,id',
             'name'     => 'nullable|string|max:255',
@@ -238,6 +244,16 @@ class EmployeeController extends Controller
         $shop = TenantManager::getTenant();
         if (!$shop) {
             return response()->json(['success' => false, 'message' => 'No active tenant.'], 403);
+        }
+
+        // Protection Rule 2: Cannot delete the Shop Owner
+        if ($employee->id === $shop->owner_id) {
+            return response()->json(['success' => false, 'message' => 'The Shop Owner cannot be removed from the shop.'], 403);
+        }
+
+        // Protection Rule 3: Cannot delete oneself
+        if ($employee->id === auth()->id()) {
+            return response()->json(['success' => false, 'message' => 'You cannot remove your own account from the shop.'], 403);
         }
 
         $shopUser = DB::table('shop_user')->where('shop_id', $shop->id)->where('user_id', $employee->id)->first();

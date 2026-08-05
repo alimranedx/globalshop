@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
 import ProductImageMagnifier from './components/ProductImageMagnifier';
+import { confirmModal } from './shared/services/confirmService';
+import { GlobalConfirmContainer } from './shared/components/GlobalConfirmModal';
 
 /* ─────────────────────────────────────────────
    API Helpers
@@ -41,7 +43,13 @@ async function downloadReceiptFile(orderId, invoiceNumber, setDownloadingId) {
             headers: { Accept: 'application/pdf', 'X-CSRF-TOKEN': getCsrf() }
         });
         if (!response.ok) {
-            alert('Unable to download receipt. The order may be unauthorized or processing.');
+            await confirmModal({
+                title: 'Download Unavailable',
+                message: 'Unable to download receipt. The order may be unauthorized or currently processing.',
+                variant: 'error',
+                confirmText: 'OK',
+                cancelText: null,
+            });
             if (setDownloadingId) setDownloadingId(null);
             return;
         }
@@ -55,7 +63,13 @@ async function downloadReceiptFile(orderId, invoiceNumber, setDownloadingId) {
         a.remove();
         window.URL.revokeObjectURL(url);
     } catch (e) {
-        alert('Failed to download receipt. Please try again.');
+        await confirmModal({
+            title: 'Download Error',
+            message: 'Failed to download receipt. Please check your network connection and try again.',
+            variant: 'error',
+            confirmText: 'OK',
+            cancelText: null,
+        });
     }
     if (setDownloadingId) setDownloadingId(null);
 }
@@ -2228,6 +2242,7 @@ function MarketplaceApp() {
                     <button onClick={() => setToastMessage('')} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', marginLeft: '0.5rem', fontSize: '0.9rem' }}>✕</button>
                 </div>
             )}
+            <GlobalConfirmContainer />
         </BrowserRouter>
     );
 }

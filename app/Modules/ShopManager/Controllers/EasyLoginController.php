@@ -44,7 +44,7 @@ class EasyLoginController extends Controller
         $employeesQuery = DB::table('shop_user')
             ->join('shops', 'shops.id', '=', 'shop_user.shop_id')
             ->join('users', 'users.id', '=', 'shop_user.user_id')
-            ->join('roles', 'roles.id', '=', 'shop_user.role_id')
+            ->leftJoin('roles', 'roles.id', '=', 'shop_user.role_id')
             ->whereNull('shops.deleted_at')
             ->whereNull('users.deleted_at')
             ->select([
@@ -58,10 +58,11 @@ class EasyLoginController extends Controller
                 'shops.slug as shop_slug',
                 'shops.status as shop_status',
                 'shops.created_at as shop_created_at',
-                'roles.name as role_name',
+                DB::raw("COALESCE(roles.name, 'No Role Assigned') as role_name"),
                 'shop_user.status as employee_status',
                 'shop_user.id as employee_id',
             ]);
+
 
         $unionQuery = $ownersQuery->union($employeesQuery);
 

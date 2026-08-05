@@ -5,6 +5,7 @@ import { fetchState } from '../store/actions';
 import { getHeaders, getCsrfToken } from '../utils/api';
 import useTheme from '../hooks/useTheme';
 import ProfileImageEditorModal from '../components/ProfileImageEditorModal';
+import { confirmModal } from '../shared/services/confirmService';
 
 export default function ProfileView() {
     const dispatch = useDispatch();
@@ -132,31 +133,37 @@ export default function ProfileView() {
     };
 
     const handleRemoveAvatar = async () => {
-        if (!window.confirm('Are you sure you want to remove your profile photo?')) return;
-
-        setUploadingAvatar(true);
-        try {
-            const headers = getHeaders();
-            const res = await fetch('/api/v1/profile/avatar', {
-                method: 'DELETE',
-                headers: {
-                    ...headers,
-                    'X-CSRF-TOKEN': getCsrfToken(),
-                },
-            });
-            const data = await res.json();
-            if (data.success) {
-                setProfile(data.data);
-                dispatch(showToast({ message: 'Profile photo removed.', isError: false }));
-                dispatch(fetchState());
-            } else {
-                dispatch(showToast({ message: data.message || 'Failed to remove photo.', isError: true }));
+        await confirmModal({
+            variant: 'delete',
+            title: 'Remove Profile Photo?',
+            message: 'Are you sure you want to remove your profile photo?',
+            confirmText: 'Remove Photo',
+            onConfirm: async () => {
+                setUploadingAvatar(true);
+                try {
+                    const headers = getHeaders();
+                    const res = await fetch('/api/v1/profile/avatar', {
+                        method: 'DELETE',
+                        headers: {
+                            ...headers,
+                            'X-CSRF-TOKEN': getCsrfToken(),
+                        },
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        setProfile(data.data);
+                        dispatch(showToast({ message: 'Profile photo removed successfully.', isError: false }));
+                        dispatch(fetchState());
+                    } else {
+                        throw new Error(data.message || 'Failed to remove photo.');
+                    }
+                } catch (err) {
+                    dispatch(showToast({ message: err.message || 'Error removing photo.', isError: true }));
+                } finally {
+                    setUploadingAvatar(false);
+                }
             }
-        } catch (err) {
-            dispatch(showToast({ message: 'Error removing photo.', isError: true }));
-        } finally {
-            setUploadingAvatar(false);
-        }
+        });
     };
 
     // Helper for initials fallback badge

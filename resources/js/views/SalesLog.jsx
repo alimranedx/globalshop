@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { setSelectedReceipt } from '../store/uiSlice';
+import { setSelectedReceipt, showToast } from '../store/uiSlice';
 import { getHeaders } from '../utils/api';
 import SmartDateRangePicker from '../components/SmartDateRangePicker';
 import RefundModal from '../components/RefundModal';
@@ -257,7 +257,7 @@ export default function SalesLog() {
                     sale={selectedSaleForRefund}
                     onClose={() => setSelectedSaleForRefund(null)}
                     onSuccess={(msg) => {
-                        alert(msg);
+                        dispatch(showToast({ message: msg, isError: false }));
                         fetchSales();
                     }}
                 />

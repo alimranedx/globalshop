@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { getHeaders } from '../utils/api';
 import useCurrency from '../hooks/useCurrency';
 import useTheme from '../hooks/useTheme';
 import SmartDateRangePicker from '../components/SmartDateRangePicker';
+import { confirmModal } from '../shared/services/confirmService';
+import { showToast } from '../store/uiSlice';
 
 export default function Refunds() {
     const cur = useCurrency();
@@ -98,50 +100,62 @@ export default function Refunds() {
 
     // Actions
     const handleApprove = async (refundId) => {
-        if (!confirm('Are you sure you want to approve this refund request? This will deduct the amount and restock products if specified.')) return;
-        try {
-            const response = await fetch(`/api/v1/tenant/refunds/${refundId}/approve`, {
-                method: 'POST',
-                headers: getHeaders()
-            });
-            const res = await response.json();
-            if (res.success) {
-                alert('Refund approved successfully!');
-                fetchRefunds();
-                fetchCustomers();
-                if (selectedRefund && selectedRefund.id === refundId) {
-                    setSelectedRefund(null);
+        await confirmModal({
+            variant: 'publish',
+            title: 'Approve Refund Request?',
+            message: 'Are you sure you want to approve this refund request? This will deduct the amount and restock products if specified.',
+            confirmText: 'Approve Refund',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/v1/tenant/refunds/${refundId}/approve`, {
+                        method: 'POST',
+                        headers: getHeaders()
+                    });
+                    const res = await response.json();
+                    if (res.success) {
+                        dispatch(showToast({ message: 'Refund approved successfully!', isError: false }));
+                        fetchRefunds();
+                        fetchCustomers();
+                        if (selectedRefund && selectedRefund.id === refundId) {
+                            setSelectedRefund(null);
+                        }
+                    } else {
+                        throw new Error(res.message || 'Failed to approve refund.');
+                    }
+                } catch (err) {
+                    dispatch(showToast({ message: err.message || 'Error occurred while approving.', isError: true }));
                 }
-            } else {
-                alert(res.message || 'Failed to approve refund.');
             }
-        } catch (err) {
-            console.error(err);
-            alert('Error occurred while approving.');
-        }
+        });
     };
 
     const handleReject = async (refundId) => {
-        if (!confirm('Are you sure you want to reject/cancel this refund request?')) return;
-        try {
-            const response = await fetch(`/api/v1/tenant/refunds/${refundId}/cancel`, {
-                method: 'POST',
-                headers: getHeaders()
-            });
-            const res = await response.json();
-            if (res.success) {
-                alert('Refund request rejected.');
-                fetchRefunds();
-                if (selectedRefund && selectedRefund.id === refundId) {
-                    setSelectedRefund(null);
+        await confirmModal({
+            variant: 'warning',
+            title: 'Reject Refund Request?',
+            message: 'Are you sure you want to reject/cancel this refund request?',
+            confirmText: 'Reject Refund',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`/api/v1/tenant/refunds/${refundId}/cancel`, {
+                        method: 'POST',
+                        headers: getHeaders()
+                    });
+                    const res = await response.json();
+                    if (res.success) {
+                        dispatch(showToast({ message: 'Refund request rejected.', isError: false }));
+                        fetchRefunds();
+                        if (selectedRefund && selectedRefund.id === refundId) {
+                            setSelectedRefund(null);
+                        }
+                    } else {
+                        throw new Error(res.message || 'Failed to reject refund.');
+                    }
+                } catch (err) {
+                    dispatch(showToast({ message: err.message || 'Error occurred while rejecting.', isError: true }));
                 }
-            } else {
-                alert(res.message || 'Failed to reject refund.');
             }
-        } catch (err) {
-            console.error(err);
-            alert('Error occurred while rejecting.');
-        }
+        });
     };
 
     // Calculate aggregated stats

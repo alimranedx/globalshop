@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, RequireAdmin } from './shared/context/AuthContext';
 import { AdminLayout } from './shared/components/AdminLayout';
+import { GlobalConfirmContainer } from '../shared/components/GlobalConfirmModal';
 
 // Feature Pages
 import { LoginPage } from './auth/pages/LoginPage';
@@ -107,6 +108,7 @@ export default function AdminApp() {
                         {/* Fallback Route */}
                         <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
                     </Routes>
+                    <GlobalConfirmContainer />
                 </AuthProvider>
             </BrowserRouter>
         </>

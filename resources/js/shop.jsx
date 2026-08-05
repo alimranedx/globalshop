@@ -14,6 +14,7 @@ import { getCsrfToken, getHeaders } from './utils/api';
 import useHasPermission from './hooks/useHasPermission';
 import useTranslation from './hooks/useTranslation';
 import useTheme from './hooks/useTheme';
+import { GlobalConfirmContainer } from './shared/components/GlobalConfirmModal';
 
 import CategoriesPage from './components/CategoriesPage';
 import BrandsPage from './components/BrandsPage';
@@ -209,6 +210,7 @@ function ShopManagerApp() {
     const isPending = shop?.status === 'pending';
     const isRestricted = isSuspended || isPending;
     const isOwnerOrSuper = user && (user.role === 'Owner' || user.role === 'Super Admin');
+    const isNoRole = user && !isOwnerOrSuper && (user.role === 'No Role Assigned' || !user.role);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: colors.background, color: colors.text }}>
@@ -232,9 +234,9 @@ function ShopManagerApp() {
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', flexGrow: 1 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', flexGrow: 1, alignItems: 'start' }}>
                 {/* Sidebar */}
-                <aside style={{ background: colors.sidebarBg, backdropFilter: 'blur(20px)', borderRight: `1px solid ${colors.border}`, padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                <aside style={{ position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto', background: colors.sidebarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRight: `1px solid ${colors.border}`, padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <div style={{ fontSize: '1.4rem', fontWeight: '700', color: colors.text, letterSpacing: '-0.02em' }}>
                             🏢 {shop ? shop.name : 'No Shop Scope'}
@@ -303,9 +305,9 @@ function ShopManagerApp() {
                 </aside>
 
                 {/* Content */}
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', minWidth: 0 }}>
                     {/* Top Bar */}
-                    <div style={{ background: colors.surfaceHeader, backdropFilter: 'blur(10px)', borderBottom: `1px solid ${colors.border}`, padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ position: 'sticky', top: 0, zIndex: 100, background: colors.surfaceHeader, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', borderBottom: `1px solid ${colors.border}`, padding: '1rem 2.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: isDark ? '0 4px 20px rgba(0, 0, 0, 0.35)' : '0 4px 20px rgba(0, 0, 0, 0.05)', transition: 'background 0.2s, border-color 0.2s' }}>
                         <div style={{ fontSize: '1.25rem', fontWeight: '600', color: colors.text }}>
                             {activeTab === 'catalog' ? t('catalog') : t(activeTab).replace(/^[^\w\u00C0-\u017F\u0980-\u09FF\s]+/, '')}
                         </div>
@@ -450,7 +452,14 @@ function ShopManagerApp() {
                     <main style={{ flexGrow: 1, padding: '2.5rem', overflowY: 'auto' }}>
                         
                         {/* Status Warning banners */}
+                        {isNoRole && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '1rem 1.5rem', borderRadius: '8px', marginBottom: '1.5rem', fontWeight: '500' }}>
+                                ⚠️ <strong>No Role Assigned:</strong> You currently have no role assigned for this shop. Please ask your shop owner or manager to assign a role to your account before accessing shop features.
+                            </div>
+                        )}
+
                         {isSuspended && (
+
                             <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', padding: '1rem 1.5rem', borderRadius: '8px', marginBottom: '1.5rem', fontWeight: '500' }}>
                                 🛑 <strong>Suspended Tenant Scope:</strong> Your shop has been suspended by the platform administrator. Access to catalog edits, staff adjustments, settings, and POS checkouts is strictly blocked.
                             </div>
@@ -537,6 +546,7 @@ function ShopManagerApp() {
                     {toast.message}
                 </div>
             )}
+            <GlobalConfirmContainer />
         </div>
     );
 }

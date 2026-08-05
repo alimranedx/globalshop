@@ -5,6 +5,7 @@ import { fetchCatalogData, fetchState } from '../store/actions';
 import { getHeaders } from '../utils/api';
 import SmartDateRangePicker from './SmartDateRangePicker';
 import useTheme from '../hooks/useTheme';
+import { confirmModal } from '../shared/services/confirmService';
 
 function is_null(val) {
     return val === null || val === undefined;
@@ -102,25 +103,30 @@ export default function CategoriesPage() {
         }
     };
 
-    const deleteCategory = async (id) => {
-        if (!confirm('Are you sure you want to delete this category? All its brands and products will lose category scoping.')) return;
-        const headers = getHeaders();
-        try {
-            const response = await fetch(`/api/v1/tenant/categories/${id}`, {
-                method: 'DELETE',
-                headers
-            });
-            const data = await response.json();
-            if (data.success) {
-                dispatch(showToast({ message: 'Category deleted', isError: false }));
-                dispatch(fetchCatalogData());
-                dispatch(fetchState());
-            } else {
-                dispatch(showToast({ message: data.message || 'Failed to delete category', isError: true }));
+    const deleteCategory = async (cat) => {
+        const catId = typeof cat === 'object' ? cat.id : cat;
+        const catName = typeof cat === 'object' ? cat.name : '';
+        await confirmModal({
+            variant: 'delete',
+            title: 'Delete Category?',
+            message: `Are you sure you want to delete ${catName ? `the category "${catName}"` : 'this category'}?\nAll associated brands and products will lose their category classification.`,
+            confirmText: 'Delete Category',
+            onConfirm: async () => {
+                const headers = getHeaders();
+                const response = await fetch(`/api/v1/tenant/categories/${catId}`, {
+                    method: 'DELETE',
+                    headers
+                });
+                const data = await response.json();
+                if (data.success) {
+                    dispatch(showToast({ message: 'Category deleted successfully', isError: false }));
+                    dispatch(fetchCatalogData());
+                    dispatch(fetchState());
+                } else {
+                    throw new Error(data.message || 'Failed to delete category');
+                }
             }
-        } catch (e) {
-            dispatch(showToast({ message: 'Failed to delete category', isError: true }));
-        }
+        });
     };
 
     return (
@@ -283,7 +289,7 @@ export default function CategoriesPage() {
                                                         {!isSuspended && !isGlobal && (
                                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                                 <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, logoFile: null }); setFormError(''); setShowCategoryModal(true); }} style={{ background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                                                                <button onClick={() => deleteCategory(c.id)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+                                                                <button onClick={() => deleteCategory(c)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                                                             </div>
                                                         )}
                                                         {isGlobal && <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontStyle: 'italic' }}>Read-only</span>}

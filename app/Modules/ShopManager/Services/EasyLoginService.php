@@ -32,7 +32,7 @@ class EasyLoginService
         } else {
             // Check employee status
             $employee = DB::table('shop_user')
-                ->join('roles', 'shop_user.role_id', '=', 'roles.id')
+                ->leftJoin('roles', 'shop_user.role_id', '=', 'roles.id')
                 ->where('shop_user.shop_id', $shop->id)
                 ->where('shop_user.user_id', $user->id)
                 ->select('shop_user.status', 'roles.name as role_name')
@@ -46,7 +46,8 @@ class EasyLoginService
                 throw new Exception("Cannot log in: User account is currently {$employee->status}.");
             }
 
-            $roleName = $employee->role_name;
+            $roleName = $employee->role_name ?? 'No Role Assigned';
+
         }
 
         // 2. Terminate existing session

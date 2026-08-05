@@ -24,22 +24,23 @@ class RoleController extends Controller
             return response()->json(['success' => false, 'message' => 'No active tenant.'], 403);
         }
 
+        // Optimized single DB query to get member counts per role
+        $memberCounts = DB::table('shop_user')
+            ->where('shop_id', $shop->id)
+            ->select('role_id', DB::raw('COUNT(*) as total'))
+            ->groupBy('role_id')
+            ->pluck('total', 'role_id');
+
         $roles = Role::where('shop_id', $shop->id)
             ->withCount(['pages'])
             ->get(['id', 'name', 'is_custom'])
-            ->map(function ($role) use ($shop) {
-                // Count employees assigned to each role
-                $memberCount = DB::table('shop_user')
-                    ->where('shop_id', $shop->id)
-                    ->where('role_id', $role->id)
-                    ->count();
-
+            ->map(function ($role) use ($memberCounts) {
                 return [
                     'id'           => $role->id,
                     'name'         => $role->name,
                     'is_custom'    => (bool) $role->is_custom,
-                    'member_count' => $memberCount,
-                    'pages_count'  => $role->pages_count,
+                    'member_count' => (int) ($memberCounts->get($role->id) ?? 0),
+                    'pages_count'  => (int) $role->pages_count,
                 ];
             });
 
@@ -102,7 +103,7 @@ class RoleController extends Controller
     }
 
     /**
-     * Delete a custom role (only if no members are assigned).
+     * Delete any role in the shop and clean up all relational data.
      */
     public function destroy(Role $role): JsonResponse
     {
@@ -111,35 +112,33 @@ class RoleController extends Controller
             return response()->json(['success' => false, 'message' => 'Role not found in this shop.'], 404);
         }
 
-        // Block deletion of built-in roles
-        if (!$role->is_custom) {
-            return response()->json([
-                'success' => false,
-                'message' => "Built-in role '{$role->name}' cannot be deleted.",
-            ], 422);
+        DB::transaction(function () use ($role, $shop) {
+            // Relational Data Cleanup 1: Unassign role from employees in this shop (set role_id = null)
+            DB::table('shop_user')
+                ->where('shop_id', $shop->id)
+                ->where('role_id', $role->id)
+                ->update(['role_id' => null]);
+
+            // Relational Data Cleanup 2: Remove role page permissions mapping
+            $role->pages()->delete();
+
+            // Relational Data Cleanup 3: Delete the role record
+            $role->delete();
+        });
+
+        try {
+            Cache::tags(["tenant:{$shop->id}", 'auth'])->flush();
+        } catch (\Throwable $e) {
+            // Cache tagging fallback
         }
-
-        // Check for assigned members
-        $memberCount = DB::table('shop_user')
-            ->where('shop_id', $shop->id)
-            ->where('role_id', $role->id)
-            ->count();
-
-        if ($memberCount > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => "Cannot delete '{$role->name}' — {$memberCount} employee(s) are still assigned to it. Re-assign them first.",
-            ], 422);
-        }
-
-        $role->pages()->delete();
-        $role->delete();
 
         return response()->json([
             'success' => true,
-            'message' => "Role '{$role->name}' deleted successfully.",
+            'message' => "Role '{$role->name}' deleted. Assigned employees are now marked as 'No Role Assigned'.",
         ]);
+
     }
+
 
     /**
      * Get the full permissions hierarchy tree and the active permission states for a role.

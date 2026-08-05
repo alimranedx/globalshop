@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import Swal from 'sweetalert2';
+import { confirmModal } from '../shared/services/confirmService';
 import { showToast } from '../store/uiSlice';
 import { fetchCatalogData, fetchState } from '../store/actions';
 import { getHeaders } from '../utils/api';
@@ -528,42 +528,25 @@ export default function ProductsPage() {
         }
     };
 
-    const deleteProduct = (product) => {
+    const deleteProduct = async (product) => {
         const productId = typeof product === 'object' ? product.id : product;
         const productName = typeof product === 'object' ? product.name : (products.find(item => item.id === productId)?.name || 'this product');
 
-        Swal.fire({
+        await confirmModal({
+            variant: 'delete',
             title: 'Delete Product?',
-            html: `<div style="font-size: 0.95rem; margin-top: 0.5rem;">Are you sure you want to delete <strong style="color: #ef4444;">${productName}</strong>?</div><div style="font-size: 0.8rem; color: #9ca3af; margin-top: 0.4rem;">This action cannot be undone.</div>`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Delete Product',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            background: isDark ? '#141419' : '#ffffff',
-            color: isDark ? '#f3f4f6' : '#1f2937',
-            showLoaderOnConfirm: true,
-            allowOutsideClick: () => !Swal.isLoading(),
-            preConfirm: async () => {
+            message: `Are you sure you want to permanently delete "${productName}"?\nThis action cannot be undone and will remove the product from all shop catalogs.`,
+            confirmText: 'Delete Product',
+            onConfirm: async () => {
                 const headers = getHeaders();
-                try {
-                    const response = await fetch(`/api/v1/tenant/products/${productId}`, {
-                        method: 'DELETE',
-                        headers
-                    });
-                    const data = await response.json();
-                    if (!response.ok || !data.success) {
-                        throw new Error(data.message || 'Failed to delete product');
-                    }
-                    return data;
-                } catch (error) {
-                    Swal.showValidationMessage(`Delete failed: ${error.message}`);
-                    return false;
+                const response = await fetch(`/api/v1/tenant/products/${productId}`, {
+                    method: 'DELETE',
+                    headers
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'Failed to delete product');
                 }
-            }
-        }).then((result) => {
-            if (result.isConfirmed && result.value) {
                 dispatch(showToast({ message: `Product "${productName}" was deleted successfully`, isError: false }));
                 dispatch(fetchCatalogData());
                 dispatch(fetchState());
