@@ -116,6 +116,26 @@ Route::get('/profile/{any?}', function (Request $request) {
     return view('marketplace');
 })->where('any', '.*')->name('customer.profile');
 
+Route::get('/shop/product/{id}', function (Request $request, string $id) {
+    if (auth()->check()) {
+        $user = auth()->user();
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+
+            return redirect('/login');
+        }
+    }
+
+    return view('marketplace');
+})->name('marketplace.product');
+
 // Demo Session Simulator Routes
 Route::prefix('demo')->group(function () {
 

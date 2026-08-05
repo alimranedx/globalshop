@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useLocation, Navigate } from 'react-router-dom';
+import ProductImageMagnifier from './components/ProductImageMagnifier';
 
 /* ─────────────────────────────────────────────
    API Helpers
@@ -1694,14 +1695,19 @@ function ProductDetailPage({ customer, addToCart, onBuyNow, onCartClick }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '3rem', alignItems: 'start' }}>
                 {/* Left Side: Images Gallery */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ width: '100%', height: 420, borderRadius: 20, background: 'rgba(12,12,20,0.8)', border: `1px solid ${C.border}`, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                    <div style={{ width: '100%', height: 420, borderRadius: 20, background: 'rgba(12,12,20,0.8)', border: `1px solid ${C.border}`, overflow: 'visible', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
                         {mainImage ? (
-                            <img src={mainImage} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            <ProductImageMagnifier
+                                src={mainImage}
+                                zoomSrc={images[activeImgIdx]?.original_url || mainImage}
+                                alt={product.name}
+                                zoomLevel={2.8}
+                            />
                         ) : (
                             <div style={{ fontSize: '5rem', color: C.faint }}>🛍️</div>
                         )}
                         {product.status === 'published' && (
-                            <span style={{ position: 'absolute', top: 15, right: 15, background: 'rgba(16,185,129,0.15)', color: C.success, border: '1px solid rgba(16,185,129,0.28)', fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <span style={{ position: 'absolute', top: 15, right: 15, zIndex: 60, background: 'rgba(16,185,129,0.15)', color: C.success, border: '1px solid rgba(16,185,129,0.28)', fontSize: '0.65rem', fontWeight: 700, padding: '0.2rem 0.6rem', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.06em', pointerEvents: 'none' }}>
                                 In Stock
                             </span>
                         )}

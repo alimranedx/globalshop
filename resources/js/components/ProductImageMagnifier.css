@@ -1,0 +1,191 @@
+/* ─────────────────────────────────────────────
+   ProductImageMagnifier.css
+   Premium Ecommerce Image Magnifier Styles
+───────────────────────────────────────────── */
+
+.pim-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    user-select: none;
+    -webkit-user-select: none;
+    border-radius: inherit;
+    outline: none;
+    z-index: 10;
+}
+
+.pim-container:focus-visible {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.6);
+}
+
+/* Image hidden cursor while hovering on desktop */
+.pim-container.pim-active-hover {
+    cursor: none;
+}
+
+/* Main Display Image */
+.pim-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    transition: opacity 0.25s ease;
+    opacity: 0;
+}
+
+.pim-image.pim-loaded {
+    opacity: 1;
+}
+
+/* Skeleton Loading State */
+.pim-skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(25, 25, 40, 0.8) 25%,
+        rgba(45, 45, 70, 0.8) 50%,
+        rgba(25, 25, 40, 0.8) 75%
+    );
+    background-size: 600px 100%;
+    animation: pimShimmer 1.4s infinite linear;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+@keyframes pimShimmer {
+    0% {
+        background-position: -600px 0;
+    }
+    100% {
+        background-position: 600px 0;
+    }
+}
+
+/* Circular Magnifier Glass Lens */
+.pim-lens {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: var(--pim-lens-size, 200px);
+    height: var(--pim-lens-size, 200px);
+    border-radius: 50%;
+    border: 2px solid #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55),
+                0 0 0 1px rgba(255, 255, 255, 0.3),
+                inset 0 0 20px rgba(0, 0, 0, 0.25);
+    background-repeat: no-repeat;
+    pointer-events: none;
+    opacity: 0;
+    transform: scale(0.8) translate3d(0, 0, 0);
+    transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 50;
+    will-change: transform, background-position;
+    background-color: rgba(12, 12, 20, 0.95);
+}
+
+.pim-lens.pim-lens-visible {
+    opacity: 1;
+    transform: scale(1) translate3d(0, 0, 0);
+}
+
+/* Central crosshair center indicator inside lens */
+.pim-lens::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    margin-top: -3px;
+    margin-left: -3px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+/* Mobile & Touch Modal Zoom Overlay */
+.pim-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 5, 10, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: pimFadeIn 0.2s ease-out;
+    padding: 1rem;
+}
+
+.pim-mobile-overlay-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-size: 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    transition: background 0.2s ease;
+}
+
+.pim-mobile-overlay-close:active {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.pim-mobile-zoom-container {
+    width: 100%;
+    height: 80vh;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: pan-x pan-y pinch-zoom;
+}
+
+.pim-mobile-zoom-img {
+    max-width: none;
+    transition: transform 0.15s ease-out;
+    object-fit: contain;
+}
+
+.pim-mobile-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    text-align: center;
+}
+
+@keyframes pimFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Responsive Lens Sizes */
+@media (max-width: 1024px) and (min-width: 769px) {
+    .pim-lens {
+        --pim-lens-size: 160px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pim-lens {
+        display: none !important;
+    }
+}
