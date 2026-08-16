@@ -1,0 +1,109 @@
+{
+  "_GlobalConfirmModal-CS9p4AbS.js": {
+    "file": "assets/GlobalConfirmModal-CS9p4AbS.js",
+    "name": "GlobalConfirmModal"
+  },
+  "_fonts-DkuEHybc.css": {
+    "file": "assets/fonts-DkuEHybc.css",
+    "src": "_fonts-DkuEHybc.css"
+  },
+  "_instrument-sans-400-normal-D1W7dsQl.woff": {
+    "file": "assets/instrument-sans-400-normal-D1W7dsQl.woff",
+    "src": "_instrument-sans-400-normal-D1W7dsQl.woff"
+  },
+  "_instrument-sans-400-normal-DRC__1Mx.woff2": {
+    "file": "assets/instrument-sans-400-normal-DRC__1Mx.woff2",
+    "src": "_instrument-sans-400-normal-DRC__1Mx.woff2"
+  },
+  "_instrument-sans-400-normal-Q_nF8v4l.woff2": {
+    "file": "assets/instrument-sans-400-normal-Q_nF8v4l.woff2",
+    "src": "_instrument-sans-400-normal-Q_nF8v4l.woff2"
+  },
+  "_instrument-sans-400-normal-r32jotim.woff": {
+    "file": "assets/instrument-sans-400-normal-r32jotim.woff",
+    "src": "_instrument-sans-400-normal-r32jotim.woff"
+  },
+  "_instrument-sans-500-normal-CAxz3nsc.woff": {
+    "file": "assets/instrument-sans-500-normal-CAxz3nsc.woff",
+    "src": "_instrument-sans-500-normal-CAxz3nsc.woff"
+  },
+  "_instrument-sans-500-normal-CTEe1bJa.woff2": {
+    "file": "assets/instrument-sans-500-normal-CTEe1bJa.woff2",
+    "src": "_instrument-sans-500-normal-CTEe1bJa.woff2"
+  },
+  "_instrument-sans-500-normal-Dk9ku72i.woff2": {
+    "file": "assets/instrument-sans-500-normal-Dk9ku72i.woff2",
+    "src": "_instrument-sans-500-normal-Dk9ku72i.woff2"
+  },
+  "_instrument-sans-500-normal-Z6ESRlEs.woff": {
+    "file": "assets/instrument-sans-500-normal-Z6ESRlEs.woff",
+    "src": "_instrument-sans-500-normal-Z6ESRlEs.woff"
+  },
+  "_instrument-sans-600-normal-B7fBEWYG.woff2": {
+    "file": "assets/instrument-sans-600-normal-B7fBEWYG.woff2",
+    "src": "_instrument-sans-600-normal-B7fBEWYG.woff2"
+  },
+  "_instrument-sans-600-normal-B9e8oLYv.woff": {
+    "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
+    "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
+  },
+  "_instrument-sans-600-normal-BsaQcF38.woff2": {
+    "file": "assets/instrument-sans-600-normal-BsaQcF38.woff2",
+    "src": "_instrument-sans-600-normal-BsaQcF38.woff2"
+  },
+  "_instrument-sans-600-normal-DMks36a2.woff": {
+    "file": "assets/instrument-sans-600-normal-DMks36a2.woff",
+    "src": "_instrument-sans-600-normal-DMks36a2.woff"
+  },
+  "_stockUnits-DOyYgL9a.js": {
+    "file": "assets/stockUnits-DOyYgL9a.js",
+    "name": "stockUnits"
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-BlyeLSXv.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/admin.jsx": {
+    "file": "assets/admin-CXz9cVIi.js",
+    "name": "admin",
+    "src": "resources/js/admin.jsx",
+    "isEntry": true,
+    "imports": [
+      "_GlobalConfirmModal-CS9p4AbS.js",
+      "_stockUnits-DOyYgL9a.js"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-BvRk9kiK.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/marketplace.jsx": {
+    "file": "assets/marketplace-C36cVTdp.js",
+    "name": "marketplace",
+    "src": "resources/js/marketplace.jsx",
+    "isEntry": true,
+    "imports": [
+      "_GlobalConfirmModal-CS9p4AbS.js"
+    ],
+    "css": [
+      "assets/marketplace-D1L7OiCO.css"
+    ]
+  },
+  "resources/js/shop.jsx": {
+    "file": "assets/shop-DpKwDrko.js",
+    "name": "shop",
+    "src": "resources/js/shop.jsx",
+    "isEntry": true,
+    "imports": [
+      "_GlobalConfirmModal-CS9p4AbS.js",
+      "_stockUnits-DOyYgL9a.js"
+    ]
+  }
+}
