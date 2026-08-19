@@ -40,7 +40,13 @@ class BrandController extends Controller
 
         $brand = new Brand();
         $brand->name = $validated['name'];
-        $brand->slug = Str::slug($validated['name']);
+        
+        $slug = Str::slug($validated['name']);
+        $shopId = \App\Modules\ShopManager\TenantManager::getTenantId();
+        if (Brand::where('shop_id', $shopId)->where('slug', $slug)->exists()) {
+            $slug .= '-' . Str::lower(Str::random(4));
+        }
+        $brand->slug = $slug;
         $brand->category_id = $validated['category_id'] ?? null;
 
         if ($request->hasFile('logo')) {

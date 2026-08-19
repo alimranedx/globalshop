@@ -114,65 +114,65 @@ Route::prefix('v1')->group(function () {
     // 3. Platform Admin Endpoints (Requires standard auth, page permissions, and optional API token auth)
     Route::middleware(['auth', 'page.authorize'])->prefix('platform')->group(function () {
         Route::get('/state', [App\Http\Controllers\PlatformAdminController::class, 'state'])->name('platform.state');
-        Route::get('/shops', [App\Http\Controllers\PlatformAdminController::class, 'listShops'])->name('admin.shops');
-        Route::post('/shops', [App\Http\Controllers\PlatformAdminController::class, 'storeShop'])->name('admin.shops');
-        Route::get('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'showShop'])->name('admin.shops');
-        Route::put('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'updateShop'])->name('admin.shops');
-        Route::delete('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShop'])->name('admin.shops');
-        Route::post('/shops/{shop}/toggle-suspension', [App\Http\Controllers\PlatformAdminController::class, 'toggleSuspension'])->name('admin.shops');
-        Route::post('/shops/{shop}/approve', [App\Http\Controllers\PlatformAdminController::class, 'approveShop'])->name('admin.shops');
-        Route::post('/shops/{shop}/handover', [App\Http\Controllers\PlatformAdminController::class, 'updateHandover'])->name('admin.shops');
-        Route::get('/users', [App\Http\Controllers\PlatformAdminController::class, 'listUsers'])->name('admin.shops');
-        Route::post('/shops/{shop}/owner', [App\Http\Controllers\PlatformAdminController::class, 'assignOwner'])->name('admin.shops');
+        Route::get('/shops', [App\Http\Controllers\PlatformAdminController::class, 'listShops'])->name('admin.shops.index');
+        Route::post('/shops', [App\Http\Controllers\PlatformAdminController::class, 'storeShop'])->name('admin.shops.store');
+        Route::get('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'showShop'])->name('admin.shops.show');
+        Route::put('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'updateShop'])->name('admin.shops.update');
+        Route::delete('/shops/{shop}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShop'])->name('admin.shops.destroy');
+        Route::post('/shops/{shop}/toggle-suspension', [App\Http\Controllers\PlatformAdminController::class, 'toggleSuspension'])->name('admin.shops.toggle-suspension');
+        Route::post('/shops/{shop}/approve', [App\Http\Controllers\PlatformAdminController::class, 'approveShop'])->name('admin.shops.approve');
+        Route::post('/shops/{shop}/handover', [App\Http\Controllers\PlatformAdminController::class, 'updateHandover'])->name('admin.shops.handover');
+        Route::get('/users', [App\Http\Controllers\PlatformAdminController::class, 'listUsers'])->name('admin.shops.users');
+        Route::post('/shops/{shop}/owner', [App\Http\Controllers\PlatformAdminController::class, 'assignOwner'])->name('admin.shops.assign-owner');
 
         // Shop Employees Management
-        Route::get('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'listShopEmployees'])->name('admin.shops');
-        Route::post('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'addShopEmployee'])->name('admin.shops');
-        Route::put('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopEmployee'])->name('admin.shops');
-        Route::delete('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'removeShopEmployee'])->name('admin.shops');
+        Route::get('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'listShopEmployees'])->name('admin.shops.employees.index');
+        Route::post('/shops/{shop}/employees', [App\Http\Controllers\PlatformAdminController::class, 'addShopEmployee'])->name('admin.shops.employees.store');
+        Route::put('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopEmployee'])->name('admin.shops.employees.update');
+        Route::delete('/shops/{shop}/employees/{user}', [App\Http\Controllers\PlatformAdminController::class, 'removeShopEmployee'])->name('admin.shops.employees.destroy');
 
         // Shop Roles & Permissions Management
-        Route::get('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'listShopRoles'])->name('admin.shops');
-        Route::post('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'storeShopRole'])->name('admin.shops');
-        Route::put('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopRole'])->name('admin.shops');
-        Route::delete('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopRole'])->name('admin.shops');
-        Route::get('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'getShopRolePermissions'])->name('admin.shops');
-        Route::put('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'syncShopRolePermissions'])->name('admin.shops');
+        Route::get('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'listShopRoles'])->name('admin.shops.roles.index');
+        Route::post('/shops/{shop}/roles', [App\Http\Controllers\PlatformAdminController::class, 'storeShopRole'])->name('admin.shops.roles.store');
+        Route::put('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopRole'])->name('admin.shops.roles.update');
+        Route::delete('/shops/{shop}/roles/{role}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopRole'])->name('admin.shops.roles.destroy');
+        Route::get('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'getShopRolePermissions'])->name('admin.shops.roles.permissions.get');
+        Route::put('/shops/{shop}/roles/{role}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'syncShopRolePermissions'])->name('admin.shops.roles.permissions.sync');
 
         // Shop Products Management
-        Route::get('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'listShopProducts'])->name('admin.shops');
-        Route::post('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'storeShopProduct'])->name('admin.shops');
-        Route::put('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopProduct'])->name('admin.shops');
-        Route::delete('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopProduct'])->name('admin.shops');
+        Route::get('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'listShopProducts'])->name('admin.shops.products.index');
+        Route::post('/shops/{shop}/products', [App\Http\Controllers\PlatformAdminController::class, 'storeShopProduct'])->name('admin.shops.products.store');
+        Route::put('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'updateShopProduct'])->name('admin.shops.products.update');
+        Route::delete('/shops/{shop}/products/{product}', [App\Http\Controllers\PlatformAdminController::class, 'destroyShopProduct'])->name('admin.shops.products.destroy');
 
         // Shop Audit Logs
-        Route::get('/shops/{shop}/logs', [App\Http\Controllers\PlatformAdminController::class, 'listShopLogs'])->name('admin.shops');
+        Route::get('/shops/{shop}/logs', [App\Http\Controllers\PlatformAdminController::class, 'listShopLogs'])->name('admin.shops.logs');
 
-        Route::get('/plans', [App\Http\Controllers\PlatformAdminController::class, 'listPlans'])->name('admin.plans');
-        Route::post('/plans', [App\Http\Controllers\PlatformAdminController::class, 'storePlan'])->name('admin.plans');
-        Route::put('/plans/{plan}', [App\Http\Controllers\PlatformAdminController::class, 'updatePlan'])->name('admin.plans');
+        Route::get('/plans', [App\Http\Controllers\PlatformAdminController::class, 'listPlans'])->name('admin.plans.index');
+        Route::post('/plans', [App\Http\Controllers\PlatformAdminController::class, 'storePlan'])->name('admin.plans.store');
+        Route::put('/plans/{plan}', [App\Http\Controllers\PlatformAdminController::class, 'updatePlan'])->name('admin.plans.update');
 
-        Route::get('/admins', [App\Http\Controllers\PlatformAdminController::class, 'listAdmins'])->name('admin.admins');
-        Route::post('/admins', [App\Http\Controllers\PlatformAdminController::class, 'storeAdmin'])->name('admin.admins');
-        Route::put('/admins/{user}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'updateAdminPermissions'])->name('admin.admins');
+        Route::get('/admins', [App\Http\Controllers\PlatformAdminController::class, 'listAdmins'])->name('admin.admins.index');
+        Route::post('/admins', [App\Http\Controllers\PlatformAdminController::class, 'storeAdmin'])->name('admin.admins.store');
+        Route::put('/admins/{user}/permissions', [App\Http\Controllers\PlatformAdminController::class, 'updateAdminPermissions'])->name('admin.admins.permissions.update');
 
-        Route::get('/logs', [App\Http\Controllers\PlatformAdminController::class, 'listLogs'])->name('admin.logs');
+        Route::get('/logs', [App\Http\Controllers\PlatformAdminController::class, 'listLogs'])->name('admin.logs.index');
 
         // Admin User Directory
-        Route::get('/directory/customers', [App\Http\Controllers\AdminUserDirectoryController::class, 'getCustomers'])->name('admin.customers');
-        Route::put('/directory/customers/{customer}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateCustomerStatus'])->name('admin.customers');
-        Route::post('/directory/customers/{customer}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetCustomerPassword'])->name('admin.customers');
+        Route::get('/directory/customers', [App\Http\Controllers\AdminUserDirectoryController::class, 'getCustomers'])->name('admin.customers.index');
+        Route::put('/directory/customers/{customer}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateCustomerStatus'])->name('admin.customers.status');
+        Route::post('/directory/customers/{customer}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetCustomerPassword'])->name('admin.customers.reset-password');
 
-        Route::get('/directory/shop-owners', [App\Http\Controllers\AdminUserDirectoryController::class, 'getShopOwners'])->name('admin.shops');
-        Route::get('/directory/employees', [App\Http\Controllers\AdminUserDirectoryController::class, 'getEmployees'])->name('admin.shops');
-        Route::put('/directory/users/{user}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateUserStatus'])->name('admin.shops');
-        Route::post('/directory/users/{user}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetUserPassword'])->name('admin.shops');
+        Route::get('/directory/shop-owners', [App\Http\Controllers\AdminUserDirectoryController::class, 'getShopOwners'])->name('admin.shops.directory.owners');
+        Route::get('/directory/employees', [App\Http\Controllers\AdminUserDirectoryController::class, 'getEmployees'])->name('admin.shops.directory.employees');
+        Route::put('/directory/users/{user}/status', [App\Http\Controllers\AdminUserDirectoryController::class, 'updateUserStatus'])->name('admin.shops.directory.users.status');
+        Route::post('/directory/users/{user}/reset-password', [App\Http\Controllers\AdminUserDirectoryController::class, 'resetUserPassword'])->name('admin.shops.directory.users.reset-password');
 
         // Admin Support Tickets Management
-        Route::get('/support-tickets', [App\Http\Controllers\AdminSupportTicketController::class, 'index'])->name('admin.tickets');
-        Route::get('/support-tickets/{ticket}', [App\Http\Controllers\AdminSupportTicketController::class, 'show'])->name('admin.tickets');
-        Route::post('/support-tickets/{ticket}/reply', [App\Http\Controllers\AdminSupportTicketController::class, 'reply'])->name('admin.tickets');
-        Route::put('/support-tickets/{ticket}/status', [App\Http\Controllers\AdminSupportTicketController::class, 'updateStatus'])->name('admin.tickets');
+        Route::get('/support-tickets', [App\Http\Controllers\AdminSupportTicketController::class, 'index'])->name('admin.tickets.index');
+        Route::get('/support-tickets/{ticket}', [App\Http\Controllers\AdminSupportTicketController::class, 'show'])->name('admin.tickets.show');
+        Route::post('/support-tickets/{ticket}/reply', [App\Http\Controllers\AdminSupportTicketController::class, 'reply'])->name('admin.tickets.reply');
+        Route::put('/support-tickets/{ticket}/status', [App\Http\Controllers\AdminSupportTicketController::class, 'updateStatus'])->name('admin.tickets.status');
     });
 });
 

@@ -621,45 +621,141 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 * **Cause:** Frontend assets have not been compiled using Vite.
 * **Solution:** Run `npm run build` to generate production assets in `public/build/`.
 
-### 6. Issue: `No application encryption key has been specified`
-
-* **Cause:** `APP_KEY` in `.env` is empty.
-* **Solution:** Run `php artisan key:generate`.
+### 7. Issue: Uploaded Images return HTTP 404 on cPanel / CloudLinux / LiteSpeed
+* **Cause:** LiteSpeed web server with CageFS disallows following symlinks pointing outside the document root `/home/username/public_html/`.
+* **Solution:** Configure `FILESYSTEM_PUBLIC_ROOT=/home/username/public_html/storage` in `.env` and create a real directory `/home/username/public_html/storage` (`0755` permissions) with `logos/` and `products/` subdirectories.
 
 ---
 
-## 11. Production Deployment Checklist
+## 11. cPanel / CloudLinux / LiteSpeed Shared Hosting Guide
+
+GlobalShop is fully compatible with shared cPanel hosting running CloudLinux and LiteSpeed Web Server.
+
+### Directory Structure & Separation
+```
+/home/username/
+├── globalshop/                   # Application Core (outside web root)
+│   ├── app/
+│   ├── bootstrap/
+│   ├── config/
+│   ├── database/
+│   ├── resources/
+│   ├── routes/
+│   ├── storage/
+│   ├── vendor/
+│   ├── .env                      # Production environment file
+│   └── artisan
+└── public_html/                  # Web Document Root
+    ├── .htaccess                 # PHP 8.3 LiteSpeed handler & HTTPS rewrites
+    ├── index.php                 # Front controller loading ../globalshop/bootstrap/app.php
+    ├── favicon.ico
+    ├── robots.txt
+    ├── build/                    # Compiled Vite assets (assets/, manifest.json)
+    └── storage/                  # Direct public storage directory (logos/, products/)
+```
+
+### 1. PHP 8.3 LiteSpeed Handler (`.htaccess`)
+Place the following in `/home/username/public_html/.htaccess`:
+```apache
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+<IfModule mime_module>
+  AddHandler application/x-httpd-alt-php83___lsphp .php .php8 .phtml
+</IfModule>
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+Options +FollowSymLinks -MultiViews -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+```
+
+### 2. Front Controller (`public_html/index.php`)
+```php
+<?php
+
+use Illuminate\Http\Request;
+
+define('LARAVEL_START', microtime(true));
+
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = __DIR__.'/../globalshop/storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+require __DIR__.'/../globalshop/vendor/autoload.php';
+
+// Bootstrap Laravel and handle the request...
+(require_once __DIR__.'/../globalshop/bootstrap/app.php')
+    ->handleRequest(Request::capture());
+```
+
+### 3. Production Environment Settings (`.env`)
+```env
+APP_NAME=GlobalShop
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=yourcpaneluser_globalshop
+DB_USERNAME=yourcpaneluser_dbuser
+DB_PASSWORD=YourStrongPasswordHere
+
+FILESYSTEM_DISK=public
+FILESYSTEM_PUBLIC_ROOT=/home/yourcpaneluser/public_html/storage
+```
+
+---
+
+## 12. Production Deployment Checklist
 
 Before announcing production launch, verify each item:
 
 - [x] PHP 8.3 installed with required extensions (`bcmath`, `curl`, `gd`, `intl`, `mbstring`, `pdo_mysql`, `pdo_sqlite`, `zip`)
 - [x] MySQL database created with `utf8mb4` collation
-- [x] Repository cloned to production server directory (`/var/www/globalshop`)
+- [x] Repository cloned to production server directory (`/var/www/globalshop` or `/home/user/globalshop`)
 - [x] Correct Git branch (`dev` / `main`) checked out
 - [x] `.env` file configured with `APP_ENV=production` and `APP_DEBUG=false`
 - [x] Production database credentials configured and tested
 - [x] `php artisan key:generate` executed
 - [x] `composer install --no-dev --optimize-autoloader` completed cleanly
 - [x] `npm ci` and `npm run build` executed successfully
-- [x] `php artisan migrate --force` executed
-- [x] `php artisan storage:link` created
-- [x] File ownership set to `www-data:www-data` and directory permissions set to `775` for `storage` & `bootstrap/cache`
-- [x] Supervisor queue worker configured and active (`globalshop-worker`)
-- [x] System cron job configured for `php artisan schedule:run`
-- [x] Nginx root configured to `/var/www/globalshop/public`
-- [x] SSL certificate issued via Certbot
-- [x] Production caches built (`config:cache`, `route:cache`, `view:cache`, `event:cache`)
-- [x] All 63 automated tests passed (`php artisan test`)
-- [x] Storage link verified (image uploads rendering correctly)
+- [x] `php artisan migrate --force` executed (all 20 migration batches completed)
+- [x] Public storage directory configured (`public/storage` or `FILESYSTEM_PUBLIC_ROOT`)
+- [x] Directory permissions set to `775` for `storage` & `bootstrap/cache`
+- [x] Production caches built (`config:cache`, `route:cache`, `view:cache`)
+- [x] All 74 automated tests passed (`php artisan test`)
+- [x] Image upload & public serving verified over HTTPS
 - [x] Marketplace (`/`), Shop Management (`/shop/*`), and Admin (`/admin/*`) SPAs tested in browser
 
 ---
 
-## 12. Remaining Manual & Infrastructure Requirements
+## 13. Remaining Manual & Infrastructure Requirements
 
-The following tasks cannot be automated within the repository and require external infrastructure setup by the system administrator or devops engineer:
+The following tasks require external infrastructure setup by the system administrator or devops engineer:
 
-1. **DNS Domain Configuration:** Point A and AAAA DNS records for `yourdomain.com` and `www.yourdomain.com` to the server's public IP address.
-2. **Production SSL Provisioning:** Execute Certbot to issue HTTPS certificates for domain names once DNS has propagated.
-3. **Mail Service Provider Setup:** Configure production SMTP credentials (e.g. Mailgun, SendGrid, Amazon SES) in `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`).
+1. **DNS Domain Configuration:** Point A and AAAA DNS records for `yourdomain.com` to the server's public IP address.
+2. **Production SSL Provisioning:** Issue HTTPS certificates (AutoSSL / Let's Encrypt / Certbot) for domain names.
+3. **Mail Service Provider Setup:** Configure production SMTP credentials in `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`).
 4. **Third-Party AWS S3 Credentials (Optional):** If using S3 for persistent cloud asset storage instead of local disk storage, configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, and `AWS_BUCKET` in `.env`.

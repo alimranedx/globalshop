@@ -39,7 +39,13 @@ class CategoryController extends Controller
 
         $category = new Category();
         $category->name = $validated['name'];
-        $category->slug = Str::slug($validated['name']);
+        
+        $slug = Str::slug($validated['name']);
+        $shopId = \App\Modules\ShopManager\TenantManager::getTenantId();
+        if (Category::where('shop_id', $shopId)->where('slug', $slug)->exists()) {
+            $slug .= '-' . Str::lower(Str::random(4));
+        }
+        $category->slug = $slug;
 
         if ($request->hasFile('logo')) {
             $category->logo_path = $request->file('logo')->store('logos', 'public');

@@ -20,10 +20,12 @@ class AuthorizePageAccess
         if ($normalizedPage) {
             // Check if this specific granular action is protected/mapped
             if (! $this->isProtectedPage($normalizedPage)) {
-                // If not, fallback to checking if the base .index route of the resource is protected
-                $basePage = preg_replace('/\.(create|edit|destroy)$/', '.index', $normalizedPage);
+                $basePage = preg_replace('/\.(create|edit|destroy|store|update|show|index)$/', '.index', $normalizedPage);
+                $baseAdminPage = preg_replace('/\.[^.]+$/', '', $normalizedPage);
                 if ($this->isProtectedPage($basePage)) {
                     $normalizedPage = $basePage;
+                } elseif ($this->isProtectedPage($baseAdminPage)) {
+                    $normalizedPage = $baseAdminPage;
                 } else {
                     // Bypass check if neither the granular route nor the base index route is mapped
                     return $next($request);

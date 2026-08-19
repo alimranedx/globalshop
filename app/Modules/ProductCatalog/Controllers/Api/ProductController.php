@@ -187,7 +187,12 @@ class ProductController extends Controller
 
         $product = new Product($validated);
         $product->shop_id = $shop->id;
-        $product->slug = Str::slug($validated['name']);
+        
+        $slug = Str::slug($validated['name']);
+        if (Product::where('shop_id', $shop->id)->where('slug', $slug)->exists()) {
+            $slug .= '-' . Str::lower(Str::random(4));
+        }
+        $product->slug = $slug;
         $product->created_by = $request->user()->id;
         $product->save();
 
