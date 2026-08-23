@@ -1,6 +1,6 @@
 # GlobalShop — Deployment & Environment Setup Guide
 
-This document provides complete, developer-grade instructions to configure, validate, and deploy **GlobalShop** across local development environments (Windows + Laragon / Generic) and production Linux servers (Ubuntu + Nginx + PHP-FPM).
+This document provides complete, developer-grade instructions to configure, validate, and deploy **GlobalShop** across local development environments (Windows + Laragon / Generic), production Linux servers (Ubuntu + Nginx + PHP-FPM), and shared cPanel hosting environments (LiteSpeed / CloudLinux / Apache, e.g. `https://shopbusket.com/`).
 
 ---
 
@@ -14,10 +14,11 @@ This document provides complete, developer-grade instructions to configure, vali
 6. [Database Setup & Seeding Reference](#6-database-setup--seeding-reference)
 7. [Queue Worker & Scheduler Configuration](#7-queue-worker--scheduler-configuration)
 8. [Cache & Performance Optimization](#8-cache--performance-optimization)
-9. [Web Server Configuration Samples](#9-web-server-configuration-samples)
+9. [Web Server Configuration Samples (Nginx & Apache)](#9-web-server-configuration-samples)
 10. [Troubleshooting Guide](#10-troubleshooting-guide)
-11. [Production Deployment Checklist](#11-production-deployment-checklist)
-12. [Remaining Manual & Infrastructure Requirements](#12-remaining-manual--infrastructure-requirements)
+11. [cPanel / CloudLinux / LiteSpeed Shared Hosting Guide](#11-cpanel--cloudlinux--litespeed-shared-hosting-guide)
+12. [Production Deployment Checklist](#12-production-deployment-checklist)
+13. [Remaining Manual & Infrastructure Requirements](#13-remaining-manual--infrastructure-requirements)
 
 ---
 
@@ -40,7 +41,7 @@ GlobalShop is a multi-tenant SaaS e-commerce marketplace powered by a single **L
 * **Database Engine:** MySQL 8.0+ or MariaDB 10.4+
 * **Session & Cache Driver:** Database / Redis / File
 * **Queue Driver:** Database (`QUEUE_CONNECTION=database`) or Redis
-* **Storage Engine:** Local Public Disk (`storage/app/public` symlinked to `public/storage`)
+* **Storage Engine:** Local Public Disk (`storage/app/public` symlinked or direct `public/storage`)
 * **PDF Generator:** `barryvdh/laravel-dompdf` (^3.1)
 
 ---
@@ -73,10 +74,10 @@ The production PHP 8.3 CLI and PHP-FPM environments **MUST** have the following 
 * **Git:** Version control
 * **Composer 2:** PHP dependency manager
 * **Node.js (20.x or 24.x LTS):** Frontend asset compilation
-* **MySQL Server 8.0+:** Relational database storage
-* **Supervisor:** Production queue process management
+* **MySQL Server 8.0+ / MariaDB 10.4+:** Relational database storage
+* **Supervisor:** Production queue process management (Linux VPS/Dedicated)
 * **Cron:** Task scheduler execution
-* **Nginx or Apache 2.4:** Web server with URL rewrite engine
+* **Nginx, Apache 2.4, or LiteSpeed:** Web server with URL rewrite engine
 
 ---
 
@@ -92,20 +93,21 @@ Below is the complete configuration matrix for GlobalShop:
 | `APP_ENV` | Yes | `local` / `production` | All | `local`, `staging`, or `production`. Controls error detail exposure. |
 | `APP_KEY` | Yes | `base64:...` | All | 32-character AES encryption key generated via `php artisan key:generate`. |
 | `APP_DEBUG` | Yes | `true` (Local) / `false` (Prod) | All | Enables debug backtraces. **MUST be `false` in production.** |
-| `APP_URL` | Yes | `http://localhost` | All | Canonical URL of the application. Required for correct asset & route generation. |
+| `APP_URL` | Yes | `http://localhost` / `https://shopbusket.com` | All | Canonical URL of the application. Required for asset & route generation. |
 | `DB_CONNECTION` | Yes | `mysql` | All | Database driver (`mysql` for dev/prod, `sqlite` for automated testing). |
 | `DB_HOST` | Yes | `127.0.0.1` | All | Database host address. |
 | `DB_PORT` | Yes | `3306` | All | Database server port. |
 | `DB_DATABASE` | Yes | `globalshop` | All | Name of the database. |
-| `DB_USERNAME` | Yes | `root` | All | Database username. |
-| `DB_PASSWORD` | Yes | *(empty in dev)* | All | Database user password. |
+| `DB_USERNAME` | Yes | `root` / `cpaneluser_dbuser` | All | Database username. |
+| `DB_PASSWORD` | Yes | *(secret)* | All | Database user password. |
 | `SESSION_DRIVER` | Yes | `database` | All | Session handler (`database`, `redis`, `file`). Defaults to database table. |
 | `SESSION_LIFETIME` | Optional | `120` | All | Session timeout duration in minutes. |
 | `QUEUE_CONNECTION` | Yes | `database` | All | Background job driver (`database`, `redis`, `sync`). |
 | `CACHE_STORE` | Yes | `database` | All | Cache storage layer (`database`, `redis`, `file`). |
-| `FILESYSTEM_DISK` | Yes | `local` | All | Storage driver (`local` uses `storage/app/public`, or `s3`). |
+| `FILESYSTEM_DISK` | Yes | `public` / `local` | All | Storage driver. Use `public` for web accessible uploads. |
+| `FILESYSTEM_PUBLIC_ROOT` | Optional | `/home/user/public_html/storage` | Shared Hosting | Direct filesystem path for cPanel/LiteSpeed environments. |
 | `BROADCAST_CONNECTION`| Optional | `log` | All | WebSocket / Event broadcasting driver. |
-| `MAIL_MAILER` | Optional | `log` / `smtp` | Local / Prod | Mail driver. Set to `log` for local testing or `smtp` for production emails. |
+| `MAIL_MAILER` | Optional | `log` / `smtp` | Local / Prod | Mail driver (`log` for dev, `smtp` for production). |
 | `MAIL_HOST` | Optional | `127.0.0.1` / `smtp.mailgun.org` | Prod | SMTP server hostname. |
 | `MAIL_PORT` | Optional | `2525` / `587` | Prod | SMTP server port. |
 | `MAIL_USERNAME` | Optional | `null` | Prod | SMTP auth username. |
@@ -137,7 +139,7 @@ git checkout dev
 copy .env.example .env
 ```
 
-Ensure the database name in `.env` is set:
+Ensure the database settings in `.env` match your local MySQL:
 
 ```env
 DB_CONNECTION=mysql
@@ -214,7 +216,7 @@ composer run dev
 
 ## 5. Production Deployment Guide (Ubuntu Linux + Nginx)
 
-This section provides a step-by-step guide to deploying GlobalShop on a fresh **Ubuntu 22.04 LTS / 24.04 LTS** server.
+This section provides a step-by-step guide to deploying GlobalShop on a fresh **Ubuntu 22.04 LTS / 24.04 LTS** VPS or dedicated server.
 
 ### Step 1: Update System & Install Base Packages
 
@@ -304,8 +306,6 @@ sudo chmod -R 775 /var/www/globalshop/storage /var/www/globalshop/bootstrap/cach
 
 ### Step 9: Install Composer Dependencies (Production Mode)
 
-Run as `www-data` or with explicit user permissions:
-
 ```bash
 sudo -u www-data composer install --no-dev --optimize-autoloader
 ```
@@ -342,7 +342,7 @@ DB_PASSWORD=YOUR_SECURE_PASSWORD_HERE
 SESSION_DRIVER=database
 QUEUE_CONNECTION=database
 CACHE_STORE=database
-FILESYSTEM_DISK=local
+FILESYSTEM_DISK=public
 ```
 
 ### Step 11: Generate Application Encryption Key
@@ -364,7 +364,7 @@ sudo -u www-data npm run build
 sudo -u www-data php artisan migrate --force
 ```
 
-*(Optional: If seeding initial seed data for demonstration/staging, run `sudo -u www-data php artisan db:seed --force`).*
+*(Optional for initial demo/staging data: `sudo -u www-data php artisan db:seed --force`).*
 
 ### Step 14: Create Storage Symlink
 
@@ -437,12 +437,6 @@ Load and start the worker daemon:
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start globalshop-worker:*
-```
-
-Check status:
-
-```bash
-sudo supervisorctl status
 ```
 
 ### 7.2 Scheduled Tasks Setup (Cron)
@@ -604,37 +598,51 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
 ### 3. Issue: HTTP 500 Server Error or `The stream or file ".../storage/logs/laravel.log" could not be opened in append mode: Failed to open stream: Permission denied`
 
-* **Cause:** Web server process (`www-data`) lacks write permissions to `storage/` or `bootstrap/cache/`.
-* **Solution:** Fix permissions on Linux server:
+* **Cause:** Web server process (`www-data` or cPanel user) lacks write permissions to `storage/` or `bootstrap/cache/`.
+* **Solution:** Fix permissions on server:
   ```bash
-  sudo chown -R www-data:www-data /var/www/globalshop
-  sudo chmod -R 775 /var/www/globalshop/storage /var/www/globalshop/bootstrap/cache
+  chmod -R 775 storage bootstrap/cache
   ```
 
 ### 4. Issue: React SPA routes return 404 on page refresh (e.g. refreshing `/shop/alpha/dashboard` or `/admin`)
 
 * **Cause:** The web server configuration is missing fallbacks to `index.php`.
-* **Solution:** Ensure Nginx includes `try_files $uri $uri/ /index.php?$query_string;` inside the root `location /` block.
+* **Solution:**
+  * **Nginx:** Ensure `try_files $uri $uri/ /index.php?$query_string;` is inside the `location /` block.
+  * **Apache / LiteSpeed (.htaccess):** Ensure `RewriteCond %{REQUEST_FILENAME} !-f` and `RewriteRule ^ index.php [L]` are present.
 
 ### 5. Issue: `Vite manifest not found at [.../public/build/manifest.json]`
 
 * **Cause:** Frontend assets have not been compiled using Vite.
-* **Solution:** Run `npm run build` to generate production assets in `public/build/`.
+* **Solution:** Run `npm run build` locally, and ensure the compiled `build/` folder is uploaded to the server's public web root (`public_html/build/` or `public/build/`).
+
+### 6. Issue: `CSRF token mismatch` or `419 Page Expired` on Form / API Requests
+
+* **Cause:** `APP_URL` in `.env` does not match the exact scheme (`http://` vs `https://`) or domain being accessed, or `.htaccess` is stripping `X-XSRF-TOKEN` headers.
+* **Solution:** Set `APP_URL=https://yourdomain.com` in `.env` and verify that `.htaccess` includes:
+  ```apache
+  RewriteCond %{HTTP:x-xsrf-token} .
+  RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+  ```
 
 ### 7. Issue: Uploaded Images return HTTP 404 on cPanel / CloudLinux / LiteSpeed
+
 * **Cause:** LiteSpeed web server with CageFS disallows following symlinks pointing outside the document root `/home/username/public_html/`.
-* **Solution:** Configure `FILESYSTEM_PUBLIC_ROOT=/home/username/public_html/storage` in `.env` and create a real directory `/home/username/public_html/storage` (`0755` permissions) with `logos/` and `products/` subdirectories.
+* **Solution:** Configure `FILESYSTEM_PUBLIC_ROOT=/home/username/public_html/storage` in `.env` and create a real directory `/home/username/public_html/storage` (`0755` permissions) with `logos/`, `products/`, and `avatars/` subdirectories.
 
 ---
 
 ## 11. cPanel / CloudLinux / LiteSpeed Shared Hosting Guide
 
-GlobalShop is fully compatible with shared cPanel hosting running CloudLinux and LiteSpeed Web Server.
+GlobalShop is fully compatible with shared cPanel hosting running CloudLinux and LiteSpeed Web Server (such as `https://shopbusket.com/`).
 
-### Directory Structure & Separation
+### 11.1 Architecture & Directory Separation
+
+To ensure absolute security and protect configuration files (`.env`, `vendor/`, `database/`), we keep the application core **outside** `public_html` and place only web-accessible assets inside `public_html`:
+
 ```
-/home/username/
-├── globalshop/                   # Application Core (outside web root)
+/home/cpaneluser/
+├── globalshop/                   # Application Core (outside public web root)
 │   ├── app/
 │   ├── bootstrap/
 │   ├── config/
@@ -645,49 +653,67 @@ GlobalShop is fully compatible with shared cPanel hosting running CloudLinux and
 │   ├── vendor/
 │   ├── .env                      # Production environment file
 │   └── artisan
+│
 └── public_html/                  # Web Document Root
     ├── .htaccess                 # PHP 8.3 LiteSpeed handler & HTTPS rewrites
     ├── index.php                 # Front controller loading ../globalshop/bootstrap/app.php
     ├── favicon.ico
     ├── robots.txt
     ├── build/                    # Compiled Vite assets (assets/, manifest.json)
-    └── storage/                  # Direct public storage directory (logos/, products/)
+    └── storage/                  # Direct public storage directory (0755 permissions)
+        ├── avatars/
+        ├── logos/
+        └── products/
 ```
 
-### 1. PHP 8.3 LiteSpeed Handler (`.htaccess`)
-Place the following in `/home/username/public_html/.htaccess`:
-```apache
-# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
-<IfModule mime_module>
-  AddHandler application/x-httpd-alt-php83___lsphp .php .php8 .phtml
-</IfModule>
-# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+---
 
-Options +FollowSymLinks -MultiViews -Indexes
+### 11.2 Step-by-Step cPanel Deployment Process
 
-<IfModule mod_rewrite.c>
-    RewriteEngine On
+#### Step 1: Prepare Files Locally on Your Machine
+1. Open your local terminal in the project directory:
+   ```bash
+   composer install --no-dev --optimize-autoloader
+   npm install
+   npm run build
+   ```
+2. Prepare two ZIP archives for upload:
+   * **`core_app.zip`**: Contains `app/`, `bootstrap/`, `config/`, `database/`, `resources/`, `routes/`, `storage/`, `vendor/`, `artisan`, `.env.example`. *(Exclude `node_modules/` and `public/`)*.
+   * **`public_html.zip`**: Contains the entire contents of the `public/` directory (`build/`, `favicon.ico`, `robots.txt`, `index.php`, `.htaccess`).
 
-    RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+---
 
-    RewriteCond %{HTTP:Authorization} .
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+#### Step 2: Configure PHP 8.3 & Extensions in cPanel
+1. In cPanel, navigate to **Select PHP Version** (or **MultiPHP Manager**).
+2. Set PHP version to **8.3**.
+3. Under the **Extensions** tab, ensure the following are enabled:
+   * `pdo_mysql`, `mysqli`, `bcmath`, `curl`, `fileinfo`, `gd`, `intl`, `mbstring`, `xml`/`dom`, `zip`, `openssl`.
 
-    RewriteCond %{HTTP:x-xsrf-token} .
-    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+---
 
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_URI} (.+)/$
-    RewriteRule ^ %1 [L,R=301]
+#### Step 3: Create MySQL Database & User in cPanel
+1. Open **MySQL Databases** in cPanel.
+2. **Create New Database:** e.g., `cpaneluser_globalshop`.
+3. **Create New User:** e.g., `cpaneluser_dbuser` with a secure password.
+4. **Add User to Database:** Assign `cpaneluser_dbuser` to `cpaneluser_globalshop` and check **ALL PRIVILEGES**.
 
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteRule ^ index.php [L]
-</IfModule>
-```
+---
 
-### 2. Front Controller (`public_html/index.php`)
+#### Step 4: Upload & Extract Files via cPanel File Manager
+1. Open **cPanel File Manager**.
+2. In `/home/cpaneluser/`:
+   * Create a folder named `globalshop`.
+   * Upload `core_app.zip` into `globalshop/` and click **Extract**.
+3. In `/home/cpaneluser/public_html/`:
+   * Upload `public_html.zip` and click **Extract**.
+   * Create a directory named `storage` with permissions `0755`.
+   * Inside `storage/`, create subfolders: `avatars/`, `logos/`, and `products/`.
+
+---
+
+#### Step 5: Configure Front Controller (`public_html/index.php`)
+Open and edit `/home/cpaneluser/public_html/index.php`:
+
 ```php
 <?php
 
@@ -708,23 +734,107 @@ require __DIR__.'/../globalshop/vendor/autoload.php';
     ->handleRequest(Request::capture());
 ```
 
-### 3. Production Environment Settings (`.env`)
+---
+
+#### Step 6: Configure `.htaccess` (`public_html/.htaccess`)
+Open and edit `/home/cpaneluser/public_html/.htaccess`:
+
+```apache
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+<IfModule mime_module>
+  AddHandler application/x-httpd-alt-php83___lsphp .php .php8 .phtml
+</IfModule>
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+
+Options +FollowSymLinks -MultiViews -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Force HTTPS Redirect
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller (SPA Fallback)
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+```
+
+---
+
+#### Step 7: Configure Environment File (`globalshop/.env`)
+In `/home/cpaneluser/globalshop/`, copy `.env.example` to `.env` and set:
+
 ```env
 APP_NAME=GlobalShop
 APP_ENV=production
+APP_KEY=base64:YOUR_GENERATED_APP_KEY_HERE
 APP_DEBUG=false
-APP_URL=https://yourdomain.com
+APP_URL=https://shopbusket.com
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=yourcpaneluser_globalshop
-DB_USERNAME=yourcpaneluser_dbuser
-DB_PASSWORD=YourStrongPasswordHere
+DB_DATABASE=cpaneluser_globalshop
+DB_USERNAME=cpaneluser_dbuser
+DB_PASSWORD=YOUR_SECURE_PASSWORD_HERE
+
+SESSION_DRIVER=database
+QUEUE_CONNECTION=database
+CACHE_STORE=database
 
 FILESYSTEM_DISK=public
-FILESYSTEM_PUBLIC_ROOT=/home/yourcpaneluser/public_html/storage
+FILESYSTEM_PUBLIC_ROOT=/home/cpaneluser/public_html/storage
 ```
+
+---
+
+#### Step 8: Execute Migrations & Cache Initialization
+
+##### Method A: Using cPanel Terminal / SSH (Recommended)
+Open **Terminal** in cPanel and execute:
+
+```bash
+cd /home/cpaneluser/globalshop
+php artisan key:generate
+php artisan migrate --force
+php artisan db:seed --force
+php artisan optimize
+```
+
+##### Method B: Without Terminal / SSH (File Manager & phpMyAdmin)
+1. Generate an `APP_KEY` locally on your development machine (`php artisan key:generate --show`) and paste it into `.env`.
+2. On your local machine, export the database schema and seed data to a `.sql` file using phpMyAdmin or CLI:
+   ```bash
+   mysqldump -u root globalshop > database_backup.sql
+   ```
+3. Open **phpMyAdmin** in cPanel, select `cpaneluser_globalshop`, and click **Import** to upload `database_backup.sql`.
+
+---
+
+#### Step 9: Configure Task Scheduler (cPanel Cron Jobs)
+1. In cPanel, navigate to **Cron Jobs**.
+2. Under **Add New Cron Job**, select **Once Per Minute** (`* * * * *`).
+3. Enter the command:
+   ```bash
+   * * * * * cd /home/cpaneluser/globalshop && php artisan schedule:run >> /dev/null 2>&1
+   ```
+4. Click **Add New Cron Job**.
 
 ---
 
@@ -734,14 +844,14 @@ Before announcing production launch, verify each item:
 
 - [x] PHP 8.3 installed with required extensions (`bcmath`, `curl`, `gd`, `intl`, `mbstring`, `pdo_mysql`, `pdo_sqlite`, `zip`)
 - [x] MySQL database created with `utf8mb4` collation
-- [x] Repository cloned to production server directory (`/var/www/globalshop` or `/home/user/globalshop`)
+- [x] Repository cloned / uploaded to production server directory (`/var/www/globalshop` or `/home/cpaneluser/globalshop`)
 - [x] Correct Git branch (`dev` / `main`) checked out
 - [x] `.env` file configured with `APP_ENV=production` and `APP_DEBUG=false`
 - [x] Production database credentials configured and tested
 - [x] `php artisan key:generate` executed
 - [x] `composer install --no-dev --optimize-autoloader` completed cleanly
 - [x] `npm ci` and `npm run build` executed successfully
-- [x] `php artisan migrate --force` executed (all 20 migration batches completed)
+- [x] `php artisan migrate --force` executed (all migration batches completed)
 - [x] Public storage directory configured (`public/storage` or `FILESYSTEM_PUBLIC_ROOT`)
 - [x] Directory permissions set to `775` for `storage` & `bootstrap/cache`
 - [x] Production caches built (`config:cache`, `route:cache`, `view:cache`)
@@ -755,7 +865,7 @@ Before announcing production launch, verify each item:
 
 The following tasks require external infrastructure setup by the system administrator or devops engineer:
 
-1. **DNS Domain Configuration:** Point A and AAAA DNS records for `yourdomain.com` to the server's public IP address.
+1. **DNS Domain Configuration:** Point A and AAAA DNS records for `yourdomain.com` / `shopbusket.com` to the server's public IP address.
 2. **Production SSL Provisioning:** Issue HTTPS certificates (AutoSSL / Let's Encrypt / Certbot) for domain names.
 3. **Mail Service Provider Setup:** Configure production SMTP credentials in `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`).
 4. **Third-Party AWS S3 Credentials (Optional):** If using S3 for persistent cloud asset storage instead of local disk storage, configure `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, and `AWS_BUCKET` in `.env`.
