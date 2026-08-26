@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +8,8 @@
     <meta name="description" content="Search and select your shop to access management dashboard.">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <!-- Google Fonts & Bootstrap 5 -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
@@ -19,10 +21,12 @@
             display: flex;
             flex-direction: column;
         }
+
         .search-hero {
             background: radial-gradient(circle at 50% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
             padding: 4rem 0 2rem 0;
         }
+
         .shop-card {
             background: rgba(24, 24, 32, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -30,11 +34,13 @@
             border-radius: 16px;
             transition: all 0.25s ease;
         }
+
         .shop-card:hover {
             transform: translateY(-4px);
             border-color: #6366f1;
             box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
         }
+
         .shop-avatar {
             width: 56px;
             height: 56px;
@@ -47,28 +53,36 @@
             color: #ffffff;
             font-weight: 700;
         }
+
         .btn-indigo {
             background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             color: #fff;
             border: none;
             font-weight: 600;
         }
+
         .btn-indigo:hover {
             background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
             color: #fff;
         }
     </style>
 </head>
+
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark bg-opacity-75 border-bottom border-secondary border-opacity-25 sticky-top">
+    <nav
+        class="navbar navbar-expand-lg navbar-dark bg-dark bg-opacity-75 border-bottom border-secondary border-opacity-25 sticky-top">
         <div class="container">
             <a class="navbar-brand fw-bold fs-4 text-white d-flex align-items-center gap-2" href="{{ url('/') }}">
                 <i class="bi bi-shop text-primary"></i> GlobalShop
             </a>
             <div class="ms-auto d-flex align-items-center gap-3">
-                <a href="{{ url('/') }}" class="text-secondary text-decoration-none small"><i class="bi bi-house"></i> Home</a>
-                <a href="{{ url('/marketplace') }}" class="text-secondary text-decoration-none small"><i class="bi bi-bag"></i> Marketplace</a>
+                <a href="{{ url('/') }}" class="text-secondary text-decoration-none small"><i
+                        class="bi bi-house"></i> Home</a>
+                <a href="{{ url('/marketplace') }}" class="text-secondary text-decoration-none small"><i
+                        class="bi bi-bag"></i> Marketplace</a>
+                <a href="#" class="text-secondary text-decoration-none small"><i class="bi bi-bag"></i> Register
+                    New Shop</a>
             </div>
         </div>
     </nav>
@@ -78,7 +92,8 @@
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-lg-7">
-                    <span class="badge bg-indigo-subtle text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill fw-semibold mb-3">
+                    <span
+                        class="badge bg-indigo-subtle text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill fw-semibold mb-3">
                         <i class="bi bi-buildings"></i> Shop Discovery Hub
                     </span>
                     <h1 class="fw-bold text-white mb-2 fs-2">Select or Search Your Shop</h1>
@@ -92,15 +107,13 @@
                             <span class="input-group-text bg-dark border-secondary border-opacity-50 text-secondary">
                                 <i class="bi bi-search"></i>
                             </span>
-                            <input type="text" 
-                                   name="search" 
-                                   class="form-control bg-dark text-white border-secondary border-opacity-50" 
-                                   placeholder="Search by shop name (e.g. Alpha) or slug (e.g. alpha)..." 
-                                   value="{{ $search }}"
-                                   autocomplete="off"
-                                   autofocus>
-                            @if($search)
-                                <a href="{{ url('/shop') }}" class="btn btn-outline-secondary d-flex align-items-center">
+                            <input type="text" name="search"
+                                class="form-control bg-dark text-white border-secondary border-opacity-50"
+                                placeholder="Search by shop name (e.g. Alpha) or slug (e.g. alpha)..."
+                                value="{{ $search }}" autocomplete="off" autofocus>
+                            @if ($search)
+                                <a href="{{ url('/shop') }}"
+                                    class="btn btn-outline-secondary d-flex align-items-center">
                                     <i class="bi bi-x-lg"></i>
                                 </a>
                             @endif
@@ -114,15 +127,16 @@
 
     <!-- Shop Listing Section -->
     <main class="container py-4 flex-grow-1">
-        @if($search)
+        @if ($search)
             <div class="mb-4 text-secondary">
-                Showing results for "<strong class="text-white">{{ $search }}</strong>" ({{ $shops->total() }} found):
+                Showing results for "<strong class="text-white">{{ $search }}</strong>" ({{ $shops->total() }}
+                found):
             </div>
         @endif
 
-        @if($shops->count() > 0)
+        @if ($shops->count() > 0)
             <div class="row g-4">
-                @foreach($shops as $shop)
+                @foreach ($shops as $shop)
                     <div class="col-md-6 col-lg-4">
                         <div class="card shop-card h-100 p-3 text-white">
                             <div class="card-body d-flex flex-column">
@@ -136,7 +150,8 @@
                                             <span class="badge bg-secondary bg-opacity-50 font-monospace text-light">
                                                 /shop/{{ $shop->slug }}
                                             </span>
-                                            <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
+                                            <span
+                                                class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25">
                                                 {{ ucfirst($shop->status) }}
                                             </span>
                                         </div>
@@ -144,7 +159,8 @@
                                 </div>
 
                                 <p class="text-secondary small mb-4">
-                                    Click below to enter the shop-specific portal for <strong>{{ $shop->name }}</strong>.
+                                    Click below to enter the shop-specific portal for
+                                    <strong>{{ $shop->name }}</strong>.
                                 </p>
 
                                 <a href="{{ url('/shop/' . $shop->slug) }}" class="btn btn-indigo w-100 mt-auto py-2">
@@ -165,8 +181,9 @@
                 <div class="fs-1 text-secondary mb-3"><i class="bi bi-shop-window"></i></div>
                 <h4 class="fw-bold text-white mb-2">No Shops Found</h4>
                 <p class="text-secondary mb-4">
-                    @if($search)
-                        No shop matching "<strong>{{ $search }}</strong>" was found. Try checking the spelling or searching for a different shop slug.
+                    @if ($search)
+                        No shop matching "<strong>{{ $search }}</strong>" was found. Try checking the spelling or
+                        searching for a different shop slug.
                     @else
                         There are currently no active shops available in the directory.
                     @endif
@@ -179,7 +196,8 @@
     </main>
 
     <!-- Footer -->
-    <footer class="py-4 border-top border-secondary border-opacity-25 bg-dark bg-opacity-50 mt-auto text-center text-secondary">
+    <footer
+        class="py-4 border-top border-secondary border-opacity-25 bg-dark bg-opacity-50 mt-auto text-center text-secondary">
         <div class="container">
             <p class="mb-0">© {{ date('Y') }} GlobalShop Platform. All rights reserved.</p>
         </div>
@@ -187,4 +205,5 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
+
 </html>
