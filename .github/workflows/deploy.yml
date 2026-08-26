@@ -1,0 +1,83 @@
+name: Automated CI/CD Deploy to Shopbusket (cPanel)
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy to cPanel
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository code
+      - name: ⬇️ Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Setup PHP 8.3 Environment
+      - name: 🐘 Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, bcmath, gd, zip, pdo_sqlite
+          tools: composer:v2
+
+      # Step 3: Install Production Composer Dependencies
+      - name: 📦 Install Composer Dependencies (Production)
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-progress
+
+      # Step 4: Setup Node.js Environment & Build React/Vite Frontend
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: ⚡ Install Node Modules & Build Vite Assets
+        run: |
+          npm ci
+          npm run build
+
+      # Step 5: Structure and Organize Deployment Artifacts
+      - name: 📁 Prepare Deployment Folders
+        run: |
+          mkdir -p deploy/globalshop
+          mkdir -p deploy/public_html
+          
+          # Copy application backend core (exclude public, node_modules, and git internals)
+          rsync -av --exclude='public' --exclude='node_modules' --exclude='.git' --exclude='.github' ./ deploy/globalshop/
+          
+          # Copy compiled public assets to public_html
+          rsync -av ./public/ deploy/public_html/
+
+      # Step 6: Deploy Application Core to /home/shopbusk/globalshop/
+      - name: 🚀 Deploy Application Core to /globalshop/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./deploy/globalshop/
+          server-dir: /globalshop/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .env
+            .env.*
+
+      # Step 7: Deploy Frontend Assets to /home/shopbusk/public_html/
+      - name: 🌐 Deploy Web Assets to /public_html/
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./deploy/public_html/
+          server-dir: /public_html/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            storage/**
