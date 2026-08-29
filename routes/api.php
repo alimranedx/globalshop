@@ -187,3 +187,25 @@ Route::prefix('v1/support')->group(function () {
     Route::post('/tickets/{ticket}/reply', [App\Http\Controllers\SupportTicketController::class, 'replyUserTicket']);
 });
 
+// Automated CI/CD Post-Deploy Webhook (Cache Clearing & Route Refresh)
+Route::post('/v1/deploy/webhook', function (\Illuminate\Http\Request $request) {
+    $secret = env('DEPLOY_WEBHOOK_SECRET', 'globalshop_deploy_secret_key_2026');
+    $token = $request->header('X-Deploy-Secret') ?: $request->input('secret');
+
+    if (! $secret || ! hash_equals((string) $secret, (string) $token)) {
+        return response()->json(['success' => false, 'message' => 'Unauthorized deploy secret.'], 403);
+    }
+
+    \Illuminate\Support\Facades\Artisan::call('optimize:clear');
+    \Illuminate\Support\Facades\Artisan::call('config:cache');
+    \Illuminate\Support\Facades\Artisan::call('route:cache');
+    \Illuminate\Support\Facades\Artisan::call('view:cache');
+    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Deployment caches refreshed and migrations executed successfully!',
+    ]);
+});
+
+
