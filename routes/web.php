@@ -44,6 +44,27 @@ Route::get('/', function (Request $request) {
     return view('marketplace');
 })->name('home');
 
+Route::get('/marketplace/{any?}', function (Request $request) {
+    if (auth()->check()) {
+        $user = auth()->user();
+
+        $isShopOrAdminUser = $user->is_platform_admin
+            || $user->ownedShops()->whereNull('shops.deleted_at')->exists()
+            || $user->shops()->wherePivot('status', 'active')->whereNull('shops.deleted_at')->exists();
+
+        if ($isShopOrAdminUser) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session(['mock_active_tenant_id' => null]);
+
+            return redirect('/login');
+        }
+    }
+
+    return view('marketplace');
+})->where('any', '.*')->name('marketplace');
+
 Route::get('/login', function (Request $request) {
     if ($request->wantsJson()) {
         return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);

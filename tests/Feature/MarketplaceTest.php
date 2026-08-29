@@ -876,6 +876,13 @@ class MarketplaceTest extends TestCase
 
         $response->assertStatus(403);
     }
+
+    public function test_marketplace_route_renders_successfully(): void
+    {
+        $response = $this->get('/marketplace');
+        $response->assertStatus(200);
+        $response->assertViewIs('marketplace');
+    }
 }
 
 
