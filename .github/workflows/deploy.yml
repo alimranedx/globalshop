@@ -37,7 +37,7 @@ jobs:
 
       - name: ⚡ Install Node Modules & Build Vite Assets
         run: |
-          npm ci
+          npm install
           npm run build
 
       # Step 5: Structure and Organize Deployment Artifacts
