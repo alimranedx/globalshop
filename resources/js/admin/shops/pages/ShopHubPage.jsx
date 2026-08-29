@@ -101,6 +101,7 @@ export function ShopHubPage() {
                                 color: '#fff', fontSize: '0.875rem', fontWeight: 600, outline: 'none', cursor: 'pointer',
                             }}
                         >
+                            <option value="pending">⏳ Pending</option>
                             <option value="draft">📝 Draft</option>
                             <option value="setup_in_progress">⚙️ Setup in Progress</option>
                             <option value="ready_for_handover">✨ Ready for Handover</option>
@@ -109,7 +110,22 @@ export function ShopHubPage() {
                         </select>
                     </div>
 
-                    {shop.status !== 'ready_for_handover' && shop.status !== 'active' && (
+                    {shop.status === 'pending' && (
+                        <button
+                            onClick={() => handleHandoverStatusChange('active')}
+                            style={{
+                                padding: '0.7rem 1.4rem', borderRadius: '10px',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                color: '#fff', fontWeight: 800, fontSize: '0.9rem', border: 'none', cursor: 'pointer',
+                                boxShadow: '0 4px 15px rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            }}
+                        >
+                            <span>✅</span>
+                            <span>Approve Shop Now</span>
+                        </button>
+                    )}
+
+                    {shop.status !== 'ready_for_handover' && shop.status !== 'active' && shop.status !== 'pending' && (
                         <button
                             onClick={() => handleHandoverStatusChange('ready_for_handover')}
                             style={{
@@ -123,6 +139,38 @@ export function ShopHubPage() {
                     )}
                 </div>
             </div>
+
+            {/* Pending Notice Banner */}
+            {shop.status === 'pending' && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08))',
+                    border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: '14px', padding: '1.25rem', marginBottom: '1.75rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '1.75rem' }}>⏳</span>
+                        <div>
+                            <div style={{ fontWeight: 800, color: '#fbbf24', fontSize: '1rem' }}>
+                                This Shop is Pending Platform Admin Approval
+                            </div>
+                            <div style={{ color: '#d1d5db', fontSize: '0.85rem', marginTop: '0.2rem' }}>
+                                Registered by {shop.owner?.name || 'Owner'} ({shop.owner?.email || '—'}). Once approved, the shop will become active and the owner can log in and start inviting employees.
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => handleHandoverStatusChange('active')}
+                        style={{
+                            padding: '0.65rem 1.25rem', borderRadius: '8px',
+                            background: '#10b981', color: '#fff', fontWeight: 700,
+                            fontSize: '0.875rem', border: 'none', cursor: 'pointer',
+                        }}
+                    >
+                        ✅ Approve Application
+                    </button>
+                </div>
+            )}
 
             {/* Setup Progress & Checklist Banner */}
             <div style={{

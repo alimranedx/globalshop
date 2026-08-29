@@ -42,6 +42,16 @@ export function ShopDirectoryPage() {
         return () => clearTimeout(timer);
     }, [loadShops]);
 
+    const handleApproveShop = async (shop) => {
+        const res = await shopService.approveShop(shop.id);
+        if (res?.success) {
+            show(`Shop "${shop.name}" approved successfully! Owner can now access the shop.`, 'success');
+            loadShops();
+        } else {
+            show(res?.message || 'Failed to approve shop.', 'error');
+        }
+    };
+
     const toggleSuspend = async (shop) => {
         const res = await shopService.toggleSuspend(shop.id);
         if (res?.success) {
@@ -147,6 +157,38 @@ export function ShopDirectoryPage() {
                 </div>
             </div>
 
+            {/* Pending Approvals Alert Banner */}
+            {shops.some(s => s.status === 'pending') && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.08))',
+                    border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '1.5rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '1.5rem' }}>⏳</span>
+                        <div>
+                            <div style={{ fontWeight: 700, color: '#fbbf24', fontSize: '0.95rem' }}>
+                                Pending Shop Applications ({shops.filter(s => s.status === 'pending').length})
+                            </div>
+                            <div style={{ color: '#d1d5db', fontSize: '0.8rem' }}>
+                                Prospective shop owners have submitted registrations awaiting your review and approval.
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setStatusFilter('pending')}
+                        style={{
+                            padding: '0.5rem 1rem', borderRadius: '8px',
+                            background: '#f59e0b', color: '#111827', fontWeight: 700,
+                            fontSize: '0.825rem', border: 'none', cursor: 'pointer',
+                        }}
+                    >
+                        Filter Pending Shops
+                    </button>
+                </div>
+            )}
+
             {/* Table */}
             <SectionCard>
                 {loading ? <PageLoader /> : (
@@ -177,13 +219,22 @@ export function ShopDirectoryPage() {
                             </div>,
                             <ShopStatusBadge status={shop.status} />,
                             <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                {shop.status === 'pending' && (
+                                    <ActionBtn
+                                        label="✅ Approve"
+                                        color="#10b981"
+                                        onClick={() => handleApproveShop(shop)}
+                                    />
+                                )}
                                 <ActionBtn label="⚙️ Manage Hub" color="#6366f1" onClick={() => navigate(`/admin/shops/${shop.id}/manage`)} />
                                 <ActionBtn label="Edit" color="#a5b4fc" onClick={() => navigate(`/admin/shops/${shop.id}/edit`)} />
-                                <ActionBtn
-                                    label={shop.status === 'suspended' ? 'Activate' : 'Suspend'}
-                                    color={shop.status === 'suspended' ? '#10b981' : '#f59e0b'}
-                                    onClick={() => toggleSuspend(shop)}
-                                />
+                                {shop.status !== 'pending' && (
+                                    <ActionBtn
+                                        label={shop.status === 'suspended' ? 'Activate' : 'Suspend'}
+                                        color={shop.status === 'suspended' ? '#10b981' : '#f59e0b'}
+                                        onClick={() => toggleSuspend(shop)}
+                                    />
+                                )}
                                 <ActionBtn label="Delete" color="#ef4444" onClick={() => setDeleteShopTarget(shop)} />
                             </div>,
                         ])}

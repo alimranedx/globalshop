@@ -60,7 +60,7 @@
     "name": "stockUnits"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DQiiWsCh.css",
+    "file": "assets/app-BZ5cw934.css",
     "name": "app",
     "names": [
       "app.css"
@@ -69,7 +69,7 @@
     "isEntry": true
   },
   "resources/js/admin.jsx": {
-    "file": "assets/admin-CXz9cVIi.js",
+    "file": "assets/admin-CAniyN9_.js",
     "name": "admin",
     "src": "resources/js/admin.jsx",
     "isEntry": true,

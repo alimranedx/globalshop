@@ -51,6 +51,11 @@
             box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
         }
 
+        select option {
+            background-color: #121218;
+            color: #f3f4f6;
+        }
+
         /* View Mode Swapping */
         .mode-table .view-mode-card { display: none !important; }
         .mode-card .view-mode-table { display: none !important; }

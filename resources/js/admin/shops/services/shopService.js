@@ -8,6 +8,7 @@ export const shopService = {
     updateShop: (id, payload) => apiPut(`${API}/platform/shops/${id}`, payload),
     deleteShop: (id) => apiDelete(`${API}/platform/shops/${id}`),
     toggleSuspend: (id) => apiPost(`${API}/platform/shops/${id}/toggle-suspension`),
+    approveShop: (id) => apiPost(`${API}/platform/shops/${id}/approve`),
     updateHandoverStatus: (id, status) => apiPost(`${API}/platform/shops/${id}/handover`, { status }),
     assignOwner: (id, body) => apiPost(`${API}/platform/shops/${id}/owner`, body),
     getUsers: () => apiGet(`${API}/platform/users`),

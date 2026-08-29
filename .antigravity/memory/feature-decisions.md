@@ -31,3 +31,8 @@ This document tracks permanent business rules established for GlobalShop feature
 ### 6. Unauthenticated Guest & Logout Route Navigation
 - **Rule:** Logging out or accessing protected shop panel routes while unauthenticated MUST update the browser location bar cleanly to `/shop/{slug}/login` without recursive 302 redirect loops.
 - **Reason:** Eliminates browser URL mismatches (`ERR_TOO_MANY_REDIRECTS`), keeps history stack clean, and ensures consistent SPA entry points.
+
+### 7. Shop Registration & Platform Admin Approval Workflow
+- **Rule:** Public shop registrations from the Shop Discovery Hub (`/shop`) or API are created in `status = 'pending'`. Pending shops are hidden from the active public shop search and blocked from dashboard management until explicitly approved (`status = 'active'`) by a Platform Admin. Once approved, the Shop Owner can log in, configure the store, and invite/register employees.
+- **Reason:** Platform vetting, spam prevention, and orderly merchant onboarding.
+- **Enforcement:** Enforced in `RegisterShopAction`, `EnsureShopAccess` middleware, and `PlatformAdminController::approveShop`.

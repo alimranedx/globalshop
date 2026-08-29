@@ -48,6 +48,11 @@ class RegisterShopAction
                 'status' => $status,
                 'currency' => $shopData['currency'] ?? 'USD',
                 'language' => $shopData['language'] ?? 'en',
+                'email' => $shopData['email'] ?? $owner->email,
+                'phone' => $shopData['phone'] ?? null,
+                'address' => $shopData['address'] ?? null,
+                'city' => $shopData['city'] ?? null,
+                'country' => $shopData['country'] ?? null,
             ]);
 
             // 3. Provision Default Roles for the Shop

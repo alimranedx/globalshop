@@ -32,6 +32,11 @@ class AuthController extends Controller
             'password' => 'required|string|min:6',
             'shop_name' => 'required|string|max:255',
             'shop_slug' => 'required|string|alpha_dash|unique:shops,slug',
+            'phone' => 'nullable|string|max:50',
+            'address' => 'nullable|string|max:500',
+            'city' => 'nullable|string|max:100',
+            'country' => 'nullable|string|max:100',
+            'currency' => 'nullable|string|max:10',
         ]);
 
         if ($validator->fails()) {
@@ -46,6 +51,11 @@ class AuthController extends Controller
             [
                 'name' => $request->input('shop_name'),
                 'slug' => $request->input('shop_slug'),
+                'phone' => $request->input('phone'),
+                'address' => $request->input('address'),
+                'city' => $request->input('city'),
+                'country' => $request->input('country'),
+                'currency' => $request->input('currency', 'USD'),
             ],
             [
                 'name' => $request->input('owner_name'),

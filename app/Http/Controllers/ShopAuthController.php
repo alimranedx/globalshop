@@ -130,6 +130,41 @@ class ShopAuthController extends Controller
             ])->withInput();
         }
 
+        // Check if shop is pending approval or suspended
+        if ($shop->status === 'pending' && !$user->is_platform_admin) {
+            Auth::logout();
+            $request->session()->invalidate();
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'pending' => true,
+                    'message' => "Shop '{$shop->name}' is currently pending platform administration approval. You will receive access once approved."
+                ], 403);
+            }
+
+            return redirect()->back()->withErrors([
+                'email' => "Shop '{$shop->name}' is currently pending platform administration approval."
+            ])->withInput();
+        }
+
+        if ($shop->status === 'suspended' && !$user->is_platform_admin) {
+            Auth::logout();
+            $request->session()->invalidate();
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'suspended' => true,
+                    'message' => "Shop '{$shop->name}' is currently suspended. Please contact platform support."
+                ], 403);
+            }
+
+            return redirect()->back()->withErrors([
+                'email' => "Shop '{$shop->name}' is currently suspended."
+            ])->withInput();
+        }
+
         // Authentication & Authorization succeeded
         $request->session()->regenerate();
         session(['mock_active_tenant_id' => $shop->id, 'active_shop_slug' => $shop->slug]);
