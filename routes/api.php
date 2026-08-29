@@ -188,8 +188,8 @@ Route::prefix('v1/support')->group(function () {
 });
 
 // Automated CI/CD Post-Deploy Webhook (Cache Clearing & Route Refresh)
-Route::post('/v1/deploy/webhook', function (\Illuminate\Http\Request $request) {
-    $secret = env('DEPLOY_WEBHOOK_SECRET', 'globalshop_deploy_secret_key_2026');
+Route::match(['get', 'post'], '/v1/deploy/webhook', function (\Illuminate\Http\Request $request) {
+    $secret = config('app.deploy_webhook_secret') ?: env('DEPLOY_WEBHOOK_SECRET', 'globalshop_deploy_secret_key_2026');
     $token = $request->header('X-Deploy-Secret') ?: $request->input('secret');
 
     if (! $secret || ! hash_equals((string) $secret, (string) $token)) {
@@ -197,14 +197,12 @@ Route::post('/v1/deploy/webhook', function (\Illuminate\Http\Request $request) {
     }
 
     \Illuminate\Support\Facades\Artisan::call('optimize:clear');
-    \Illuminate\Support\Facades\Artisan::call('config:cache');
-    \Illuminate\Support\Facades\Artisan::call('route:cache');
-    \Illuminate\Support\Facades\Artisan::call('view:cache');
     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
 
     return response()->json([
         'success' => true,
-        'message' => 'Deployment caches refreshed and migrations executed successfully!',
+        'message' => 'Deployment caches cleared and migrations executed successfully!',
+        'artisan_output' => \Illuminate\Support\Facades\Artisan::output(),
     ]);
 });
 

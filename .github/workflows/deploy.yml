@@ -93,7 +93,9 @@ jobs:
       # Step 8: Trigger Server Post-Deployment Cache Clearing & Optimization
       - name: 🔄 Refresh Production Cache on cPanel
         run: |
-          curl -s -X POST "https://shopbusket.com/api/v1/deploy/webhook" \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "https://shopbusket.com/api/v1/deploy/webhook" \
             -H "Content-Type: application/json" \
-            -H "X-Deploy-Secret: ${{ secrets.DEPLOY_WEBHOOK_SECRET || 'globalshop_deploy_secret_key_2026' }}" || true
+            -H "X-Deploy-Secret: ${{ secrets.DEPLOY_WEBHOOK_SECRET || 'globalshop_deploy_secret_key_2026' }}" || true)
+          echo "Webhook Response:"
+          echo "$RESPONSE"
 

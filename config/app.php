@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'deploy_webhook_secret' => env('DEPLOY_WEBHOOK_SECRET', 'globalshop_deploy_secret_key_2026'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
