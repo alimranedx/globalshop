@@ -51,6 +51,11 @@ jobs:
           
           # Copy compiled public assets to public_html
           rsync -av ./public/ deploy/public_html/
+          
+          # Adjust index.php paths for cPanel separated directory structure (/globalshop/)
+          sed -i "s|__DIR__.'/../storage|__DIR__.'/../globalshop/storage|g" deploy/public_html/index.php
+          sed -i "s|__DIR__.'/../vendor|__DIR__.'/../globalshop/vendor|g" deploy/public_html/index.php
+          sed -i "s|__DIR__.'/../bootstrap|__DIR__.'/../globalshop/bootstrap|g" deploy/public_html/index.php
 
       # Step 6: Deploy Application Core to /home/shopbusk/globalshop/
       - name: 🚀 Deploy Application Core to /globalshop/
