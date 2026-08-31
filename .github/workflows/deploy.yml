@@ -49,6 +49,10 @@ jobs:
           # Copy application backend core (exclude public, node_modules, and git internals)
           rsync -av --exclude='public' --exclude='node_modules' --exclude='.git' --exclude='.github' ./ deploy/globalshop/
           
+          # Also copy public/build to backend public/build so public_path() always has latest Vite manifest
+          mkdir -p deploy/globalshop/public/build
+          rsync -av ./public/build/ deploy/globalshop/public/build/
+
           # Copy compiled public assets to public_html
           rsync -av ./public/ deploy/public_html/
           
@@ -59,6 +63,7 @@ jobs:
 
           # Ensure bootstrap cache has no stale route or config cache files
           rm -f deploy/globalshop/bootstrap/cache/*.php
+
 
       # Step 6: Deploy Application Core to /home/shopbusk/globalshop/
       - name: 🚀 Deploy Application Core to /globalshop/

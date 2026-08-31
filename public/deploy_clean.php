@@ -58,11 +58,40 @@ foreach ($viewDirs as $vDir) {
     }
 }
 
+// Sync public_html/build/manifest.json to /globalshop/public/build/manifest.json
+$publicManifest = __DIR__ . '/build/manifest.json';
+$backendManifestTargets = [
+    __DIR__ . '/../globalshop/public/build/manifest.json',
+    '/home/shopbusk/globalshop/public/build/manifest.json',
+];
+
+$syncedManifests = [];
+if (file_exists($publicManifest)) {
+    $manifestContent = file_get_contents($publicManifest);
+    foreach ($backendManifestTargets as $target) {
+        $targetDir = dirname($target);
+        if (!is_dir($targetDir)) {
+            @mkdir($targetDir, 0755, true);
+        }
+        if (@file_put_contents($target, $manifestContent)) {
+            $syncedManifests[] = $target;
+        }
+    }
+}
+
+// Reset OPcache and stat caches if supported
+if (function_exists('opcache_reset')) {
+    @opcache_reset();
+}
+clearstatcache(true);
+
 header('Content-Type: application/json');
 echo json_encode([
     'success' => true,
-    'message' => 'All stale caches (routes, config, views) successfully purged from server!',
+    'message' => 'All stale caches purged and manifests synchronized successfully!',
     'deleted_files' => $deleted,
+    'synced_manifests' => $syncedManifests,
     'timestamp' => date('Y-m-d H:i:s')
 ]);
 exit;
+
