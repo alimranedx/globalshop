@@ -36,3 +36,8 @@ This document tracks permanent business rules established for GlobalShop feature
 - **Rule:** Public shop registrations from the Shop Discovery Hub (`/shop`) or API are created in `status = 'pending'`. Pending shops are hidden from the active public shop search and blocked from dashboard management until explicitly approved (`status = 'active'`) by a Platform Admin. Once approved, the Shop Owner can log in, configure the store, and invite/register employees.
 - **Reason:** Platform vetting, spam prevention, and orderly merchant onboarding.
 - **Enforcement:** Enforced in `RegisterShopAction`, `EnsureShopAccess` middleware, and `PlatformAdminController::approveShop`.
+
+### 8. Strict Independent Catalog Scoping (Categories, Brands, Products)
+- **Rule:** Categories, Brands, and Products are strictly independent per shop. Shop owners and managers have full control to add, edit, and delete their own categories and brands without seeing foreign or global read-only categories.
+- **Reason:** Ensures merchant independence, clean catalog organization, and prevents cross-tenant catalog pollution.
+- **Enforcement:** Enforced via `BelongsToTenant` trait on `Category`, `Brand`, and `Product` models, and verified in `ShopMultiTenantTest`.
