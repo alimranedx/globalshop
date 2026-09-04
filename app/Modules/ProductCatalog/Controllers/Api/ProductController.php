@@ -14,6 +14,17 @@ use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
+    private function formatImageUrl(string $path): string
+    {
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+        if (Str::startsWith($path, 'images/')) {
+            return asset($path);
+        }
+        return asset('storage/' . $path);
+    }
+
     /**
      * Display a listing of products globally across all shops with filter support.
      */
@@ -74,7 +85,7 @@ class ProductController extends Controller
 
         $products->getCollection()->transform(function ($prod) {
             $prod->images->transform(function ($img) {
-                $img->image_url = asset('storage/' . $img->path);
+                $img->image_url = $this->formatImageUrl($img->path);
                 return $img;
             });
             return $prod;
@@ -99,7 +110,7 @@ class ProductController extends Controller
         // Scoped automatically by BelongsToTenant scope
         $products = Product::with(['category', 'brand', 'images'])->get()->map(function ($prod) {
             $prod->images->map(function ($img) {
-                $img->image_url = asset('storage/' . $img->path);
+                $img->image_url = $this->formatImageUrl($img->path);
                 return $img;
             });
             return $prod;
@@ -127,7 +138,7 @@ class ProductController extends Controller
             ->get()
             ->map(function ($prod) {
                 $prod->images->map(function ($img) {
-                    $img->image_url = asset('storage/' . $img->path);
+                    $img->image_url = $this->formatImageUrl($img->path);
                     return $img;
                 });
                 return $prod;
@@ -302,7 +313,7 @@ class ProductController extends Controller
         // Reload images
         $product->load('images');
         $product->images->map(function ($img) {
-            $img->image_url = asset('storage/' . $img->path);
+            $img->image_url = $this->formatImageUrl($img->path);
             return $img;
         });
 
@@ -335,7 +346,7 @@ class ProductController extends Controller
             ->findOrFail($id);
 
         $product->images->map(function ($img) {
-            $img->image_url = asset('storage/' . $img->path);
+            $img->image_url = $this->formatImageUrl($img->path);
             return $img;
         });
 

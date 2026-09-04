@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Modules\ShopManager\TenantManager;
+use App\Modules\ShopManager\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
         'shop_id',
@@ -23,40 +24,26 @@ class Category extends Model
     ];
 
     /**
-     * Boot model to handle hybrid scoping (Global categories + Tenant-specific categories).
+     * Boot model to handle tenant scoping and subscription quota checks.
      */
     protected static function boot(): void
     {
         parent::boot();
 
         static::creating(function ($model) {
-            if (TenantManager::hasActiveTenant()) {
-                $model->shop_id = $model->shop_id ?? TenantManager::getTenantId();
-            }
-
-            $shopId = $model->shop_id;
+            $shopId = $model->shop_id ?? TenantManager::getTenantId();
             if ($shopId) {
                 $currentCount = Category::withoutGlobalScopes()
                     ->where('shop_id', $shopId)
                     ->count();
 
-                $limit = TenantManager::getLimit('max_categories', 25, $shopId);
+                $limit = TenantManager::getLimit('max_categories', 50, $shopId);
 
                 if ($currentCount >= $limit) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
                         'subscription' => ["The active subscription category limit of {$limit} has been reached. Please upgrade your plan."],
                     ]);
                 }
-            }
-        });
-
-        static::addGlobalScope('tenant_or_global', function (Builder $builder) {
-            if (TenantManager::hasActiveTenant()) {
-                $builder->where(function ($query) {
-                    $table = $query->getModel()->getTable();
-                    $query->where($table.'.shop_id', TenantManager::getTenantId())
-                        ->orWhereNull($table.'.shop_id');
-                });
             }
         });
     }

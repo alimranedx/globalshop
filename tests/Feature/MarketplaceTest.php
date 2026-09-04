@@ -107,7 +107,7 @@ class MarketplaceTest extends TestCase
         $this->category = Category::create([
             'name' => 'Electronics',
             'slug' => 'electronics',
-            'shop_id' => null, // Global category
+            'shop_id' => $this->shop1->id,
         ]);
     }
 

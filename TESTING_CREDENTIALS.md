@@ -29,7 +29,17 @@ All default seeded test accounts use the universal password: **`password`**
 
 ---
 
-### 2. Shop Alpha (`/shop/alpha`) — Active Merchant Store
+### 2. Common Grocery (`/shop/common-grocery`) — Bangladeshi Grocery Store
+
+| Name | Email Address | Password | Role | Assigned Permissions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Common Grocery Owner** | `owner@commongrocery.com` | `password` | **Shop Owner** | Full unrestricted store management (Catalog, Employees, POS, Inventory, Settings) |
+| **Rahim Manager** | `manager@commongrocery.com` | `password` | **Manager** | Categories, Brands, Products, Employees, Roles, Settings, Sales POS, Reports, Inventory |
+| **Karim Salesman** | `salesman@commongrocery.com` | `password` | **Salesman** | Products (View), Sales POS Terminal & History |
+
+---
+
+### 3. Shop Alpha (`/shop/alpha`) — Active Merchant Store
 
 | Name | Email Address | Password | Role | Assigned Permissions |
 | :--- | :--- | :--- | :--- | :--- |
@@ -40,7 +50,7 @@ All default seeded test accounts use the universal password: **`password`**
 
 ---
 
-### 3. Marketplace Customer (`/` & `/marketplace`)
+### 4. Marketplace Customer (`/` & `/marketplace`)
 
 | Name | Email / Phone | Password | OTP (Demo) | Capabilities |
 | :--- | :--- | :--- | :--- | :--- |

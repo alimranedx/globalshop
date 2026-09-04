@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" width="300" height="300">
+  <defs>
+    <linearGradient id="grad_cleaning_household.svg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+  </defs>
+  <rect width="300" height="300" rx="40" fill="url(#grad_cleaning_household.svg)"/>
+  <circle cx="150" cy="115" r="56" fill="#ffffff" fill-opacity="0.22"/>
+  <text x="150" y="132" font-size="52" text-anchor="middle" font-family="Segoe UI Emoji, Apple Color Emoji, sans-serif">🧹</text>
+  <text x="150" y="210" font-size="20" font-weight="700" fill="#ffffff" text-anchor="middle" font-family="Outfit, Segoe UI, sans-serif">Cleaning & Home</text>
+  <text x="150" y="240" font-size="16" font-weight="500" fill="#ffffff" fill-opacity="0.9" text-anchor="middle" font-family="Kalpurush, SolaimanLipi, Segoe UI, sans-serif">হারপিক ও ক্লিনিং</text>
+</svg>

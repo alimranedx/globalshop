@@ -11,13 +11,16 @@ use Illuminate\Support\Str;
 class CategoryController extends Controller
 {
     /**
-     * Display a listing of the categories (tenant-specific + global).
+     * Display a listing of the categories scoped to the active tenant.
      */
     public function index(): JsonResponse
     {
-        // Hybrid global scope 'tenant_or_global' is automatically applied
         $categories = Category::with('parent')->get()->map(function ($cat) {
-            $cat->logo_url = $cat->logo_path ? asset('storage/' . $cat->logo_path) : null;
+            $cat->logo_url = $cat->logo_path
+                ? (\Illuminate\Support\Str::startsWith($cat->logo_path, ['http://', 'https://'])
+                    ? $cat->logo_path
+                    : (\Illuminate\Support\Str::startsWith($cat->logo_path, 'images/') ? asset($cat->logo_path) : asset('storage/' . $cat->logo_path)))
+                : null;
             return $cat;
         });
 
@@ -46,13 +49,18 @@ class CategoryController extends Controller
             $slug .= '-' . Str::lower(Str::random(4));
         }
         $category->slug = $slug;
+        $category->shop_id = $shopId;
 
         if ($request->hasFile('logo')) {
             $category->logo_path = $request->file('logo')->store('logos', 'public');
         }
 
         $category->save();
-        $category->logo_url = $category->logo_path ? asset('storage/' . $category->logo_path) : null;
+        $category->logo_url = $category->logo_path
+            ? (\Illuminate\Support\Str::startsWith($category->logo_path, ['http://', 'https://'])
+                ? $category->logo_path
+                : (\Illuminate\Support\Str::startsWith($category->logo_path, 'images/') ? asset($category->logo_path) : asset('storage/' . $category->logo_path)))
+            : null;
 
         return response()->json([
             'success' => true,
@@ -66,28 +74,29 @@ class CategoryController extends Controller
      */
     public function update(Request $request, Category $category): JsonResponse
     {
-        // Prevent editing global categories by tenant admins
-        if (is_null($category->shop_id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Global categories cannot be modified.',
-            ], 403);
-        }
-
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'logo' => 'nullable|image|max:2048',
         ]);
 
         $category->name = $validated['name'];
-        $category->slug = Str::slug($validated['name']);
+        $slug = Str::slug($validated['name']);
+        $shopId = \App\Modules\ShopManager\TenantManager::getTenantId();
+        if (Category::where('shop_id', $shopId)->where('slug', $slug)->where('id', '!=', $category->id)->exists()) {
+            $slug .= '-' . Str::lower(Str::random(4));
+        }
+        $category->slug = $slug;
 
         if ($request->hasFile('logo')) {
             $category->logo_path = $request->file('logo')->store('logos', 'public');
         }
 
         $category->save();
-        $category->logo_url = $category->logo_path ? asset('storage/' . $category->logo_path) : null;
+        $category->logo_url = $category->logo_path
+            ? (\Illuminate\Support\Str::startsWith($category->logo_path, ['http://', 'https://'])
+                ? $category->logo_path
+                : (\Illuminate\Support\Str::startsWith($category->logo_path, 'images/') ? asset($category->logo_path) : asset('storage/' . $category->logo_path)))
+            : null;
 
         return response()->json([
             'success' => true,
@@ -101,14 +110,6 @@ class CategoryController extends Controller
      */
     public function destroy(Category $category): JsonResponse
     {
-        // Prevent deleting global categories by tenant admins
-        if (is_null($category->shop_id)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Global categories cannot be deleted.',
-            ], 403);
-        }
-
         // Check if category has subcategories or products
         if ($category->children()->exists() || $category->products()->exists()) {
             return response()->json([

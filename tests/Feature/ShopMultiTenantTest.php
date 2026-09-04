@@ -276,4 +276,52 @@ class ShopMultiTenantTest extends TestCase
         $responseEmployee->assertRedirect('/login');
         $this->assertGuest();
     }
+
+    public function test_category_tenant_isolation_prevents_cross_shop_leakage(): void
+    {
+        // 1. Create Category in Alpha
+        $this->actingAs($this->ownerAlpha);
+        $responseAlphaCreate = $this->withHeaders(['X-Tenant-ID' => $this->shopAlpha->id])
+            ->postJson('/api/v1/tenant/categories', [
+                'name' => 'Alpha Grocery Spices',
+            ]);
+        $responseAlphaCreate->assertStatus(201);
+        $alphaCatId = $responseAlphaCreate->json('data.id');
+
+        // 2. Create Category in Beta
+        $this->actingAs($this->ownerBeta);
+        $responseBetaCreate = $this->withHeaders(['X-Tenant-ID' => $this->shopBeta->id])
+            ->postJson('/api/v1/tenant/categories', [
+                'name' => 'Beta Electronics Gadgets',
+            ]);
+        $responseBetaCreate->assertStatus(201);
+        $betaCatId = $responseBetaCreate->json('data.id');
+
+        // 3. Shop Alpha queries categories -> sees Alpha Grocery Spices, NEVER sees Beta
+        $this->actingAs($this->ownerAlpha);
+        $responseAlphaList = $this->withHeaders(['X-Tenant-ID' => $this->shopAlpha->id])
+            ->getJson('/api/v1/tenant/categories');
+        $responseAlphaList->assertStatus(200);
+        $responseAlphaList->assertSee('Alpha Grocery Spices');
+        $responseAlphaList->assertDontSee('Beta Electronics Gadgets');
+
+        // 4. Shop Beta queries categories -> sees Beta Electronics Gadgets, NEVER sees Alpha
+        $this->actingAs($this->ownerBeta);
+        $responseBetaList = $this->withHeaders(['X-Tenant-ID' => $this->shopBeta->id])
+            ->getJson('/api/v1/tenant/categories');
+        $responseBetaList->assertStatus(200);
+        $responseBetaList->assertSee('Beta Electronics Gadgets');
+        $responseBetaList->assertDontSee('Alpha Grocery Spices');
+
+        // 5. Shop Beta cannot update or delete Shop Alpha's category
+        $responseBetaUpdate = $this->withHeaders(['X-Tenant-ID' => $this->shopBeta->id])
+            ->putJson("/api/v1/tenant/categories/{$alphaCatId}", [
+                'name' => 'Hacked Category Name',
+            ]);
+        $responseBetaUpdate->assertStatus(404);
+
+        $responseBetaDelete = $this->withHeaders(['X-Tenant-ID' => $this->shopBeta->id])
+            ->deleteJson("/api/v1/tenant/categories/{$alphaCatId}");
+        $responseBetaDelete->assertStatus(404);
+    }
 }

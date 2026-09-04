@@ -259,7 +259,7 @@ export default function CategoriesPage() {
                                         <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Logo</th>
                                         <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Category Name</th>
                                         <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Slug</th>
-                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Scope</th>
+                                        <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Status</th>
                                         <th style={{ textAlign: 'left', padding: '0.8rem', borderBottom: `2px solid ${colors.border}`, color: colors.tableHeaderColor }}>Actions</th>
                                     </tr>
                                 </thead>
@@ -268,7 +268,6 @@ export default function CategoriesPage() {
                                         <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: colors.textMuted }}>{appliedQuery || appliedStart || appliedEnd ? 'No categories match your search.' : 'No categories found.'}</td></tr>
                                     ) : (
                                         pageItems.map(c => {
-                                            const isGlobal = is_null(c.shop_id);
                                             return (
                                                 <tr key={c.id} style={{ borderBottom: `1px solid ${colors.tableRowBorder}` }}>
                                                     <td style={{ padding: '0.8rem' }}>
@@ -281,18 +280,17 @@ export default function CategoriesPage() {
                                                     <td style={{ padding: '0.8rem', fontWeight: '600', color: colors.text }}>{c.name}</td>
                                                     <td style={{ color: colors.text }}><code>{c.slug}</code></td>
                                                     <td>
-                                                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: isGlobal ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: isGlobal ? '#ef4444' : '#10b981', fontWeight: '600' }}>
-                                                            {isGlobal ? 'Global' : 'Local'}
+                                                        <span style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: '600' }}>
+                                                            Active
                                                         </span>
                                                     </td>
                                                     <td>
-                                                        {!isSuspended && !isGlobal && (
+                                                        {!isSuspended && (
                                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                                 <button onClick={() => { setEditingCategory(c); setCategoryForm({ name: c.name, logoFile: null }); setFormError(''); setShowCategoryModal(true); }} style={{ background: 'transparent', border: '1px solid #6366f1', color: '#6366f1', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
                                                                 <button onClick={() => deleteCategory(c)} style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '0.3rem 0.7rem', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
                                                             </div>
                                                         )}
-                                                        {isGlobal && <span style={{ fontSize: '0.8rem', color: colors.textMuted, fontStyle: 'italic' }}>Read-only</span>}
                                                     </td>
                                                 </tr>
                                             );

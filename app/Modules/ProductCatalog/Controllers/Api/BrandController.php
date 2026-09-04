@@ -17,7 +17,11 @@ class BrandController extends Controller
     {
         // Scoped automatically by BelongsToTenant scope
         $brands = Brand::with('category')->get()->map(function ($brand) {
-            $brand->logo_url = $brand->logo_path ? asset('storage/' . $brand->logo_path) : null;
+            $brand->logo_url = $brand->logo_path
+                ? (\Illuminate\Support\Str::startsWith($brand->logo_path, ['http://', 'https://'])
+                    ? $brand->logo_path
+                    : (\Illuminate\Support\Str::startsWith($brand->logo_path, 'images/') ? asset($brand->logo_path) : asset('storage/' . $brand->logo_path)))
+                : null;
             return $brand;
         });
 
@@ -57,7 +61,11 @@ class BrandController extends Controller
         
         // Refresh with category relation
         $brand->load('category');
-        $brand->logo_url = $brand->logo_path ? asset('storage/' . $brand->logo_path) : null;
+        $brand->logo_url = $brand->logo_path
+            ? (\Illuminate\Support\Str::startsWith($brand->logo_path, ['http://', 'https://'])
+                ? $brand->logo_path
+                : (\Illuminate\Support\Str::startsWith($brand->logo_path, 'images/') ? asset($brand->logo_path) : asset('storage/' . $brand->logo_path)))
+            : null;
 
         return response()->json([
             'success' => true,
@@ -78,7 +86,12 @@ class BrandController extends Controller
         ]);
 
         $brand->name = $validated['name'];
-        $brand->slug = Str::slug($validated['name']);
+        $slug = Str::slug($validated['name']);
+        $shopId = \App\Modules\ShopManager\TenantManager::getTenantId();
+        if (Brand::where('shop_id', $shopId)->where('slug', $slug)->where('id', '!=', $brand->id)->exists()) {
+            $slug .= '-' . Str::lower(Str::random(4));
+        }
+        $brand->slug = $slug;
         $brand->category_id = $validated['category_id'] ?? null;
 
         if ($request->hasFile('logo')) {
@@ -89,7 +102,11 @@ class BrandController extends Controller
         
         // Refresh with category relation
         $brand->load('category');
-        $brand->logo_url = $brand->logo_path ? asset('storage/' . $brand->logo_path) : null;
+        $brand->logo_url = $brand->logo_path
+            ? (\Illuminate\Support\Str::startsWith($brand->logo_path, ['http://', 'https://'])
+                ? $brand->logo_path
+                : (\Illuminate\Support\Str::startsWith($brand->logo_path, 'images/') ? asset($brand->logo_path) : asset('storage/' . $brand->logo_path)))
+            : null;
 
         return response()->json([
             'success' => true,

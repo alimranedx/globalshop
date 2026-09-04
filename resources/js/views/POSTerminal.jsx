@@ -70,6 +70,7 @@ export default function POSTerminal() {
                 name: product.name,
                 price: parseFloat(product.price),
                 quantity: 1,
+                stock_unit: product.stock_unit || 'pcs',
                 max_stock: product.stock_quantity
             }]);
         }
@@ -86,8 +87,8 @@ export default function POSTerminal() {
     };
 
     const updateQuantity = (productId, val) => {
-        const qty = parseInt(val);
-        if (isNaN(qty) || qty < 1) return;
+        const qty = parseFloat(val);
+        if (isNaN(qty) || qty <= 0) return;
         
         setCart(cart.map(item => {
             if (item.product_id === productId) {
@@ -302,7 +303,7 @@ export default function POSTerminal() {
                                                 {prod.category?.name || 'General'}
                                             </span>
                                             <span style={{ fontSize: '0.7rem', color: isOutOfStock ? '#ef4444' : (prod.stock_quantity < 10 ? '#f59e0b' : '#10b981'), fontWeight: '600' }}>
-                                                {isOutOfStock ? 'Out of stock' : `${prod.stock_quantity} left`}
+                                                {isOutOfStock ? 'Out of stock' : `${prod.stock_quantity} ${prod.stock_unit || 'pcs'}`}
                                             </span>
                                         </div>
                                         
@@ -422,7 +423,7 @@ export default function POSTerminal() {
                                         onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
                                         style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
                                     >-</button>
-                                    <span style={{ minWidth: '22px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '700', color: colors.text }}>{item.quantity}</span>
+                                    <span style={{ minWidth: '36px', textAlign: 'center', fontSize: '0.8rem', fontWeight: '700', color: colors.text }}>{item.quantity} <small style={{ fontSize: '0.7rem', color: colors.textMuted }}>{item.stock_unit || 'pcs'}</small></span>
                                     <button 
                                         type="button"
                                         onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
