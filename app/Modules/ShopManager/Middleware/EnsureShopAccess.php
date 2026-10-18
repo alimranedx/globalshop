@@ -18,17 +18,22 @@ class EnsureShopAccess
     {
         $shop = null;
 
-        // 1. Try to resolve shop from route parameter {slug} or {shop}
-        $slug = $request->route('slug') ?? $request->route('shop');
+        // 1. Try to resolve shop from route parameter {slug}, {subdomain}, or {shop}
+        $slug = $request->route('slug') ?? $request->route('subdomain') ?? $request->route('shop');
         if ($slug instanceof Shop) {
             $shop = $slug;
         } elseif (is_string($slug) && !empty($slug)) {
-            $shop = Shop::where('slug', $slug)->first();
+            $shop = Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
         }
 
-        // 2. Fallback to header or session tenant if route does not specify slug
+        // 2. Fallback to header if route does not specify slug
         if (!$shop && $request->hasHeader('X-Tenant-ID')) {
             $shop = Shop::find($request->header('X-Tenant-ID'));
+        }
+
+        // 3. Fallback to pre-resolved TenantManager or session tenant
+        if (!$shop && TenantManager::hasActiveTenant()) {
+            $shop = TenantManager::getTenant();
         }
 
         if (!$shop && session()->has('mock_active_tenant_id')) {

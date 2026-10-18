@@ -41,3 +41,14 @@ This document tracks permanent business rules established for GlobalShop feature
 - **Rule:** Categories, Brands, and Products are strictly independent per shop. Shop owners and managers have full control to add, edit, and delete their own categories and brands without seeing foreign or global read-only categories.
 - **Reason:** Ensures merchant independence, clean catalog organization, and prevents cross-tenant catalog pollution.
 - **Enforcement:** Enforced via `BelongsToTenant` trait on `Category`, `Brand`, and `Product` models, and verified in `ShopMultiTenantTest`.
+
+### 9. Subdomain & Custom Domain Routing Architecture
+- **Rule:** Every registered tenant shop operates on its own dedicated subdomain (`{subdomain}.shopbusket.com`) with the ability to map a verified custom domain (`www.mybrand.com`). Local testing fallbacks to `/store/{slug}` are supported.
+- **Reason:** Provides a white-label merchant experience while keeping centralized backend management.
+- **Enforcement:** Enforced via `ResolveTenant` middleware and `SubdomainAndThemeTest`.
+
+### 10. Multi-Theme Storefront Engine with Dynamic CSS Custom Properties
+- **Rule:** Tenant shops can select from pre-registered themes (`default`, `grocery`, `boutique`, `tech`) in `config/themes.php`. Custom color palettes and announcements are injected via CSS custom properties and JSON configs into `storefront.blade.php`.
+- **Reason:** Supports industry-specific visual layouts (Grocery supermarket, Tech specs, Luxury boutique) without requiring separate codebases or full CSS rebuilds.
+- **Enforcement:** Handled via `ThemeService` and `ThemeController`.
+

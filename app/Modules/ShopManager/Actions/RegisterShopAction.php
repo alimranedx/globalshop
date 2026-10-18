@@ -40,11 +40,18 @@ class RegisterShopAction
 
             // 2. Create the Shop
             $slugInput = !empty($shopData['slug']) ? $shopData['slug'] : $shopData['name'];
+            $slug = Shop::generateUniqueSlug($slugInput);
+            $subdomain = !empty($shopData['subdomain']) ? Str::slug($shopData['subdomain']) : $slug;
+
             $shop = Shop::create([
                 'owner_id' => $owner->id,
                 'name' => $shopData['name'],
-                'slug' => Shop::generateUniqueSlug($slugInput),
+                'slug' => $slug,
+                'subdomain' => $subdomain,
                 'domain' => $shopData['domain'] ?? null,
+                'custom_domain' => $shopData['custom_domain'] ?? null,
+                'custom_domain_status' => !empty($shopData['custom_domain']) ? 'pending' : 'pending',
+                'theme_slug' => $shopData['theme_slug'] ?? 'default',
                 'status' => $status,
                 'currency' => $shopData['currency'] ?? 'USD',
                 'language' => $shopData['language'] ?? 'en',

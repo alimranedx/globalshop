@@ -85,12 +85,50 @@ if (function_exists('opcache_reset')) {
 }
 clearstatcache(true);
 
+// Run migrations and seeder automatically
+$artisanLogs = [];
+try {
+    $autoloadCandidates = [
+        __DIR__ . '/../globalshop/vendor/autoload.php',
+        __DIR__ . '/../vendor/autoload.php',
+        '/home/shopbusk/globalshop/vendor/autoload.php',
+    ];
+    $appCandidates = [
+        __DIR__ . '/../globalshop/bootstrap/app.php',
+        __DIR__ . '/../bootstrap/app.php',
+        '/home/shopbusk/globalshop/bootstrap/app.php',
+    ];
+
+    foreach ($autoloadCandidates as $idx => $autoload) {
+        $appPath = $appCandidates[$idx] ?? '';
+        if (file_exists($autoload) && file_exists($appPath)) {
+            require_once $autoload;
+            $app = require_once $appPath;
+            $kernel = $app->make(\Illuminate\Contracts\Console\Kernel::class);
+            $kernel->bootstrap();
+
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $artisanLogs['migrate'] = trim(\Illuminate\Support\Facades\Artisan::output());
+
+            \Illuminate\Support\Facades\Artisan::call('db:seed', [
+                '--class' => 'ComprehensiveDemoShopsSeeder',
+                '--force' => true,
+            ]);
+            $artisanLogs['seed'] = trim(\Illuminate\Support\Facades\Artisan::output());
+            break;
+        }
+    }
+} catch (\Throwable $e) {
+    $artisanLogs['error'] = $e->getMessage();
+}
+
 header('Content-Type: application/json');
 echo json_encode([
     'success' => true,
-    'message' => 'All stale caches purged and manifests synchronized successfully!',
+    'message' => 'All stale caches purged, migrations ran, and manifests synchronized successfully!',
     'deleted_files' => $deleted,
     'synced_manifests' => $syncedManifests,
+    'artisan_logs' => $artisanLogs,
     'timestamp' => date('Y-m-d H:i:s')
 ]);
 exit;

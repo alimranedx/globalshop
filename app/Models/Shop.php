@@ -18,7 +18,12 @@ class Shop extends Model
         'owner_id',
         'name',
         'slug',
+        'subdomain',
         'domain',
+        'custom_domain',
+        'custom_domain_status',
+        'theme_slug',
+        'theme_config',
         'status',
         'currency',
         'language',
@@ -30,6 +35,10 @@ class Shop extends Model
         'country',
         'timezone',
         'refund_window_days',
+    ];
+
+    protected $casts = [
+        'theme_config' => 'array',
     ];
 
     /**

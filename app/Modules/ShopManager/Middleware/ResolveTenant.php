@@ -22,23 +22,52 @@ class ResolveTenant
             $shop = Shop::where('id', $request->header('X-Tenant-ID'))->first();
         }
 
-        // 2. Fallback: Parse host for subdomain (e.g., shop1.globalshop.test)
+        // 2. Fallback: Parse host for subdomain (e.g., shop1.shopbusket.com, shop1.shopbusket.test, shop1.localhost)
         if (! $shop) {
             $host = $request->getHost();
-            $baseDomain = config('app.base_domain', 'globalshop.test'); // fallbacks to globalshop.test
+            $baseDomains = array_filter([
+                config('app.central_domain', 'shopbusket.com'),
+                config('app.base_domain', 'globalshop.test'),
+                'shopbusket.test',
+                'localhost',
+            ]);
 
-            if ($host !== $baseDomain && str_ends_with($host, '.'.$baseDomain)) {
-                $subdomain = str_replace('.'.$baseDomain, '', $host);
-                $shop = Shop::where('slug', $subdomain)->first();
+            foreach ($baseDomains as $baseDomain) {
+                if ($host !== $baseDomain && str_ends_with($host, '.' . $baseDomain)) {
+                    $subdomain = substr($host, 0, -(strlen($baseDomain) + 1));
+                    if (!empty($subdomain)) {
+                        $shop = Shop::where('subdomain', $subdomain)
+                            ->orWhere('slug', $subdomain)
+                            ->first();
+                        if ($shop) {
+                            break;
+                        }
+                    }
+                }
             }
         }
 
         // 3. Fallback: Check if there's a custom domain mapped
         if (! $shop) {
-            $shop = Shop::where('domain', $request->getHost())->first();
+            $host = $request->getHost();
+            $shop = Shop::where('custom_domain', $host)
+                ->orWhere('domain', $host)
+                ->first();
         }
 
-        // 4. Fallback: Check session mock tenant ID (useful for direct downloads/API requests on localhost)
+        // 4. Fallback: Check route parameters {slug}, {subdomain}, or {shop}
+        if (! $shop) {
+            $routeIdentifier = $request->route('subdomain') ?? $request->route('slug') ?? $request->route('shop');
+            if ($routeIdentifier instanceof Shop) {
+                $shop = $routeIdentifier;
+            } elseif (is_string($routeIdentifier) && !empty($routeIdentifier)) {
+                $shop = Shop::where('subdomain', $routeIdentifier)
+                    ->orWhere('slug', $routeIdentifier)
+                    ->first();
+            }
+        }
+
+        // 5. Fallback: Check session mock tenant ID (useful for direct downloads/API requests on localhost)
         if (! $shop && session()->has('mock_active_tenant_id')) {
             $shop = Shop::where('id', session('mock_active_tenant_id'))->first();
         }

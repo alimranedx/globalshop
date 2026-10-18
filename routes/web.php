@@ -779,5 +779,16 @@ Route::middleware(['auth', 'shop.access'])->group(function () {
 // 4. Shop Public & Auth Entry Page
 Route::get('/shop/{slug}', [\App\Http\Controllers\ShopAuthController::class, 'showEntry'])->name('shop.entry');
 
+// 5. Dedicated Tenant Shop Storefront Routes (Multi-Theme eCommerce website)
+Route::get('/store/{slug}', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('storefront.view');
+Route::get('/shop/{slug}/storefront', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('shop.storefront.view');
+
+// 6. Subdomain Route Handler (e.g. abcstore.shopbusket.com or abcstore.shopbusket.test)
+$centralDomain = config('app.central_domain', 'shopbusket.com');
+Route::domain('{subdomain}.' . $centralDomain)->group(function () {
+    Route::get('/', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('subdomain.storefront');
+    Route::get('/catalog', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('subdomain.catalog');
+});
+
 
 

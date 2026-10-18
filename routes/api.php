@@ -63,6 +63,16 @@ Route::prefix('v1')->group(function () {
     Route::get('/products/{id}', [ProductController::class, 'show'])->name('public.products.show');
     Route::get('/shops/{shop_slug}/products', [ProductController::class, 'shopProducts'])->name('public.shop.products');
 
+    // Public Storefront Endpoints (Themes, Shop Brand, Catalog, Filtered Products)
+    Route::prefix('storefront')->group(function () {
+        Route::get('/', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'show'])->name('storefront.current');
+        Route::get('/products', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'products'])->name('storefront.products');
+        Route::get('/products/{product_slug}', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'product'])->name('storefront.product');
+        Route::get('/{shop_identifier}', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'show'])->name('storefront.shop');
+        Route::get('/{shop_identifier}/products', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'products'])->name('storefront.shop.products');
+        Route::get('/{shop_identifier}/products/{product_slug}', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'product'])->name('storefront.shop.product');
+    });
+
     // 2. Tenant Authenticated Endpoints (Requires ShopAccess authorization, standard auth, and page authorization)
     Route::middleware(['shop.access', 'auth', 'page.authorize'])->prefix('tenant')->group(function () {
         // Product Catalog Management
@@ -88,6 +98,11 @@ Route::prefix('v1')->group(function () {
 
         // Shop Settings Management
         Route::put('settings', [\App\Modules\ShopManager\Controllers\Api\ShopSettingsController::class, 'update'])->name('settings.update');
+
+        // Theme & Custom Domain Management
+        Route::get('theme', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'index'])->name('shop.theme.index');
+        Route::put('theme', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'update'])->name('shop.theme.update');
+        Route::post('custom-domain', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'updateCustomDomain'])->name('shop.custom-domain.update');
 
         // Dashboard Analytics
         Route::get('dashboard-stats', \App\Modules\ShopManager\Controllers\Api\DashboardStatsController::class)->name('dashboard.stats');

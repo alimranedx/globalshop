@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'central_domain' => env('APP_CENTRAL_DOMAIN', 'shopbusket.com'),
+    'base_domain' => env('APP_BASE_DOMAIN', 'globalshop.test'),
+
     'deploy_webhook_secret' => env('DEPLOY_WEBHOOK_SECRET', 'globalshop_deploy_secret_key_2026'),
 
     /*
