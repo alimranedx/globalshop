@@ -266,4 +266,52 @@ class SubdomainAndThemeTest extends TestCase
         $htmlResponse->assertSee('Alpha Gadgets');
         $htmlResponse->assertSee('Alpha Chrono Pro Watch');
     }
+
+    /**
+     * Test guest/public customer can checkout on tenant storefront and decrement inventory.
+     */
+    public function test_public_customer_can_checkout_on_storefront(): void
+    {
+        $cat = Category::withoutGlobalScopes()->create(['shop_id' => $this->shopAlpha->id, 'name' => 'Audio', 'slug' => 'audio']);
+        $prod = Product::withoutGlobalScopes()->create([
+            'shop_id' => $this->shopAlpha->id,
+            'category_id' => $cat->id,
+            'name' => 'Alpha Bass Headphones',
+            'slug' => 'alpha-bass-headphones',
+            'price' => 120.00,
+            'cost_price' => 80.00,
+            'stock_quantity' => 20,
+            'stock_unit' => 'pcs',
+            'status' => 'published',
+            'created_by' => $this->ownerAlpha->id,
+        ]);
+
+        $checkoutPayload = [
+            'customer_name' => 'John Customer',
+            'customer_phone' => '01712345678',
+            'shipping_address' => 'Dhaka, Bangladesh',
+            'payment_method' => 'cash',
+            'items' => [
+                [
+                    'product_id' => $prod->id,
+                    'quantity' => 2,
+                ],
+            ],
+        ];
+
+        $response = $this->postJson('/api/v1/storefront/alpha/checkout', $checkoutPayload);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'message' => 'Storefront order placed successfully!',
+            'sale' => [
+                'total' => 240.00,
+                'customer_name' => 'John Customer',
+            ],
+        ]);
+
+        $prod->refresh();
+        $this->assertEquals(18, $prod->stock_quantity); // 20 - 2 = 18
+    }
 }

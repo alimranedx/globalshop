@@ -71,6 +71,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/{shop_identifier}', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'show'])->name('storefront.shop');
         Route::get('/{shop_identifier}/products', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'products'])->name('storefront.shop.products');
         Route::get('/{shop_identifier}/products/{product_slug}', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'product'])->name('storefront.shop.product');
+        Route::post('/checkout', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'checkout'])->name('storefront.checkout');
+        Route::post('/{shop_identifier}/checkout', [\App\Modules\ShopManager\Controllers\Api\StorefrontController::class, 'checkout'])->name('storefront.shop.checkout');
     });
 
     // 2. Tenant Authenticated Endpoints (Requires ShopAccess authorization, standard auth, and page authorization)

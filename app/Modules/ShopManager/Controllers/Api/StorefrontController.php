@@ -260,4 +260,103 @@ class StorefrontController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Process direct public customer checkout on shop storefront.
+     */
+    public function checkout(Request $request, ?string $shopIdentifier = null): JsonResponse
+    {
+        $shop = $this->resolveShop($request, $shopIdentifier);
+
+        if (!$shop) {
+            return response()->json(['success' => false, 'message' => 'Storefront not found.'], 404);
+        }
+
+        $validated = $request->validate([
+            'customer_name' => 'required|string|max:190',
+            'customer_phone' => 'required|string|max:50',
+            'shipping_address' => 'required|string|max:500',
+            'payment_method' => 'nullable|string|in:cash,card',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|integer',
+            'items.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($shop, $validated) {
+            $totalAmount = 0.0;
+            $saleItems = [];
+
+            foreach ($validated['items'] as $itemData) {
+                $product = Product::withoutGlobalScopes()
+                    ->where('shop_id', $shop->id)
+                    ->where('id', $itemData['product_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$product) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Product ID {$itemData['product_id']} not found in this store."
+                    ], 422);
+                }
+
+                if ($product->stock_quantity < $itemData['quantity']) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Insufficient stock for '{$product->name}'. Available: {$product->stock_quantity}."
+                    ], 422);
+                }
+
+                $itemPrice = (float) $product->price;
+                $lineTotal = $itemPrice * $itemData['quantity'];
+                $totalAmount += $lineTotal;
+
+                // Decrement stock
+                $product->decrement('stock_quantity', $itemData['quantity']);
+
+                $saleItems[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'price' => $itemPrice,
+                    'quantity' => $itemData['quantity'],
+                    'total' => $lineTotal,
+                ];
+            }
+
+            $invoiceNumber = 'INV-' . strtoupper(\Illuminate\Support\Str::random(8));
+
+            $sale = \App\Models\Sale::create([
+                'shop_id' => $shop->id,
+                'created_by' => $shop->owner_id,
+                'invoice_number' => $invoiceNumber,
+                'customer_name' => $validated['customer_name'],
+                'customer_phone' => $validated['customer_phone'],
+                'shipping_address' => $validated['shipping_address'],
+                'payment_method' => $validated['payment_method'] ?? 'cash',
+                'subtotal' => $totalAmount,
+                'discount' => 0.00,
+                'total' => $totalAmount,
+                'paid_amount' => $totalAmount,
+                'change_amount' => 0.00,
+                'sale_type' => 'online',
+                'sale_date' => now(),
+            ]);
+
+            foreach ($saleItems as $sItem) {
+                $sItem['sale_id'] = $sale->id;
+                \App\Models\SaleItem::create($sItem);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Storefront order placed successfully!',
+                'sale' => [
+                    'id' => $sale->id,
+                    'invoice_number' => $sale->invoice_number,
+                    'total' => $sale->total,
+                    'customer_name' => $sale->customer_name,
+                ],
+            ]);
+        });
+    }
 }

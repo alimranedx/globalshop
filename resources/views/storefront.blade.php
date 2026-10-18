@@ -761,7 +761,7 @@
             };
 
             try {
-                const response = await fetch(`/api/v1/tenant/sales`, {
+                const response = await fetch(`/api/v1/storefront/${encodeURIComponent(shopConfig.slug)}/checkout`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
