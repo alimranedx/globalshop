@@ -170,7 +170,7 @@ class ProductController extends Controller
 
         if (!empty($validated['brand_id'])) {
             $brand = \App\Models\Brand::find($validated['brand_id']);
-            if ($brand && $brand->category_id != $validated['category_id']) {
+            if ($brand && !empty($brand->category_id) && $brand->category_id != $validated['category_id']) {
                 return response()->json([
                     'success' => false,
                     'message' => 'The selected brand is not associated with the selected category.',
@@ -255,7 +255,7 @@ class ProductController extends Controller
 
         if (!empty($brandId)) {
             $brand = \App\Models\Brand::find($brandId);
-            if ($brand && $brand->category_id != $catId) {
+            if ($brand && !empty($brand->category_id) && $brand->category_id != $catId) {
                 return response()->json([
                     'success' => false,
                     'message' => 'The selected brand is not associated with the selected category.',

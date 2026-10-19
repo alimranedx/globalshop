@@ -326,6 +326,19 @@ export default function BrandsPage() {
         }
     }, [categories]);
 
+    // Close modal on Escape key press
+    useEffect(() => {
+        if (!showBrandModal) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setShowBrandModal(false);
+                setEditingBrand(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showBrandModal]);
+
     const handleSearchSubmit = (e) => {
         e.preventDefault();
         setAppliedQuery(searchQuery);
@@ -440,54 +453,149 @@ export default function BrandsPage() {
                 )}
             </div>
 
+            {/* Brand Modal Popup (For Add & Edit) */}
             {showBrandModal && (
-                <div style={{ background: colors.cardBg, padding: '1.5rem', borderRadius: '10px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ fontWeight: '600', color: colors.text }}>{editingBrand ? 'Edit Brand' : 'Create Brand'}</h4>
-                    {formError && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
-                            {formError}
+                <div 
+                    onClick={() => {
+                        setShowBrandModal(false);
+                        setEditingBrand(null);
+                    }}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        backdropFilter: 'blur(6px)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 9000,
+                        padding: '1.5rem',
+                        overflowY: 'auto'
+                    }}
+                >
+                    <div 
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: colors.cardBg,
+                            padding: '2rem',
+                            borderRadius: '16px',
+                            border: `1px solid ${colors.border}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.25rem',
+                            width: '100%',
+                            maxWidth: '620px',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                            position: 'relative'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.borderLight}`, paddingBottom: '0.8rem' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.text, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {editingBrand ? '✏️ Edit Brand' : '✨ Create Brand'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowBrandModal(false);
+                                    setEditingBrand(null);
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: colors.textMuted,
+                                    cursor: 'pointer',
+                                    fontSize: '1.3rem',
+                                    lineHeight: 1,
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Close"
+                            >
+                                ✕
+                            </button>
                         </div>
-                    )}
-                    <form onSubmit={handleBrandSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                            
-                            {/* Associated Category input goes FIRST */}
-                            <SearchableSelect 
-                                label="Associated Category"
-                                value={brandForm.category_id}
-                                options={categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))}
-                                onChange={id => setBrandForm({ ...brandForm, category_id: id })}
-                                placeholder="Search & select category..."
-                                required={true}
-                            />
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Brand Name</label>
-                                <input type="text" value={brandForm.name} onChange={e => setBrandForm({ ...brandForm, name: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+                        {formError && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                                {formError}
                             </div>
+                        )}
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Image</label>
-                                <input type="file" accept="image/*" onChange={e => setBrandForm({ ...brandForm, logoFile: e.target.files[0] })} style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }} />
-                            </div>
-                            {(brandForm.logoFile || (editingBrand && editingBrand.logo_url)) && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', gridColumn: 'span 3', marginTop: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Preview</label>
-                                    <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
-                                        <img src={brandForm.logoFile ? URL.createObjectURL(brandForm.logoFile) : editingBrand.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
+                        <form onSubmit={handleBrandSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                {/* Associated Category */}
+                                <SearchableSelect 
+                                    label="Associated Category (Optional)"
+                                    value={brandForm.category_id}
+                                    options={[
+                                        { id: '', name: 'None / All Categories (General Brand)' },
+                                        ...categories.map(c => ({ id: c.id, name: c.name + (is_null(c.shop_id) ? ' (Global)' : '') }))
+                                    ]}
+                                    onChange={id => setBrandForm({ ...brandForm, category_id: id })}
+                                    placeholder="Select associated category or leave as general..."
+                                />
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Brand Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={brandForm.name} 
+                                        onChange={e => setBrandForm({ ...brandForm, name: e.target.value })} 
+                                        required 
+                                        placeholder="e.g. Apple, Sony, Nike"
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} 
+                                    />
                                 </div>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                            <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                                Save Brand
-                            </button>
-                            <button type="button" onClick={() => setShowBrandModal(false)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Image (Optional)</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        onChange={e => setBrandForm({ ...brandForm, logoFile: e.target.files[0] })} 
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }} 
+                                    />
+                                </div>
+
+                                {(brandForm.logoFile || (editingBrand && editingBrand.logo_url)) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.2rem' }}>
+                                        <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Preview</label>
+                                        <div style={{ width: '70px', height: '70px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden', background: '#000' }}>
+                                            <img src={brandForm.logoFile ? URL.createObjectURL(brandForm.logoFile) : editingBrand.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Logo Preview" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem', marginTop: '0.5rem', borderTop: `1px solid ${colors.borderLight}`, paddingTop: '1rem' }}>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setShowBrandModal(false);
+                                        setEditingBrand(null);
+                                    }} 
+                                    style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.6rem 1.4rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)' }}
+                                >
+                                    {editingBrand ? 'Save Changes' : 'Create Brand'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 

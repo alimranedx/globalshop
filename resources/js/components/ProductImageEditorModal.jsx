@@ -171,7 +171,7 @@ export default function ProductImageEditorModal({ imageSrc, onClose, onSave }) {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                zIndex: 9999,
+                zIndex: 10000,
                 padding: '1rem',
                 overflowY: 'auto'
             }}

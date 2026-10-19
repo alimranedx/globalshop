@@ -26,6 +26,19 @@ export default function CategoriesPage() {
 
     const [categoryForm, setCategoryForm] = useState({ name: '', logoFile: null });
 
+    // Close modal on Escape key press
+    useEffect(() => {
+        if (!showCategoryModal) return;
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setShowCategoryModal(false);
+                setEditingCategory(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showCategoryModal]);
+
     // Local filter states
     const [searchQuery, setSearchQuery] = useState('');
     const [startDate, setStartDate] = useState('');
@@ -148,42 +161,137 @@ export default function CategoriesPage() {
                 )}
             </div>
 
+            {/* Category Modal Popup (For Add & Edit) */}
             {showCategoryModal && (
-                <div style={{ background: colors.cardBg, padding: '1.5rem', borderRadius: '10px', border: `1px solid ${colors.border}`, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <h4 style={{ fontWeight: '600', color: colors.text }}>{editingCategory ? 'Edit Category' : 'Create Category'}</h4>
-                    {formError && (
-                        <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.85rem' }}>
-                            {formError}
+                <div 
+                    onClick={() => {
+                        setShowCategoryModal(false);
+                        setEditingCategory(null);
+                    }}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0, 0, 0, 0.7)',
+                        backdropFilter: 'blur(6px)',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 9000,
+                        padding: '1.5rem',
+                        overflowY: 'auto'
+                    }}
+                >
+                    <div 
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: colors.cardBg,
+                            padding: '2rem',
+                            borderRadius: '16px',
+                            border: `1px solid ${colors.border}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.25rem',
+                            width: '100%',
+                            maxWidth: '560px',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+                            position: 'relative'
+                        }}
+                    >
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${colors.borderLight}`, paddingBottom: '0.8rem' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: colors.text, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                {editingCategory ? '✏️ Edit Category' : '✨ Create Category'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowCategoryModal(false);
+                                    setEditingCategory(null);
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: colors.textMuted,
+                                    cursor: 'pointer',
+                                    fontSize: '1.3rem',
+                                    lineHeight: 1,
+                                    padding: '0.2rem 0.5rem',
+                                    borderRadius: '6px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                                title="Close"
+                            >
+                                ✕
+                            </button>
                         </div>
-                    )}
-                    <form onSubmit={handleCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Category Name</label>
-                                <input type="text" value={categoryForm.name} onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} required style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} />
+
+                        {formError && (
+                            <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', padding: '0.6rem 1rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+                                {formError}
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                                <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Image</label>
-                                <input type="file" accept="image/*" onChange={e => setCategoryForm({ ...categoryForm, logoFile: e.target.files[0] })} style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }} />
-                            </div>
-                            {(categoryForm.logoFile || (editingCategory && editingCategory.logo_url)) && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', gridColumn: 'span 2', marginTop: '0.5rem' }}>
-                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Preview</label>
-                                    <div style={{ width: '60px', height: '60px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden' }}>
-                                        <img src={categoryForm.logoFile ? URL.createObjectURL(categoryForm.logoFile) : editingCategory.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
+                        )}
+
+                        <form onSubmit={handleCategorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Category Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={categoryForm.name} 
+                                        onChange={e => setCategoryForm({ ...categoryForm, name: e.target.value })} 
+                                        required 
+                                        placeholder="e.g. Laptops, Audio & Sound"
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px', outline: 'none' }} 
+                                    />
                                 </div>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                            <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '0.5rem 1rem', borderRadius: '6px', fontWeight: '600', cursor: 'pointer' }}>
-                                Save Category
-                            </button>
-                            <button type="button" onClick={() => setShowCategoryModal(false)} style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Image (Optional)</label>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        onChange={e => setCategoryForm({ ...categoryForm, logoFile: e.target.files[0] })} 
+                                        style={{ background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: colors.text, padding: '0.6rem', borderRadius: '6px' }} 
+                                    />
+                                </div>
+
+                                {(categoryForm.logoFile || (editingCategory && editingCategory.logo_url)) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.2rem' }}>
+                                        <label style={{ fontSize: '0.85rem', color: colors.textMuted }}>Logo Preview</label>
+                                        <div style={{ width: '70px', height: '70px', borderRadius: '8px', border: `1px solid ${colors.border}`, overflow: 'hidden', background: '#000' }}>
+                                            <img src={categoryForm.logoFile ? URL.createObjectURL(categoryForm.logoFile) : editingCategory.logo_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Category Logo" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.8rem', marginTop: '0.5rem', borderTop: `1px solid ${colors.borderLight}`, paddingTop: '1rem' }}>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setShowCategoryModal(false);
+                                        setEditingCategory(null);
+                                    }} 
+                                    style={{ background: 'transparent', border: `1px solid ${colors.border}`, color: colors.textMuted, padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '0.6rem 1.4rem', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)' }}
+                                >
+                                    {editingCategory ? 'Save Changes' : 'Create Category'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
 
