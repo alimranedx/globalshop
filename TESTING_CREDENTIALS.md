@@ -10,7 +10,9 @@ This document provides a single reference for all test user accounts, credential
 | :--- | :--- | :--- | :--- |
 | **Public Marketplace** | [https://shopbusket.com/](https://shopbusket.com/) | `http://localhost:8000/` or `/marketplace` | Marketplace Shoppers & Customers |
 | **Shop Discovery & Registration** | [https://shopbusket.com/shop](https://shopbusket.com/shop) | `http://localhost:8000/shop` | Merchant Discovery & Store Registration |
-| **Shop Management Portal** | [https://shopbusket.com/shop/{slug}](https://shopbusket.com/shop/alpha) | `http://localhost:8000/shop/alpha` | Shop Owners & Staff (POS, Catalog, Staff) |
+| **Tenant Shop Subdomain Storefront** | [https://alpha.shopbusket.com](https://alpha.shopbusket.com) | `http://alpha.localhost/` | Storefront Shoppers (1-click checkout, catalog) |
+| **Tenant Shop Subdomain Dashboard** | [https://alpha.shopbusket.com/dashboard](https://alpha.shopbusket.com/dashboard) | `http://alpha.localhost/dashboard` | Shop Owners & Staff (POS, Catalog, Staff) |
+| **Tenant Shop Custom Domain** | `https://{custom-domain}.com` | Custom mapped host | Brand Shoppers & Dedicated Merchant Store |
 | **Platform Admin Console** | [https://shopbusket.com/admin/login](https://shopbusket.com/admin/login) | `http://localhost:8000/admin/login` | Platform Super Admins & Platform Admins |
 | **Developer Easy Login Hub** | Local Dev Only | `http://localhost:8000/shop/easy-login` | 1-Click Role Switching (Local Environment) |
 

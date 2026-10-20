@@ -838,6 +838,49 @@ php artisan optimize
 
 ---
 
+#### Step 10: Multi-Tenant Subdomain & Wildcard DNS Setup
+
+To allow unlimited vendor shops (`https://alpha.shopbusket.com`, `https://beta.shopbusket.com`, etc.) to work instantly with zero propagation delay:
+
+1. **cPanel Wildcard Subdomain:**
+   - In cPanel &rarr; **Domains** &rarr; click **Create A New Domain**.
+   - **Domain:** `*.shopbusket.com`
+   - **Document Root:** `/public_html` (sharing the exact same root as the main domain).
+   - Uncheck "Share document root" if prompted and set the path explicitly to `public_html`.
+2. **DNS Zone Editor Record:**
+   - In cPanel &rarr; **Zone Editor** for `shopbusket.com`:
+   - Verify an **A Record** exists for `*` pointing to your server's IP (`104.152.168.205`).
+3. **Environment Variable Configuration:**
+   Add to `/home/cpaneluser/globalshop/.env`:
+   ```ini
+   APP_CENTRAL_DOMAIN=shopbusket.com
+   CPANEL_HOST=https://104.152.168.205:2083
+   CPANEL_USERNAME=shopbusk
+   CPANEL_API_TOKEN=8FD4C2QCFTSLQ1WD0Y0X45UM9HSVPGCP
+   CPANEL_ROOT_DOMAIN=shopbusket.com
+   CPANEL_AUTO_SUBDOMAIN_ENABLED=true
+   ```
+
+---
+
+#### Step 11: Custom Domain Mapping (Dedicated Merchant Brand Domains)
+
+When a merchant wants their store accessible under their own domain (e.g., `https://alphagear.com`):
+
+1. **Merchant DNS Configuration:**
+   - The merchant adds a **CNAME Record** pointing to `shopbusket.com` (or an **A Record** pointing to `104.152.168.205`) at their domain registrar (GoDaddy, Namecheap, Cloudflare, etc.).
+2. **cPanel Domain Alias:**
+   - In cPanel &rarr; **Domains** &rarr; click **Create A New Domain**.
+   - Enter `alphagear.com`.
+   - Set Document Root to `/public_html`.
+   - cPanel AutoSSL automatically generates free HTTPS/SSL for the custom domain.
+3. **Platform Activation:**
+   - In the shop settings panel (or Super Admin), enter `alphagear.com` and click **Connect Domain**.
+   - Click **Verify DNS** to execute live DNS propagation checks.
+   - When visited, GlobalShop's `ResolveTenant` middleware automatically resolves the custom domain, rendering the merchant's dedicated storefront, catalog, and dashboard.
+
+---
+
 ## 12. Production Deployment Checklist
 
 Before announcing production launch, verify each item:
@@ -855,9 +898,11 @@ Before announcing production launch, verify each item:
 - [x] Public storage directory configured (`public/storage` or `FILESYSTEM_PUBLIC_ROOT`)
 - [x] Directory permissions set to `775` for `storage` & `bootstrap/cache`
 - [x] Production caches built (`config:cache`, `route:cache`, `view:cache`)
-- [x] All 74 automated tests passed (`php artisan test`)
+- [x] Wildcard subdomain (`*.shopbusket.com`) active and pointing to `public_html`
+- [x] Custom domain mapping (`alphagear.com`) tested and routing active
+- [x] All 113 automated tests passed (`vendor/bin/phpunit`)
 - [x] Image upload & public serving verified over HTTPS
-- [x] Marketplace (`/`), Shop Management (`/shop/*`), and Admin (`/admin/*`) SPAs tested in browser
+- [x] Marketplace (`/`), Shop Management (`/shop/*`), Subdomains (`*.shopbusket.com`), and Admin (`/admin/*`) SPAs tested in browser
 
 ---
 

@@ -43,12 +43,17 @@ This document tracks permanent business rules established for GlobalShop feature
 - **Enforcement:** Enforced via `BelongsToTenant` trait on `Category`, `Brand`, and `Product` models, and verified in `ShopMultiTenantTest`.
 
 ### 9. Subdomain & Custom Domain Routing Architecture
-- **Rule:** Every registered tenant shop operates on its own dedicated subdomain (`{subdomain}.shopbusket.com`) with the ability to map a verified custom domain (`www.mybrand.com`). Local testing fallbacks to `/store/{slug}` are supported.
+- **Rule:** Every registered tenant shop operates on its own dedicated subdomain (`{subdomain}.shopbusket.com`) with the ability to map a verified custom brand domain (`www.mybrand.com`). Local testing fallbacks to `/store/{slug}` are supported. Legacy paths (`/shop/{slug}/*`) 301 redirect to canonical subdomains.
 - **Reason:** Provides a white-label merchant experience while keeping centralized backend management.
-- **Enforcement:** Enforced via `ResolveTenant` middleware and `SubdomainAndThemeTest`.
+- **Enforcement:** Enforced via `ResolveTenant` middleware, `Shop::resolveCustomDomainShop()`, `CustomDomainRoutingTest`, and `SubdomainShopRoutingTest`.
 
 ### 10. Multi-Theme Storefront Engine with Dynamic CSS Custom Properties
 - **Rule:** Tenant shops can select from pre-registered themes (`default`, `grocery`, `boutique`, `tech`) in `config/themes.php`. Custom color palettes and announcements are injected via CSS custom properties and JSON configs into `storefront.blade.php`.
 - **Reason:** Supports industry-specific visual layouts (Grocery supermarket, Tech specs, Luxury boutique) without requiring separate codebases or full CSS rebuilds.
 - **Enforcement:** Handled via `ThemeService` and `ThemeController`.
+
+### 11. Frictionless Silent Add-To-Cart & Live Selection Counter
+- **Rule:** Clicking "Add to Cart" must silently add items to the user session without opening modal drawers or blocking user interaction with dark backdrops. A live badge and floating cart pill bar reflect total selections while users freely browse.
+- **Reason:** Standard professional e-commerce UX maximizing multi-item basket conversion.
+- **Enforcement:** Enforced in `resources/views/storefront.blade.php`.
 
