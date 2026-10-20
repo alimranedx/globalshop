@@ -9,6 +9,7 @@ use App\Models\Shop;
 use App\Modules\ShopManager\Services\ThemeService;
 use App\Modules\ShopManager\TenantManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class StorefrontWebController extends Controller
@@ -23,15 +24,24 @@ class StorefrontWebController extends Controller
     /**
      * Resolve shop from host, subdomain, or slug.
      */
-    protected function resolveShop(Request $request, ?string $slug = null): ?Shop
+    protected function resolveShop(Request $request, ?string $slug = null, ?string $subdomain = null): ?Shop
     {
-        if ($slug) {
-            $shop = Shop::where('subdomain', $slug)
-                ->orWhere('slug', $slug)
-                ->first();
-            if ($shop) {
-                return $shop;
+        $identifier = $subdomain ?: $slug ?: $request->route('subdomain') ?: $request->route('slug');
+        if ($identifier) {
+            $identifier = strtolower(trim($identifier));
+            if (str_starts_with($identifier, 'www.')) {
+                $identifier = substr($identifier, 4);
             }
+            if (!empty($identifier) && !Shop::isReservedSubdomain($identifier)) {
+                $shop = Shop::where('subdomain', $identifier)
+                    ->orWhere('slug', $identifier)
+                    ->first();
+                if ($shop) {
+                    return $shop;
+                }
+            }
+            // Explicit identifier requested but not found in database
+            return null;
         }
 
         // Try custom domain
@@ -40,9 +50,9 @@ class StorefrontWebController extends Controller
             return $shop;
         }
 
-        $host = $request->getHost();
+        $host = strtolower($request->getHost());
 
-        // Try subdomain
+        // Try subdomain from host
         $baseDomains = array_filter([
             config('app.central_domain', 'shopbusket.com'),
             config('app.base_domain', 'globalshop.test'),
@@ -51,18 +61,24 @@ class StorefrontWebController extends Controller
         ]);
 
         foreach ($baseDomains as $baseDomain) {
+            $baseDomain = strtolower($baseDomain);
             if ($host !== $baseDomain && str_ends_with($host, '.' . $baseDomain)) {
                 $sub = substr($host, 0, -(strlen($baseDomain) + 1));
+                if (str_starts_with($sub, 'www.')) {
+                    $sub = substr($sub, 4);
+                }
                 if (!empty($sub)) {
-                    $shop = Shop::where('subdomain', $sub)->orWhere('slug', $sub)->first();
-                    if ($shop) {
-                        return $shop;
+                    if (Shop::isReservedSubdomain($sub)) {
+                        return null;
                     }
+                    $shop = Shop::where('subdomain', $sub)->orWhere('slug', $sub)->first();
+                    // Host has a specific tenant subdomain: return match or null (never fallback)
+                    return $shop;
                 }
             }
         }
 
-        // Try active tenant from TenantManager or session
+        // Fallback only for central domain or local dev without subdomain
         if (TenantManager::hasActiveTenant()) {
             return TenantManager::getTenant();
         }
@@ -77,14 +93,9 @@ class StorefrontWebController extends Controller
     /**
      * Render the dedicated public storefront for a tenant shop.
      */
-    public function renderStorefront(Request $request, ?string $slug = null): View
+    public function renderStorefront(Request $request, ?string $slug = null, ?string $subdomain = null): View
     {
-        $shop = $this->resolveShop($request, $slug);
-
-        if (!$shop) {
-            // Default to Shop Alpha or first shop if in local/testing
-            $shop = Shop::where('slug', 'alpha')->first() ?? Shop::first();
-        }
+        $shop = $this->resolveShop($request, $slug, $subdomain);
 
         if (!$shop) {
             abort(404, 'Storefront not found.');
@@ -92,6 +103,17 @@ class StorefrontWebController extends Controller
 
         if ($shop->status === 'suspended') {
             abort(403, 'This store is temporarily suspended by the platform administrator.');
+        }
+
+        // If an authenticated user does not belong to this shop, log them out cleanly
+        if (Auth::check()) {
+            $user = Auth::user();
+            if (!$user->is_platform_admin && !$user->belongsToShop($shop) && $shop->owner_id !== $user->id) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+            }
         }
 
         TenantManager::setTenant($shop);

@@ -27,6 +27,12 @@ Route::get('/', function (Request $request) {
     // 1. Check if request is on a verified custom domain
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
     if ($customShop) {
+        if (Auth::check() && !Auth::user()->is_platform_admin && !Auth::user()->belongsToShop($customShop)) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+        }
         return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $customShop->subdomain ?: $customShop->slug);
     }
 
@@ -47,7 +53,15 @@ Route::get('/', function (Request $request) {
             if (!empty($sub) && !\App\Models\Shop::isReservedSubdomain($sub)) {
                 $subShop = \App\Models\Shop::where('subdomain', $sub)->orWhere('slug', $sub)->first();
                 if ($subShop) {
+                    if (Auth::check() && !Auth::user()->is_platform_admin && !Auth::user()->belongsToShop($subShop)) {
+                        Auth::logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+                        session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+                    }
                     return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $subShop->subdomain ?: $subShop->slug);
+                } else {
+                    abort(404, "Shop '{$sub}' not found.");
                 }
             }
         }
@@ -101,8 +115,14 @@ Route::get('/login', function (Request $request) {
 
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
     if ($customShop) {
-        if (Auth::check() && Auth::user()->belongsToShop($customShop)) {
-            return redirect('/dashboard');
+        if (Auth::check()) {
+            if (Auth::user()->belongsToShop($customShop)) {
+                return redirect('/dashboard');
+            }
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
         }
         return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
     }
@@ -127,6 +147,19 @@ Route::get('/login', function (Request $request) {
 
     return view('marketplace');
 })->name('login');
+
+Route::match(['get', 'post'], '/logout', function (Request $request) {
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
+    if ($request->expectsJson() || $request->is('api/*')) {
+        return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+    }
+
+    return redirect('/login')->with('success', 'Logged out successfully.');
+})->name('logout.web');
 
 Route::get('/register', function (Request $request) {
     if ($request->wantsJson()) {
@@ -520,10 +553,56 @@ Route::prefix('demo')->group(function () {
     });
 
     // 3. Retrieve Workspace state
-    Route::get('/state', function () {
+    Route::get('/state', function (Request $request) {
         $user = Auth::user();
-        $shopId = session('mock_active_tenant_id');
-        $shop = $shopId ? Shop::find($shopId) : null;
+
+        // Resolve shop strictly from header, custom domain, host subdomain, or session
+        $shop = null;
+        if ($request->hasHeader('X-Tenant-ID')) {
+            $shop = Shop::find($request->header('X-Tenant-ID'));
+        }
+
+        if (!$shop) {
+            $shop = Shop::resolveCustomDomainShop($request->getHost());
+        }
+
+        if (!$shop) {
+            $host = strtolower($request->getHost());
+            $baseDomains = array_unique(array_filter([
+                config('app.central_domain', 'shopbusket.com'),
+                config('app.base_domain', 'globalshop.test'),
+                'shopbusket.test',
+                'localhost',
+            ]));
+            foreach ($baseDomains as $baseDomain) {
+                if ($host !== $baseDomain && str_ends_with($host, '.' . $baseDomain)) {
+                    $sub = substr($host, 0, -(strlen($baseDomain) + 1));
+                    if (str_starts_with($sub, 'www.')) {
+                        $sub = substr($sub, 4);
+                    }
+                    if (!empty($sub) && !Shop::isReservedSubdomain($sub)) {
+                        $shop = Shop::where('subdomain', $sub)->orWhere('slug', $sub)->first();
+                        if ($shop) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!$shop && session()->has('mock_active_tenant_id')) {
+            $shop = Shop::find(session('mock_active_tenant_id'));
+        }
+
+        // Cross-shop authorization check:
+        // If user is authenticated but not authorized for this specific shop, log them out cleanly
+        if ($user && $shop && !$user->is_platform_admin && !$user->belongsToShop($shop) && $shop->owner_id !== $user->id) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+            $user = null;
+        }
 
         if ($shop) {
             TenantManager::setTenant($shop);
@@ -870,6 +949,23 @@ Route::post('/register', function (Request $request) {
     abort(404);
 })->name('custom_domain.shop.register');
 
+Route::match(['get', 'post'], '/logout', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
+        if ($request->expectsJson() || $request->is('api/*')) {
+            return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+        }
+
+        return redirect('/login')->with('success', 'Logged out successfully.');
+    }
+    abort(404);
+})->name('custom_domain.shop.logout');
+
 Route::get('/dashboard', function (Request $request) {
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
     if ($customShop) {
@@ -935,11 +1031,33 @@ foreach ($subdomainBaseDomains as $baseDomain) {
                 if (!$shop) {
                     abort(404, 'Shop not found');
                 }
-                if (Auth::check() && Auth::user()->belongsToShop($shop)) {
-                    return redirect($shop->getSubdomainUrl('/dashboard'));
+                if (Auth::check()) {
+                    if (Auth::user()->belongsToShop($shop)) {
+                        return redirect($shop->getSubdomainUrl('/dashboard'));
+                    }
+                    // User belongs to another shop: log out cleanly so login screen appears!
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
                 }
                 return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
             })->name('subdomain.shop.login.view' . $slugSuffix);
+
+            Route::match(['get', 'post'], '/logout', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
+                if ($request->expectsJson() || $request->is('api/*')) {
+                    return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+                }
+
+                $loginUrl = $shop ? $shop->getSubdomainUrl('/login') : '/login';
+                return redirect($loginUrl)->with('success', 'Logged out successfully.');
+            })->name('subdomain.shop.logout' . $slugSuffix);
 
             Route::get('/register', function (Request $request, string $subdomain) {
                 $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();

@@ -57,3 +57,12 @@ This document tracks permanent business rules established for GlobalShop feature
 - **Reason:** Standard professional e-commerce UX maximizing multi-item basket conversion.
 - **Enforcement:** Enforced in `resources/views/storefront.blade.php`.
 
+### 12. Cross-Shop Session Isolation & Auto-Logout
+- **Rule:** If an authenticated user belonging to Shop A (owner or employee) visits Shop B's URL (subdomain, custom domain, storefront, or shop panel), they must be automatically logged out of Shop A immediately.
+- **Reason:** Prevents cross-shop data leaks, session bleeding, and displaying Shop A details when entering Shop B's URL.
+- **Enforcement:**
+  - `StorefrontWebController`: Strictly resolves the requested shop and terminates any cross-tenant session before rendering the storefront. Non-existent subdomains abort 404 (never defaulting to Shop Alpha).
+  - `EnsureShopAccess`: Invalidates session and redirects unauthorized web requests to `$shop->getSubdomainUrl('/login')` (or returns 403 JSON for API).
+  - Subdomain & Custom Domain Routes: Explicit `/logout` (GET/POST) routes provided; storefront header dynamically renders Dashboard and Logout buttons for authorized staff.
+  - Verified in `CrossShopSessionIsolationTest`.
+

@@ -162,9 +162,10 @@ class ShopMultiTenantTest extends TestCase
         // Acting as Owner Alpha
         $this->actingAs($this->ownerAlpha);
 
-        // Attempting to visit Beta dashboard on subdomain
+        // Attempting to visit Beta dashboard on subdomain redirects to login and logs user out
         $response = $this->get('http://beta.shopbusket.test/dashboard');
-        $response->assertStatus(403);
+        $response->assertRedirect('http://beta.shopbusket.test/login');
+        $this->assertGuest();
     }
 
     public function test_super_admin_can_access_any_shop()

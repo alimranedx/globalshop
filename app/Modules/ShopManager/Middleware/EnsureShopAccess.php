@@ -79,11 +79,7 @@ class EnsureShopAccess
             }
         }
 
-        // 5. Establish active tenant scope
-        TenantManager::setTenant($shop);
-        session(['mock_active_tenant_id' => $shop->id, 'active_shop_slug' => $shop->slug]);
-
-        // 6. Validate user authorization if user is authenticated
+        // 5. Validate user authorization if user is authenticated
         if ($user) {
             if (!$user->belongsToShop($shop)) {
                 // Log unauthorized access attempt
@@ -101,16 +97,27 @@ class EnsureShopAccess
                     // Ignore logging failure to avoid breaking security block
                 }
 
+                // Log unauthorized user out cleanly to prevent session contamination
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
                 if ($request->expectsJson() || $request->is('api/*')) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Forbidden: You are not authorized to access or manage this shop.'
+                        'message' => 'Forbidden: You are not authorized for this shop.'
                     ], 403);
                 }
 
-                abort(403, 'Forbidden: You are not authorized to access or manage this shop.');
+                return redirect($shop->getSubdomainUrl('/login'))
+                    ->with('error', 'You are not authorized for this shop. Please log in with a valid account.');
             }
         }
+
+        // 6. Establish active tenant scope
+        TenantManager::setTenant($shop);
+        session(['mock_active_tenant_id' => $shop->id, 'active_shop_slug' => $shop->slug]);
 
         return $next($request);
     }
