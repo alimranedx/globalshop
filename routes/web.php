@@ -743,7 +743,7 @@ Route::get('/shop/{slug}/login', function (string $slug) {
     if (!$shop) {
         abort(404, 'Shop not found');
     }
-    return view('shop', ['shopSlug' => $slug]);
+    return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
 })->name('shop.login.view');
 
 Route::get('/shop/{slug}/register', function (string $slug) {
@@ -751,7 +751,7 @@ Route::get('/shop/{slug}/register', function (string $slug) {
     if (!$shop) {
         abort(404, 'Shop not found');
     }
-    return view('shop', ['shopSlug' => $slug]);
+    return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
 })->name('shop.register.view');
 
 Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('shop.login');
@@ -764,7 +764,7 @@ Route::middleware(['auth', 'shop.access'])->group(function () {
         if (!$shop) {
             abort(404, 'Shop not found');
         }
-        return view('shop', ['shopSlug' => $slug]);
+        return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
     })->name('shop.dashboard');
 
     Route::get('/shop/{slug}/{any}', function (string $slug, string $any) {
@@ -772,7 +772,7 @@ Route::middleware(['auth', 'shop.access'])->group(function () {
         if (!$shop) {
             abort(404, 'Shop not found');
         }
-        return view('shop', ['shopSlug' => $slug]);
+        return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
     })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('shop.panel');
 });
 
@@ -783,12 +783,97 @@ Route::get('/shop/{slug}', [\App\Http\Controllers\ShopAuthController::class, 'sh
 Route::get('/store/{slug}', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('storefront.view');
 Route::get('/shop/{slug}/storefront', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('shop.storefront.view');
 
-// 6. Subdomain Route Handler (e.g. abcstore.shopbusket.com or abcstore.shopbusket.test)
+// 6. Subdomain Route Handlers (e.g. alpha.shopbusket.com or alpha.shopbusket.test)
 $centralDomain = config('app.central_domain', 'shopbusket.com');
-Route::domain('{subdomain}.' . $centralDomain)->group(function () {
-    Route::get('/', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('subdomain.storefront');
-    Route::get('/catalog', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('subdomain.catalog');
-});
+$subdomainBaseDomains = array_unique(array_filter([
+    $centralDomain,
+    config('app.base_domain', 'globalshop.test'),
+    'shopbusket.test',
+    'localhost',
+]));
+
+foreach ($subdomainBaseDomains as $baseDomain) {
+    // Redirect 4th-level domain (www.{subdomain}.domain.com) to 3rd-level (subdomain.domain.com)
+    Route::domain('www.{subdomain}.' . $baseDomain)->group(function () use ($baseDomain) {
+        Route::get('/{any?}', function (Request $request, string $subdomain, ?string $any = null) use ($baseDomain) {
+            if (\App\Models\Shop::isReservedSubdomain($subdomain)) {
+                abort(404);
+            }
+            $scheme = $request->getScheme();
+            $path = $any ? '/' . ltrim($any, '/') : '';
+            return redirect("{$scheme}://{$subdomain}.{$baseDomain}{$path}", 301);
+        })->where('any', '.*');
+    });
+
+    // Subdomain routes for tenant shops
+    Route::group([
+        'domain' => '{subdomain}.' . $baseDomain,
+        'where' => ['subdomain' => '^(?!www$|admin$|api$|app$|mail$|cpanel$|webmail$).*'],
+    ], function () use ($baseDomain) {
+            $slugSuffix = '.' . \Illuminate\Support\Str::slug($baseDomain);
+
+            // Storefront Public Views
+            Route::get('/', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])
+                ->name('subdomain.storefront' . $slugSuffix);
+            Route::get('/catalog', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])
+                ->name('subdomain.catalog' . $slugSuffix);
+            Route::get('/storefront', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])
+                ->name('subdomain.storefront.alias' . $slugSuffix);
+
+            // Subdomain Shop Public & Auth View Routes
+            Route::get('/login', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                if (!$shop) {
+                    abort(404, 'Shop not found');
+                }
+                return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
+            })->name('subdomain.shop.login.view' . $slugSuffix);
+
+            Route::get('/register', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                if (!$shop) {
+                    abort(404, 'Shop not found');
+                }
+                return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
+            })->name('subdomain.shop.register.view' . $slugSuffix);
+
+            Route::post('/login', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                if (!$shop) {
+                    abort(404, 'Shop not found');
+                }
+                return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $shop->slug);
+            })->name('subdomain.shop.login' . $slugSuffix);
+
+            Route::post('/register', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                if (!$shop) {
+                    abort(404, 'Shop not found');
+                }
+                return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $shop->slug);
+            })->name('subdomain.shop.register' . $slugSuffix);
+
+            // Protected Authenticated Shop Panel Routes on Subdomain
+            Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
+                Route::get('/dashboard', function (string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
+                })->name('subdomain.shop.dashboard' . $slugSuffix);
+
+                Route::get('/{any}', function (string $subdomain, string $any) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
+                })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')
+                  ->name('subdomain.shop.panel' . $slugSuffix);
+            });
+        });
+}
 
 
 

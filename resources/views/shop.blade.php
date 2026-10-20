@@ -8,7 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script>
         window.AppConfig = {
-            shopSlug: "{{ $shopSlug }}"
+            shopSlug: "{{ $shopSlug }}",
+            isSubdomain: {{ !empty($isSubdomain) ? 'true' : 'false' }},
+            baseUrl: "{{ url('/') }}"
         };
     </script>
     @viteReactRefresh

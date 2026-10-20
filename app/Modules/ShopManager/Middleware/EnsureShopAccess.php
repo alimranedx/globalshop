@@ -23,6 +23,9 @@ class EnsureShopAccess
         if ($slug instanceof Shop) {
             $shop = $slug;
         } elseif (is_string($slug) && !empty($slug)) {
+            if (str_starts_with($slug, 'www.')) {
+                $slug = substr($slug, 4);
+            }
             $shop = Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
         }
 

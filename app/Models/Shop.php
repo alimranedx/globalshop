@@ -108,6 +108,25 @@ class Shop extends Model
     }
 
     /**
+     * Reserved subdomains that cannot be assigned to tenant shops.
+     *
+     * @var array<string>
+     */
+    public static array $reservedSubdomains = [
+        'www', 'admin', 'administrator', 'api', 'app', 'mail', 'cpanel', 'webmail',
+        'shop', 'store', 'marketplace', 'portal', 'dev', 'staging', 'test', 'central',
+        'root', 'public', 'assets', 'static', 'support', 'help', 'billing', 'auth'
+    ];
+
+    /**
+     * Check if a given subdomain string is reserved.
+     */
+    public static function isReservedSubdomain(string $subdomain): bool
+    {
+        return in_array(strtolower(trim($subdomain)), static::$reservedSubdomains, true);
+    }
+
+    /**
      * Generate a unique slug for a shop.
      */
     public static function generateUniqueSlug(string $name, ?int $ignoreShopId = null): string
@@ -117,17 +136,67 @@ class Shop extends Model
             $baseSlug = 'shop';
         }
 
+        if (static::isReservedSubdomain($baseSlug)) {
+            $baseSlug = "{$baseSlug}-store";
+        }
+
         $slug = $baseSlug;
         $counter = 1;
 
-        while (static::where('slug', $slug)
+        while (static::where(function ($query) use ($slug) {
+                $query->where('slug', $slug)->orWhere('subdomain', $slug);
+            })
             ->when($ignoreShopId, fn ($q) => $q->where('id', '!=', $ignoreShopId))
-            ->exists()) {
+            ->exists() || static::isReservedSubdomain($slug)) {
             $counter++;
             $slug = "{$baseSlug}-{$counter}";
         }
 
         return $slug;
+    }
+
+    /**
+     * Get the tenant's full subdomain host (e.g. alpha.shopbusket.com or alpha.localhost).
+     */
+    public function getSubdomainHost(): string
+    {
+        $sub = $this->subdomain ?: $this->slug;
+        $request = request();
+        $currentHost = $request ? $request->getHost() : '';
+
+        $baseDomains = array_filter([
+            config('app.central_domain', 'shopbusket.com'),
+            config('app.base_domain', 'globalshop.test'),
+            'shopbusket.test',
+            'localhost',
+        ]);
+
+        $matchedBase = config('app.central_domain', 'shopbusket.com');
+        if ($currentHost) {
+            foreach ($baseDomains as $baseDomain) {
+                if ($currentHost === $baseDomain || str_ends_with($currentHost, '.' . $baseDomain)) {
+                    $matchedBase = $baseDomain;
+                    break;
+                }
+            }
+        }
+
+        return "{$sub}.{$matchedBase}";
+    }
+
+    /**
+     * Get full subdomain URL for a given path.
+     */
+    public function getSubdomainUrl(string $path = ''): string
+    {
+        $host = $this->getSubdomainHost();
+        $request = request();
+        $scheme = $request ? $request->getScheme() : (config('app.force_https') ? 'https' : 'http');
+        $port = $request ? $request->getPort() : null;
+        $portSuffix = ($port && !in_array($port, [80, 443])) ? ":{$port}" : '';
+        $path = ltrim($path, '/');
+
+        return "{$scheme}://{$host}{$portSuffix}" . ($path !== '' ? "/{$path}" : '');
     }
 
     /**

@@ -20,3 +20,12 @@
 * **Date:** 2026-07-31
 * **Decision:** Use SQLite in-memory database (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`) in `phpunit.xml` while using MySQL 8.0 for development and production.
 * **Reason:** Executes all 63 unit and feature tests in under 3.5 seconds without polluting dev/prod databases. Requires `pdo_sqlite` extension enabled in PHP runtime.
+
+---
+
+## 🏛️ ADR-004: Multi-Tenant Subdomain Routing for Vendor Shops
+* **Date:** 2026-10-20
+* **Decision:** Serve vendor shops and their management panels directly on tenant subdomains (`https://{subdomain}.shopbusket.com/catalog-hub/categories`, `/dashboard`, etc.) alongside public storefronts.
+* **Subdomain Normalization:** Canonical domains use 3rd-level domain structure (`alpha.shopbusket.com`). 4th-level subdomains (`www.alpha.shopbusket.com`) automatically 301 redirect to the canonical 3rd-level domain to respect wildcard SSL limits.
+* **Reserved Subdomain Protection:** System subdomains (`www`, `admin`, `api`, `app`, `mail`, `cpanel`, `webmail`, `billing`, `support`) are rejected from being claimed or routed as tenant shops.
+* **Dual Routing Compatibility:** Both subdomain routes and path routes (`/shop/{slug}/*`) are supported simultaneously. React Router dynamically toggles its `basename` between root `/` (when loaded on a subdomain) and `/shop/{slug}` (when loaded via central domain path).

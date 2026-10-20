@@ -552,6 +552,8 @@ function ShopManagerApp() {
 }
 
 const shopSlug = window.AppConfig?.shopSlug || 'alpha';
+const isSubdomain = Boolean(window.AppConfig?.isSubdomain) || !window.location.pathname.startsWith('/shop/');
+const routerBasename = isSubdomain ? '/' : `/shop/${shopSlug}`;
 
 // Render root element
 const rootEl = document.getElementById('shop-owner-root');
@@ -561,7 +563,7 @@ if (rootEl) {
     }
     window.__reactRoot.render(
         <Provider store={store}>
-            <BrowserRouter basename={`/shop/${shopSlug}`}>
+            <BrowserRouter basename={routerBasename}>
                 <ShopManagerApp />
             </BrowserRouter>
         </Provider>

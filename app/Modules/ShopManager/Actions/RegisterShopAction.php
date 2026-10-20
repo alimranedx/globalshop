@@ -41,14 +41,17 @@ class RegisterShopAction
             // 2. Create the Shop
             $slugInput = !empty($shopData['slug']) ? $shopData['slug'] : $shopData['name'];
             $slug = Shop::generateUniqueSlug($slugInput);
-            $subdomain = !empty($shopData['subdomain']) ? Str::slug($shopData['subdomain']) : $slug;
+            $subdomainInput = !empty($shopData['subdomain']) ? $shopData['subdomain'] : $slug;
+            $subdomain = Shop::generateUniqueSlug($subdomainInput);
+            $centralDomain = config('app.central_domain', 'shopbusket.com');
+            $domain = !empty($shopData['domain']) ? $shopData['domain'] : "{$subdomain}.{$centralDomain}";
 
             $shop = Shop::create([
                 'owner_id' => $owner->id,
                 'name' => $shopData['name'],
                 'slug' => $slug,
                 'subdomain' => $subdomain,
-                'domain' => $shopData['domain'] ?? null,
+                'domain' => $domain,
                 'custom_domain' => $shopData['custom_domain'] ?? null,
                 'custom_domain_status' => !empty($shopData['custom_domain']) ? 'pending' : 'pending',
                 'theme_slug' => $shopData['theme_slug'] ?? 'default',

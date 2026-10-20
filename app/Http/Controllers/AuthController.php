@@ -73,6 +73,8 @@ class AuthController extends Controller
                 'id' => $shop->id,
                 'name' => $shop->name,
                 'slug' => $shop->slug,
+                'subdomain' => $shop->subdomain,
+                'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
                 'status' => $shop->status,
             ]
         ], 201);

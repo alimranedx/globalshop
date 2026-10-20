@@ -22,9 +22,9 @@ class ResolveTenant
             $shop = Shop::where('id', $request->header('X-Tenant-ID'))->first();
         }
 
-        // 2. Fallback: Parse host for subdomain (e.g., shop1.shopbusket.com, shop1.shopbusket.test, shop1.localhost)
+        // 2. Fallback: Parse host for subdomain (e.g., alpha.shopbusket.com, www.alpha.shopbusket.com, alpha.localhost)
         if (! $shop) {
-            $host = $request->getHost();
+            $host = strtolower($request->getHost());
             $baseDomains = array_filter([
                 config('app.central_domain', 'shopbusket.com'),
                 config('app.base_domain', 'globalshop.test'),
@@ -33,14 +33,22 @@ class ResolveTenant
             ]);
 
             foreach ($baseDomains as $baseDomain) {
+                $baseDomain = strtolower($baseDomain);
                 if ($host !== $baseDomain && str_ends_with($host, '.' . $baseDomain)) {
                     $subdomain = substr($host, 0, -(strlen($baseDomain) + 1));
                     if (!empty($subdomain)) {
-                        $shop = Shop::where('subdomain', $subdomain)
-                            ->orWhere('slug', $subdomain)
-                            ->first();
-                        if ($shop) {
-                            break;
+                        // Strip leading www. if present (e.g., www.alpha.shopbusket.com -> alpha)
+                        if (str_starts_with($subdomain, 'www.')) {
+                            $subdomain = substr($subdomain, 4);
+                        }
+
+                        if (!empty($subdomain) && !Shop::isReservedSubdomain($subdomain)) {
+                            $shop = Shop::where('subdomain', $subdomain)
+                                ->orWhere('slug', $subdomain)
+                                ->first();
+                            if ($shop) {
+                                break;
+                            }
                         }
                     }
                 }

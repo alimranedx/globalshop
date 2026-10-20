@@ -180,13 +180,15 @@ class ShopAuthController extends Controller
             $user->id
         );
 
-        $dashboardUrl = url("/shop/{$shop->slug}/dashboard");
+        $isSubdomain = (bool) $request->route('subdomain') || ($request->getHost() !== config('app.central_domain', 'shopbusket.com') && str_ends_with($request->getHost(), '.' . config('app.central_domain', 'shopbusket.com')));
+        $dashboardUrl = $isSubdomain ? $shop->getSubdomainUrl('/dashboard') : url("/shop/{$shop->slug}/dashboard");
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
                 'success' => true,
                 'message' => 'Logged in successfully.',
                 'redirect_url' => $dashboardUrl,
+                'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
                 'csrf_token' => csrf_token(),
                 'user' => [
                     'name' => $user->name,
@@ -198,6 +200,8 @@ class ShopAuthController extends Controller
                     'id' => $shop->id,
                     'name' => $shop->name,
                     'slug' => $shop->slug,
+                    'subdomain' => $shop->subdomain,
+                    'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
                     'status' => $shop->status,
                 ]
             ]);
@@ -280,13 +284,15 @@ class ShopAuthController extends Controller
             $user->id
         );
 
-        $dashboardUrl = url("/shop/{$shop->slug}/dashboard");
+        $isSubdomain = (bool) $request->route('subdomain') || ($request->getHost() !== config('app.central_domain', 'shopbusket.com') && str_ends_with($request->getHost(), '.' . config('app.central_domain', 'shopbusket.com')));
+        $dashboardUrl = $isSubdomain ? $shop->getSubdomainUrl('/dashboard') : url("/shop/{$shop->slug}/dashboard");
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
                 'success' => true,
                 'message' => 'Registration successful! You have joined ' . $shop->name,
                 'redirect_url' => $dashboardUrl,
+                'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
                 'csrf_token' => csrf_token(),
             ], 201);
         }
