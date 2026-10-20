@@ -35,8 +35,8 @@ export default function LoginView() {
                     if (meta) meta.setAttribute('content', res.csrf_token);
                 }
                 dispatch(showToast({ message: `Logged in successfully.`, isError: false }));
-                dispatch(fetchState());
-                navigate('/dashboard');
+                await dispatch(fetchState());
+                navigate('/dashboard', { replace: true });
             } else {
                 setFormError(res.message || 'Invalid credentials.');
             }
@@ -49,7 +49,7 @@ export default function LoginView() {
 
     const triggerQuickLogin = async (demoEmail) => {
         await dispatch(handleQuickLogin(demoEmail));
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
     };
 
     return (

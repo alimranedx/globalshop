@@ -116,7 +116,7 @@ export const handleQuickLogin = (email) => async (dispatch) => {
                 if (meta) meta.setAttribute('content', data.csrf_token);
             }
             dispatch(setCurrentUserEmail(email));
-            dispatch(fetchState());
+            await dispatch(fetchState());
         } else {
             dispatch(showToast({ message: data.message || 'Login failed', isError: true }));
         }

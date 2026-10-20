@@ -833,6 +833,9 @@ foreach ($subdomainBaseDomains as $baseDomain) {
                 if (!$shop) {
                     abort(404, 'Shop not found');
                 }
+                if (Auth::check() && Auth::user()->belongsToShop($shop)) {
+                    return redirect($shop->getSubdomainUrl('/dashboard'));
+                }
                 return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
             })->name('subdomain.shop.login.view' . $slugSuffix);
 
