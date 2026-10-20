@@ -9,7 +9,7 @@ import { clearShopState, setUserLanguage } from './store/shopSlice';
 import { clearCatalogState } from './store/catalogSlice';
 import { clearEmployeesState } from './store/employeesSlice';
 import { clearUiState, showToast, clearToast } from './store/uiSlice';
-import { fetchState, handleQuickLogin } from './store/actions';
+import { fetchState } from './store/actions';
 import { getCsrfToken, getHeaders } from './utils/api';
 import useHasPermission from './hooks/useHasPermission';
 import useTranslation from './hooks/useTranslation';
@@ -58,7 +58,6 @@ function ShopManagerApp() {
     const user = useSelector(state => state.auth.user);
     const shop = useSelector(state => state.shop.shop);
     const toast = useSelector(state => state.ui.toast);
-    const currentUserEmail = useSelector(state => state.auth.currentUserEmail);
     const activeLanguage = useSelector(state => state.shop.userLanguage || state.shop.shop?.language || localStorage.getItem('app_language') || 'en');
 
     const hasPermission = useHasPermission();
@@ -214,26 +213,6 @@ function ShopManagerApp() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: colors.background, color: colors.text }}>
-            {/* Top Swapper */}
-            <div style={{ background: colors.topBarBg, borderBottom: `1px solid ${colors.topBarBorder}`, padding: '0.6rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem', color: colors.text }}>
-                <span>⚙️ <strong>SaaS Shop Panel Simulator (React JS)</strong></span>
-                <div>
-                    <span>Active User Context: </span>
-                    <select 
-                        value={currentUserEmail} 
-                        onChange={(e) => dispatch(handleQuickLogin(e.target.value))}
-                        style={{ background: colors.isDark ? '#141419' : '#fff', border: `1px solid ${colors.border}`, color: colors.text, padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer', outline: 'none' }}
-                    >
-                        <option value="john@alpha.com">John Owner (Owner)</option>
-                        <option value="bob@alpha.com">Bob Manager (Manager)</option>
-                        <option value="sam@alpha.com">Sam Sales (Sales Manager)</option>
-                        <option value="charlie@alpha.com">Charlie Worker (Worker)</option>
-                        <option value="alice@customer.com">Alice Customer (Customer)</option>
-                        <option value="">Guest (Public)</option>
-                    </select>
-                </div>
-            </div>
-
             <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', flexGrow: 1, alignItems: 'start' }}>
                 {/* Sidebar */}
                 <aside style={{ position: 'sticky', top: 0, maxHeight: '100vh', overflowY: 'auto', background: colors.sidebarBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderRight: `1px solid ${colors.border}`, padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>

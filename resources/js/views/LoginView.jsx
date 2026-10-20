@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { showToast } from '../store/uiSlice';
-import { fetchState, handleQuickLogin } from '../store/actions';
+import { fetchState } from '../store/actions';
 import { getCsrfToken } from '../utils/api';
 
 export default function LoginView() {
@@ -45,11 +45,6 @@ export default function LoginView() {
         } finally {
             setSubmitting(false);
         }
-    };
-
-    const triggerQuickLogin = async (demoEmail) => {
-        await dispatch(handleQuickLogin(demoEmail));
-        navigate('/dashboard', { replace: true });
     };
 
     return (
@@ -126,25 +121,6 @@ export default function LoginView() {
                 <a href="/" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'underline' }}>
                     Customer Storefront ↗
                 </a>
-            </div>
-
-            {/* Quick Demo Login */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.1)', padding: '1rem', borderRadius: '12px' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚡ Quick Login (Demo Accounts)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <button onClick={() => triggerQuickLogin('john@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        🔑 John (Owner)
-                    </button>
-                    <button onClick={() => triggerQuickLogin('bob@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        🔑 Bob (Manager)
-                    </button>
-                    <button onClick={() => triggerQuickLogin('charlie@alpha.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        🔑 Charlie (Worker)
-                    </button>
-                    <button onClick={() => triggerQuickLogin('grace@marketplace.com')} style={{ background: '#141419', border: '1px solid rgba(255,255,255,0.05)', color: '#fff', padding: '0.4rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        🔑 Grace (Admin)
-                    </button>
-                </div>
             </div>
         </div>
     );
