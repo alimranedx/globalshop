@@ -252,11 +252,17 @@ class EndToEndSystemVerificationTest extends TestCase
         ]);
 
         // D. Shop Owner Subdomain Login View & Authentication
-        $loginViewRes = $this->get('http://titan.shopbusket.test/login');
+        // Customer login view renders marketplace at /login
+        $custLoginRes = $this->get('http://titan.shopbusket.test/login');
+        $custLoginRes->assertStatus(200);
+        $custLoginRes->assertViewIs('marketplace');
+
+        // Shop Management login view renders shop at /management/login
+        $loginViewRes = $this->get('http://titan.shopbusket.test/management/login');
         $loginViewRes->assertStatus(200);
         $loginViewRes->assertViewIs('shop');
 
-        $loginPostRes = $this->post('http://titan.shopbusket.test/login', [
+        $loginPostRes = $this->post('http://titan.shopbusket.test/management/login', [
             'email' => 'marcus@titangear.com',
             'password' => 'password',
         ]);

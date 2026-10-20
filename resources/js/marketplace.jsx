@@ -299,6 +299,13 @@ function LoginPage({ setCustomer }) {
                             Create an Account
                         </button>
                     </div>
+
+                    <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.8rem', color: C.faint, borderTop: `1px solid ${C.border}`, paddingTop: '0.75rem' }}>
+                        Shop Owner or Staff?{' '}
+                        <a href="/management/login" style={{ color: C.accent, fontWeight: 700, textDecoration: 'underline' }}>
+                            Staff Management Portal ↗
+                        </a>
+                    </div>
                 </form>
             </div>
         </div>

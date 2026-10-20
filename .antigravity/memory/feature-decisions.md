@@ -71,3 +71,9 @@ This document tracks permanent business rules established for GlobalShop feature
 - **Reason:** Immediate platform visibility into live merchant subdomains and 1-click access to storefronts.
 - **Enforcement:** Enforced in `Shop` model (`saving` hook, `subdomain_url` accessor, `getSubdomainUrl`), `PlatformAdminController::listShops`, `ShopDirectoryPage.jsx`, and `SubdomainShopRoutingTest`.
 
+### 14. Tenant Subdomain Route Separation (/management/* vs Storefront)
+- **Rule:** On tenant subdomains (`{subdomain}.shopbusket.com`) and custom domains, shop staff and owners access management functions under the `/management` prefix (`/management/login`, `/management/dashboard`, `/management/logout`, `/management/{panel_routes}`), while regular customers access public storefront auth and shopping directly (`/login`, `/register`, `/logout`, `/profile`). Direct panel shortcuts (e.g., `/catalog-hub/categories`) continue to work seamlessly for authenticated staff.
+- **Reason:** Clear, secure separation between public customer storefront authentication and staff administration portals, preventing session collisions and confusing entry points.
+- **Enforcement:** Enforced in `routes/web.php`, `bootstrap/app.php` (unauthenticated guest redirection based on `/management*`), `EnsureShopAccess` middleware, `ShopAuthController`, `resources/js/shop.jsx` (SPA basename resolution), `resources/views/storefront.blade.php`, and verified in `SubdomainShopRoutingTest`, `CrossShopSessionIsolationTest`, and `EndToEndSystemVerificationTest`.
+
+

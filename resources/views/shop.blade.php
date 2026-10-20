@@ -11,6 +11,7 @@
             shopSlug: "{{ $shopSlug }}",
             isSubdomain: {{ (!empty($isSubdomain) || !empty($isCustomDomain)) ? 'true' : 'false' }},
             isCustomDomain: {{ !empty($isCustomDomain) ? 'true' : 'false' }},
+            isManagement: {{ !empty($isManagement) ? 'true' : 'false' }},
             baseUrl: "{{ url('/') }}"
         };
     </script>

@@ -127,17 +127,47 @@
                     <i class="bi bi-shield-check text-emerald-400"></i> Authentic Guarantee
                 </a>
                 <span class="text-slate-600">|</span>
+
+                {{-- Regular Customer Auth Links --}}
+                @if(session('marketplace_customer_id'))
+                    @php
+                        $storeCustomer = \App\Models\MarketplaceCustomer::find(session('marketplace_customer_id'));
+                    @endphp
+                    <div class="inline-flex items-center gap-1.5 text-xs">
+                        <a href="{{ $shop->getSubdomainUrl('/profile') }}" class="hover:text-white transition-colors flex items-center gap-1 font-semibold text-emerald-400">
+                            <i class="bi bi-person-circle"></i>
+                            <span>{{ $storeCustomer?->name ?: 'My Account' }}</span>
+                        </a>
+                        <a href="{{ $shop->getSubdomainUrl('/logout') }}" class="text-[11px] text-slate-400 hover:text-rose-300 transition-colors">
+                            (Sign Out)
+                        </a>
+                    </div>
+                @else
+                    <div class="inline-flex items-center gap-1.5 text-xs text-slate-300">
+                        <a href="{{ $shop->getSubdomainUrl('/login') }}" class="hover:text-white transition-colors flex items-center gap-1 font-semibold">
+                            <i class="bi bi-person"></i> Customer Sign In
+                        </a>
+                        <span class="text-slate-600">/</span>
+                        <a href="{{ $shop->getSubdomainUrl('/register') }}" class="hover:text-white transition-colors">
+                            Register
+                        </a>
+                    </div>
+                @endif
+
+                <span class="text-slate-600">|</span>
+
+                {{-- Staff & Management Portal Links --}}
                 @if(auth()->check() && (auth()->user()->is_platform_admin || auth()->user()->belongsToShop($shop)))
                     <div class="inline-flex items-center gap-2">
-                        <a href="{{ $shop->getSubdomainUrl('/dashboard') }}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition-colors">
+                        <a href="{{ $shop->getSubdomainUrl('/management/dashboard') }}" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm transition-colors">
                             <i class="bi bi-speedometer2"></i> Dashboard
                         </a>
-                        <a href="{{ $shop->getSubdomainUrl('/logout') }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-rose-200 text-[11px] font-bold transition-colors" title="Log out">
+                        <a href="{{ $shop->getSubdomainUrl('/management/logout') }}" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-rose-200 text-[11px] font-bold transition-colors" title="Log out">
                             <i class="bi bi-box-arrow-right text-rose-300"></i> Logout
                         </a>
                     </div>
                 @else
-                    <a href="{{ $shop->getSubdomainUrl('/login') }}" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 transition-colors">
+                    <a href="{{ $shop->getSubdomainUrl('/management/login') }}" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 transition-colors">
                         <i class="bi bi-lock-fill text-indigo-400"></i> Staff Portal
                     </a>
                 @endif

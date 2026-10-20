@@ -60,7 +60,7 @@
     "name": "stockUnits"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BaLmPZss.css",
+    "file": "assets/app-JeKJ-77C.css",
     "name": "app",
     "names": [
       "app.css"
@@ -85,7 +85,7 @@
     "isEntry": true
   },
   "resources/js/marketplace.jsx": {
-    "file": "assets/marketplace-C36cVTdp.js",
+    "file": "assets/marketplace-BekjFWaD.js",
     "name": "marketplace",
     "src": "resources/js/marketplace.jsx",
     "isEntry": true,
@@ -97,7 +97,7 @@
     ]
   },
   "resources/js/shop.jsx": {
-    "file": "assets/shop-DRbby2FF.js",
+    "file": "assets/shop-D02lpR03.js",
     "name": "shop",
     "src": "resources/js/shop.jsx",
     "isEntry": true,

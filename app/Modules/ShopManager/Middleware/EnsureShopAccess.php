@@ -110,7 +110,9 @@ class EnsureShopAccess
                     ], 403);
                 }
 
-                return redirect($shop->getSubdomainUrl('/login'))
+                $loginPath = $request->is('management*') ? '/management/login' : '/login';
+
+                return redirect($shop->getSubdomainUrl($loginPath))
                     ->with('error', 'You are not authorized for this shop. Please log in with a valid account.');
             }
         }

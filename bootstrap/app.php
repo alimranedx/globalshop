@@ -16,8 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(function (Request $request) {
-            if ($request->is('*/login') || $request->is('*/register') || $request->is('login') || $request->is('register')) {
+            if ($request->is('*/login') || $request->is('*/register') || $request->is('login') || $request->is('register') || $request->is('management/login') || $request->is('management/register')) {
                 return null;
+            }
+            if ($request->is('management*')) {
+                return '/management/login';
             }
             if (preg_match('#^/shop/([^/]+)#', $request->getPathInfo(), $matches)) {
                 return "/shop/{$matches[1]}/login";

@@ -121,6 +121,13 @@ export default function LoginView() {
                 Don't have a shop? <span onClick={() => navigate('/register')} style={{ color: '#6366f1', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}>Register here</span>
             </div>
 
+            <div style={{ textAlign: 'center', fontSize: '0.82rem', color: '#6b7280' }}>
+                Customer looking to shop?{' '}
+                <a href="/" style={{ color: '#818cf8', fontWeight: 600, textDecoration: 'underline' }}>
+                    Customer Storefront ↗
+                </a>
+            </div>
+
             {/* Quick Demo Login */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(99, 102, 241, 0.04)', border: '1px solid rgba(99, 102, 241, 0.1)', padding: '1rem', borderRadius: '12px' }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: '600', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>⚡ Quick Login (Demo Accounts)</div>

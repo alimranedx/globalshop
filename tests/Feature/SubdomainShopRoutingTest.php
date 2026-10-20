@@ -68,27 +68,47 @@ class SubdomainShopRoutingTest extends TestCase
         $response->assertViewIs('shop');
         $response->assertViewHas('shopSlug', 'alpha');
         $response->assertViewHas('isSubdomain', true);
+
+        $resManagement = $this->actingAs($this->ownerAlpha)
+            ->get('http://alpha.shopbusket.test/management/catalog-hub/categories');
+        $resManagement->assertStatus(200);
+        $resManagement->assertViewIs('shop');
     }
 
     public function test_subdomain_dashboard_route_renders_for_authenticated_owner(): void
     {
         $response = $this->actingAs($this->ownerAlpha)
-            ->get('http://alpha.shopbusket.test/dashboard');
+            ->get('http://alpha.shopbusket.test/management/dashboard');
 
         $response->assertStatus(200);
         $response->assertViewIs('shop');
         $response->assertViewHas('shopSlug', 'alpha');
         $response->assertViewHas('isSubdomain', true);
+
+        $directRes = $this->actingAs($this->ownerAlpha)
+            ->get('http://alpha.shopbusket.test/dashboard');
+        $directRes->assertStatus(200);
+        $directRes->assertViewIs('shop');
     }
 
     public function test_subdomain_login_view_renders_unauthenticated(): void
     {
-        $response = $this->get('http://alpha.shopbusket.test/login');
+        // 1. Regular user accessing /login sees Marketplace customer login
+        $customerLoginRes = $this->get('http://alpha.shopbusket.test/login');
+        $customerLoginRes->assertStatus(200);
+        $customerLoginRes->assertViewIs('marketplace');
 
-        $response->assertStatus(200);
-        $response->assertViewIs('shop');
-        $response->assertViewHas('shopSlug', 'alpha');
-        $response->assertViewHas('isSubdomain', true);
+        // 2. Shop owner / staff accessing /management/login sees Shop Management login
+        $staffLoginRes = $this->get('http://alpha.shopbusket.test/management/login');
+        $staffLoginRes->assertStatus(200);
+        $staffLoginRes->assertViewIs('shop');
+        $staffLoginRes->assertViewHas('shopSlug', 'alpha');
+        $staffLoginRes->assertViewHas('isSubdomain', true);
+
+        // 3. Regular user accessing /register sees Marketplace customer register
+        $customerRegRes = $this->get('http://alpha.shopbusket.test/register');
+        $customerRegRes->assertStatus(200);
+        $customerRegRes->assertViewIs('marketplace');
     }
 
     public function test_4th_level_subdomain_redirects_to_canonical_subdomain(): void

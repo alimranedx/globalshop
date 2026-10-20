@@ -174,14 +174,14 @@ class ShopAuthController extends Controller
         );
 
         $isSubdomain = (bool) $request->route('subdomain') || ($request->getHost() !== config('app.central_domain', 'shopbusket.com') && str_ends_with($request->getHost(), '.' . config('app.central_domain', 'shopbusket.com')));
-        $dashboardUrl = $isSubdomain ? $shop->getSubdomainUrl('/dashboard') : url("/shop/{$shop->slug}/dashboard");
+        $dashboardUrl = $isSubdomain ? $shop->getSubdomainUrl('/management/dashboard') : url("/shop/{$shop->slug}/dashboard");
 
         if ($request->expectsJson() || $request->is('api/*')) {
             return response()->json([
                 'success' => true,
                 'message' => 'Logged in successfully.',
                 'redirect_url' => $dashboardUrl,
-                'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
+                'subdomain_url' => $shop->getSubdomainUrl('/management/dashboard'),
                 'csrf_token' => csrf_token(),
                 'user' => [
                     'name' => $user->name,
@@ -194,7 +194,7 @@ class ShopAuthController extends Controller
                     'name' => $shop->name,
                     'slug' => $shop->slug,
                     'subdomain' => $shop->subdomain,
-                    'subdomain_url' => $shop->getSubdomainUrl('/dashboard'),
+                    'subdomain_url' => $shop->getSubdomainUrl('/management/dashboard'),
                     'status' => $shop->status,
                 ]
             ]);

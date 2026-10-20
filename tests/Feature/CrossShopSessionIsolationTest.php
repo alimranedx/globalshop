@@ -92,9 +92,9 @@ class CrossShopSessionIsolationTest extends TestCase
         $response->assertDontSee('Alpha Electronics');
         // Confirms Alpha owner was automatically logged out
         $this->assertGuest();
-        // Shows Staff Portal pointing to titan login
+        // Shows Staff Portal pointing to titan management login
         $response->assertSee('Staff Portal');
-        $response->assertSee('titan.shopbusket.test/login');
+        $response->assertSee('titan.shopbusket.test/management/login');
     }
 
     /**
@@ -111,7 +111,7 @@ class CrossShopSessionIsolationTest extends TestCase
         $this->assertAuthenticatedAs($this->ownerTitan);
         $response->assertSee('Dashboard');
         $response->assertSee('Logout');
-        $response->assertSee('titan.shopbusket.test/logout');
+        $response->assertSee('titan.shopbusket.test/management/logout');
     }
 
     /**
@@ -149,9 +149,9 @@ class CrossShopSessionIsolationTest extends TestCase
     {
         $response = $this->actingAs($this->ownerAlpha)
             ->withSession(['mock_active_tenant_id' => $this->shopAlpha->id])
-            ->get('http://titan.shopbusket.test/dashboard');
+            ->get('http://titan.shopbusket.test/management/dashboard');
 
-        $response->assertRedirect('http://titan.shopbusket.test/login');
+        $response->assertRedirect('http://titan.shopbusket.test/management/login');
         $this->assertGuest();
     }
 

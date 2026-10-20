@@ -933,38 +933,95 @@ Route::get('/storefront', function (Request $request) {
     return redirect('/');
 })->name('custom_domain.storefront');
 
-Route::post('/login', function (Request $request) {
-    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
-    if ($customShop) {
-        return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $customShop->slug);
-    }
-    abort(404);
-})->name('custom_domain.shop.login');
-
-Route::post('/register', function (Request $request) {
-    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
-    if ($customShop) {
-        return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $customShop->slug);
-    }
-    abort(404);
-})->name('custom_domain.shop.register');
-
-Route::match(['get', 'post'], '/logout', function (Request $request) {
-    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
-    if ($customShop) {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
-
-        if ($request->expectsJson() || $request->is('api/*')) {
-            return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+// Custom Domain Management Routes (/management/*)
+Route::prefix('management')->group(function () {
+    Route::get('/', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            if (Auth::check() && Auth::user()->belongsToShop($customShop)) {
+                return redirect('/management/dashboard');
+            }
+            return redirect('/management/login');
         }
+        abort(404);
+    })->name('custom_domain.management.index');
 
-        return redirect('/login')->with('success', 'Logged out successfully.');
-    }
-    abort(404);
-})->name('custom_domain.shop.logout');
+    Route::get('/login', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            if (Auth::check()) {
+                if (Auth::user()->belongsToShop($customShop)) {
+                    return redirect('/management/dashboard');
+                }
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+            }
+            return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true, 'isManagement' => true]);
+        }
+        abort(404);
+    })->name('custom_domain.management.login.view');
+
+    Route::post('/login', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $customShop->slug);
+        }
+        abort(404);
+    })->name('custom_domain.management.login');
+
+    Route::get('/register', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true, 'isManagement' => true]);
+        }
+        abort(404);
+    })->name('custom_domain.management.register.view');
+
+    Route::post('/register', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $customShop->slug);
+        }
+        abort(404);
+    })->name('custom_domain.management.register');
+
+    Route::match(['get', 'post'], '/logout', function (Request $request) {
+        $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+        if ($customShop) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
+            if ($request->expectsJson() || $request->is('api/*')) {
+                return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+            }
+
+            return redirect('/management/login')->with('success', 'Logged out successfully.');
+        }
+        abort(404);
+    })->name('custom_domain.management.logout');
+
+    Route::middleware(['auth', 'shop.access'])->group(function () {
+        Route::get('/dashboard', function (Request $request) {
+            $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+            if ($customShop) {
+                return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true, 'isManagement' => true]);
+            }
+            abort(404);
+        })->name('custom_domain.management.dashboard');
+
+        Route::get('/{any}', function (Request $request, string $any) {
+            $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+            if ($customShop) {
+                return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true, 'isManagement' => true]);
+            }
+            abort(404);
+        })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('custom_domain.management.panel');
+    });
+});
 
 Route::get('/dashboard', function (Request $request) {
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
@@ -972,7 +1029,7 @@ Route::get('/dashboard', function (Request $request) {
         if (!Auth::check() || !Auth::user()->belongsToShop($customShop)) {
             return redirect('/login');
         }
-        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
+        return redirect('/management/dashboard');
     }
     abort(404);
 })->name('custom_domain.shop.dashboard');
@@ -981,7 +1038,7 @@ Route::get('/{any}', function (Request $request, string $any) {
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
     if ($customShop) {
         if (!Auth::check() || !Auth::user()->belongsToShop($customShop)) {
-            return redirect('/login');
+            return redirect('/management/login');
         }
         return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
     }
@@ -1025,80 +1082,184 @@ foreach ($subdomainBaseDomains as $baseDomain) {
             Route::get('/storefront', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])
                 ->name('subdomain.storefront.alias' . $slugSuffix);
 
-            // Subdomain Shop Public & Auth View Routes
+            // ==========================================
+            // 1. Regular Customer / Shopper Routes
+            // ==========================================
             Route::get('/login', function (Request $request, string $subdomain) {
                 $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                 if (!$shop) {
                     abort(404, 'Shop not found');
                 }
+                // If customer is already logged in, redirect to storefront root /
+                if (session()->has('marketplace_customer_id')) {
+                    return redirect('/');
+                }
+                // If a shop staff user is logged in, log out cleanly so customer login appears
                 if (Auth::check()) {
-                    if (Auth::user()->belongsToShop($shop)) {
-                        return redirect($shop->getSubdomainUrl('/dashboard'));
-                    }
-                    // User belongs to another shop: log out cleanly so login screen appears!
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
                     session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
                 }
-                return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
-            })->name('subdomain.shop.login.view' . $slugSuffix);
-
-            Route::match(['get', 'post'], '/logout', function (Request $request, string $subdomain) {
-                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
-                Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-                session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
-
-                if ($request->expectsJson() || $request->is('api/*')) {
-                    return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
-                }
-
-                $loginUrl = $shop ? $shop->getSubdomainUrl('/login') : '/login';
-                return redirect($loginUrl)->with('success', 'Logged out successfully.');
-            })->name('subdomain.shop.logout' . $slugSuffix);
+                return view('marketplace');
+            })->name('subdomain.customer.login.view' . $slugSuffix);
 
             Route::get('/register', function (Request $request, string $subdomain) {
                 $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                 if (!$shop) {
                     abort(404, 'Shop not found');
                 }
-                return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
-            })->name('subdomain.shop.register.view' . $slugSuffix);
+                if (session()->has('marketplace_customer_id')) {
+                    return redirect('/');
+                }
+                if (Auth::check()) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+                }
+                return view('marketplace');
+            })->name('subdomain.customer.register.view' . $slugSuffix);
 
-            Route::post('/login', function (Request $request, string $subdomain) {
+            Route::match(['get', 'post'], '/logout', function (Request $request, string $subdomain) {
+                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                session()->forget('marketplace_customer_id');
+                if (Auth::check()) {
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+                }
+
+                if ($request->expectsJson() || $request->is('api/*')) {
+                    return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+                }
+
+                return redirect('/login')->with('success', 'Logged out successfully.');
+            })->name('subdomain.customer.logout' . $slugSuffix);
+
+            Route::get('/profile/{any?}', function (Request $request, string $subdomain) {
                 $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                 if (!$shop) {
                     abort(404, 'Shop not found');
                 }
-                return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $shop->slug);
-            })->name('subdomain.shop.login' . $slugSuffix);
-
-            Route::post('/register', function (Request $request, string $subdomain) {
-                $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
-                if (!$shop) {
-                    abort(404, 'Shop not found');
+                if (Auth::check() && Auth::user()->belongsToShop($shop)) {
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
                 }
-                return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $shop->slug);
-            })->name('subdomain.shop.register' . $slugSuffix);
+                return view('marketplace');
+            })->where('any', '.*')->name('subdomain.customer.profile' . $slugSuffix);
 
-            // Protected Authenticated Shop Panel Routes on Subdomain
-            Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
-                Route::get('/dashboard', function (string $subdomain) {
+            // ==========================================
+            // 2. Shop Owner & Staff Management Routes (/management/*)
+            // ==========================================
+            Route::prefix('management')->group(function () use ($slugSuffix) {
+                Route::get('/', function (Request $request, string $subdomain) {
                     $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                     if (!$shop) {
                         abort(404, 'Shop not found');
                     }
-                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
-                })->name('subdomain.shop.dashboard' . $slugSuffix);
+                    if (Auth::check() && Auth::user()->belongsToShop($shop)) {
+                        return redirect($shop->getSubdomainUrl('/management/dashboard'));
+                    }
+                    return redirect($shop->getSubdomainUrl('/management/login'));
+                })->name('subdomain.management.index' . $slugSuffix);
 
+                Route::get('/login', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    if (Auth::check()) {
+                        if (Auth::user()->belongsToShop($shop)) {
+                            return redirect($shop->getSubdomainUrl('/management/dashboard'));
+                        }
+                        Auth::logout();
+                        $request->session()->invalidate();
+                        $request->session()->regenerateToken();
+                        session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+                    }
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => true]);
+                })->name('subdomain.management.login.view' . $slugSuffix);
+
+                Route::post('/login', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $shop->slug);
+                })->name('subdomain.management.login' . $slugSuffix);
+
+                Route::get('/register', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => true]);
+                })->name('subdomain.management.register.view' . $slugSuffix);
+
+                Route::post('/register', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $shop->slug);
+                })->name('subdomain.management.register' . $slugSuffix);
+
+                Route::match(['get', 'post'], '/logout', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    Auth::logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    session()->forget(['mock_active_tenant_id', 'active_shop_slug']);
+
+                    if ($request->expectsJson() || $request->is('api/*')) {
+                        return response()->json(['success' => true, 'message' => 'Logged out successfully.']);
+                    }
+
+                    $loginUrl = $shop ? $shop->getSubdomainUrl('/management/login') : '/management/login';
+                    return redirect($loginUrl)->with('success', 'Logged out successfully.');
+                })->name('subdomain.management.logout' . $slugSuffix);
+
+                // Protected Shop Panel Routes under /management
+                Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
+                    Route::get('/dashboard', function (string $subdomain) {
+                        $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                        if (!$shop) {
+                            abort(404, 'Shop not found');
+                        }
+                        return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => true]);
+                    })->name('subdomain.management.dashboard' . $slugSuffix);
+
+                    Route::get('/{any}', function (string $subdomain, string $any) {
+                        $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                        if (!$shop) {
+                            abort(404, 'Shop not found');
+                        }
+                        return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => true]);
+                    })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')
+                      ->name('subdomain.management.panel' . $slugSuffix);
+                });
+            });
+
+            // Direct /dashboard route (also accessible directly or via /management/dashboard)
+            Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
+                Route::get('/dashboard', function (Request $request, string $subdomain) {
+                    $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
+                    if (!$shop) {
+                        abort(404, 'Shop not found');
+                    }
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => true]);
+                })->name('subdomain.shop.dashboard.direct' . $slugSuffix);
+            });
+
+            // Backward-compatible direct catalog-hub & shop routes (e.g. /catalog-hub/categories)
+            Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
                 Route::get('/{any}', function (string $subdomain, string $any) {
                     $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                     if (!$shop) {
                         abort(404, 'Shop not found');
                     }
-                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true]);
+                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => false]);
                 })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')
                   ->name('subdomain.shop.panel' . $slugSuffix);
             });
