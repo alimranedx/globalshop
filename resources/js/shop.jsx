@@ -557,9 +557,8 @@ function ShopManagerApp() {
 
 const shopSlug = window.AppConfig?.shopSlug || 'alpha';
 const isSubdomain = Boolean(window.AppConfig?.isSubdomain) || !window.location.pathname.startsWith('/shop/');
-const isManagementPrefix = window.location.pathname.startsWith('/management');
 const routerBasename = isSubdomain
-    ? (isManagementPrefix ? '/management' : '/')
+    ? '/management'
     : `/shop/${shopSlug}`;
 
 // Render root element

@@ -1037,13 +1037,12 @@ Route::get('/dashboard', function (Request $request) {
 Route::get('/{any}', function (Request $request, string $any) {
     $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
     if ($customShop) {
-        if (!Auth::check() || !Auth::user()->belongsToShop($customShop)) {
-            return redirect('/management/login');
-        }
-        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
+        $query = $request->getQueryString();
+        $target = '/management/' . $any . ($query ? '?' . $query : '');
+        return redirect($target);
     }
     abort(404);
-})->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('custom_domain.shop.panel');
+})->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*')->name('custom_domain.shop.panel');
 
 // 6. Subdomain Route Handlers (e.g. alpha.shopbusket.com or alpha.shopbusket.test)
 $centralDomain = config('app.central_domain', 'shopbusket.com');
@@ -1241,7 +1240,7 @@ foreach ($subdomainBaseDomains as $baseDomain) {
                 });
             });
 
-            // Direct /dashboard route (also accessible directly or via /management/dashboard)
+            // Direct /dashboard route
             Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
                 Route::get('/dashboard', function (Request $request, string $subdomain) {
                     $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
@@ -1252,15 +1251,17 @@ foreach ($subdomainBaseDomains as $baseDomain) {
                 })->name('subdomain.shop.dashboard.direct' . $slugSuffix);
             });
 
-            // Backward-compatible direct catalog-hub & shop routes (e.g. /catalog-hub/categories)
+            // Panel routes at root redirect to /management/{any} (e.g. /catalog-hub/categories -> /management/catalog-hub/categories)
             Route::middleware(['auth', 'shop.access'])->group(function () use ($slugSuffix) {
-                Route::get('/{any}', function (string $subdomain, string $any) {
+                Route::get('/{any}', function (Request $request, string $subdomain, string $any) {
                     $shop = \App\Models\Shop::where('subdomain', $subdomain)->orWhere('slug', $subdomain)->first();
                     if (!$shop) {
                         abort(404, 'Shop not found');
                     }
-                    return view('shop', ['shopSlug' => $shop->slug, 'isSubdomain' => true, 'isManagement' => false]);
-                })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')
+                    $query = $request->getQueryString();
+                    $target = $shop->getSubdomainUrl('/management/' . $any) . ($query ? '?' . $query : '');
+                    return redirect($target);
+                })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*')
                   ->name('subdomain.shop.panel' . $slugSuffix);
             });
         });

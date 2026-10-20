@@ -269,16 +269,22 @@ class EndToEndSystemVerificationTest extends TestCase
         $loginPostRes->assertStatus(302);
         $this->assertAuthenticatedAs($this->shopOwner);
 
-        // E. Authenticated Shop Panel Access on Subdomain
+        // E. Authenticated Shop Panel Access on Subdomain under /management
         $panelRes = $this->actingAs($this->shopOwner)
-            ->get('http://titan.shopbusket.test/catalog-hub/categories');
+            ->get('http://titan.shopbusket.test/management/catalog-hub/categories');
         $panelRes->assertStatus(200);
         $panelRes->assertViewIs('shop');
         $panelRes->assertViewHas('shopSlug', 'titan');
 
-        // F. Authenticated Shop Panel Access on Custom Domain
+        // Verify root panel route redirects to /management/catalog-hub/categories
+        $panelRedirect = $this->actingAs($this->shopOwner)
+            ->get('http://titan.shopbusket.test/catalog-hub/categories');
+        $panelRedirect->assertStatus(302);
+        $panelRedirect->assertRedirect('http://titan.shopbusket.test/management/catalog-hub/categories');
+
+        // F. Authenticated Shop Panel Access on Custom Domain under /management
         $customPanelRes = $this->actingAs($this->shopOwner)
-            ->get('http://titangear.com/catalog-hub/categories');
+            ->get('http://titangear.com/management/catalog-hub/categories');
         $customPanelRes->assertStatus(200);
         $customPanelRes->assertViewIs('shop');
 

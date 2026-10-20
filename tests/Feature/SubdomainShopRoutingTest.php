@@ -61,18 +61,20 @@ class SubdomainShopRoutingTest extends TestCase
 
     public function test_subdomain_routes_render_shop_panel_for_authenticated_owner(): void
     {
+        // Direct root panel route redirects to /management/{any}
         $response = $this->actingAs($this->ownerAlpha)
             ->get('http://alpha.shopbusket.test/catalog-hub/categories');
 
-        $response->assertStatus(200);
-        $response->assertViewIs('shop');
-        $response->assertViewHas('shopSlug', 'alpha');
-        $response->assertViewHas('isSubdomain', true);
+        $response->assertStatus(302);
+        $response->assertRedirect('http://alpha.shopbusket.test/management/catalog-hub/categories');
 
+        // Panel route under /management renders shop view
         $resManagement = $this->actingAs($this->ownerAlpha)
             ->get('http://alpha.shopbusket.test/management/catalog-hub/categories');
         $resManagement->assertStatus(200);
         $resManagement->assertViewIs('shop');
+        $resManagement->assertViewHas('shopSlug', 'alpha');
+        $resManagement->assertViewHas('isSubdomain', true);
     }
 
     public function test_subdomain_dashboard_route_renders_for_authenticated_owner(): void

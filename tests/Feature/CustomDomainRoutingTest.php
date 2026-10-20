@@ -104,8 +104,15 @@ class CustomDomainRoutingTest extends TestCase
 
     public function test_custom_domain_renders_shop_panel_for_authenticated_owner(): void
     {
-        $response = $this->actingAs($this->ownerAlpha)
+        // Root panel route redirects to /management/{any}
+        $redirectRes = $this->actingAs($this->ownerAlpha)
             ->get('http://alphagear.com/catalog-hub/categories');
+        $redirectRes->assertStatus(302);
+        $redirectRes->assertRedirect('/management/catalog-hub/categories');
+
+        // Panel route under /management renders shop view
+        $response = $this->actingAs($this->ownerAlpha)
+            ->get('http://alphagear.com/management/catalog-hub/categories');
 
         $response->assertStatus(200);
         $response->assertViewIs('shop');
