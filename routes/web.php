@@ -30,6 +30,29 @@ Route::get('/', function (Request $request) {
         return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $customShop->subdomain ?: $customShop->slug);
     }
 
+    // 2. Check if request is on a tenant subdomain
+    $host = strtolower($request->getHost());
+    $subdomainBases = array_unique(array_filter([
+        config('app.central_domain', 'shopbusket.com'),
+        config('app.base_domain', 'globalshop.test'),
+        'shopbusket.test',
+        'localhost',
+    ]));
+    foreach ($subdomainBases as $baseDomain) {
+        if ($host !== $baseDomain && str_ends_with($host, '.' . $baseDomain)) {
+            $sub = substr($host, 0, -(strlen($baseDomain) + 1));
+            if (str_starts_with($sub, 'www.')) {
+                $sub = substr($sub, 4);
+            }
+            if (!empty($sub) && !\App\Models\Shop::isReservedSubdomain($sub)) {
+                $subShop = \App\Models\Shop::where('subdomain', $sub)->orWhere('slug', $sub)->first();
+                if ($subShop) {
+                    return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $subShop->subdomain ?: $subShop->slug);
+                }
+            }
+        }
+    }
+
     if (auth()->check()) {
         $user = auth()->user();
 
