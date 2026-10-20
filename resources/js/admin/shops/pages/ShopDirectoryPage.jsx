@@ -215,41 +215,13 @@ export function ShopDirectoryPage() {
             <SectionCard>
                 {loading ? <PageLoader /> : (
                     <DataTable
-                        columns={['Shop Name', 'Owner', 'Plan', 'Setup Progress', 'Status', 'Actions']}
+                        columns={['Shop Name', 'Owner', 'Plan', 'Setup Progress', 'Status', 'Domain', 'Actions']}
                         rows={shops.map(shop => {
                             const subdomainUrl = getSubdomainUrl(shop);
                             return [
                                 <div>
                                     <div style={{ fontWeight: 700, color: '#f3f4f6', fontSize: '0.925rem' }}>{shop.name}</div>
-                                    <div style={{ marginTop: '0.2rem' }}>
-                                        <a
-                                            href={subdomainUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            title={`Visit subdomain: ${subdomainUrl}`}
-                                            style={{
-                                                fontSize: '0.75rem',
-                                                color: '#818cf8',
-                                                textDecoration: 'none',
-                                                display: 'inline-flex',
-                                                alignItems: 'center',
-                                                gap: '0.25rem',
-                                                transition: 'color 0.15s ease',
-                                                fontFamily: 'monospace',
-                                            }}
-                                            onMouseEnter={e => {
-                                                e.currentTarget.style.color = '#c7d2fe';
-                                                e.currentTarget.style.textDecoration = 'underline';
-                                            }}
-                                            onMouseLeave={e => {
-                                                e.currentTarget.style.color = '#818cf8';
-                                                e.currentTarget.style.textDecoration = 'none';
-                                            }}
-                                        >
-                                            <span>{subdomainUrl}</span>
-                                            <span style={{ fontSize: '0.7rem' }}>↗</span>
-                                        </a>
-                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '0.15rem' }}>/{shop.slug}</div>
                                 </div>,
                                 <div>
                                     <div style={{ color: '#e5e7eb', fontSize: '0.85rem', fontWeight: 500 }}>{shop.owner?.name || 'Unassigned'}</div>
@@ -270,6 +242,91 @@ export function ShopDirectoryPage() {
                                     </div>
                                 </div>,
                                 <ShopStatusBadge status={shop.status} />,
+                                <div style={{ minWidth: '220px' }}>
+                                    <a
+                                        href={subdomainUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title={`Visit and test ${shop.name} subdomain`}
+                                        style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '0.4rem',
+                                            padding: '0.4rem 0.7rem',
+                                            borderRadius: '8px',
+                                            background: 'rgba(99, 102, 241, 0.12)',
+                                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                                            color: '#a5b4fc',
+                                            textDecoration: 'none',
+                                            fontSize: '0.78rem',
+                                            fontFamily: 'monospace',
+                                            fontWeight: 600,
+                                            transition: 'all 0.15s ease',
+                                        }}
+                                        onMouseEnter={e => {
+                                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.22)';
+                                            e.currentTarget.style.borderColor = '#818cf8';
+                                            e.currentTarget.style.color = '#ffffff';
+                                        }}
+                                        onMouseLeave={e => {
+                                            e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
+                                            e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+                                            e.currentTarget.style.color = '#a5b4fc';
+                                        }}
+                                    >
+                                        <span>🌐</span>
+                                        <span>{subdomainUrl}</span>
+                                        <span style={{ fontSize: '0.72rem' }}>↗</span>
+                                    </a>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginTop: '0.35rem' }}>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (navigator.clipboard) {
+                                                    navigator.clipboard.writeText(subdomainUrl);
+                                                    show(`Copied "${subdomainUrl}" to clipboard!`, 'success');
+                                                }
+                                            }}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#6b7280',
+                                                fontSize: '0.72rem',
+                                                cursor: 'pointer',
+                                                padding: 0,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.2rem',
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
+                                            onMouseLeave={e => e.currentTarget.style.color = '#6b7280'}
+                                            title="Copy URL to clipboard"
+                                        >
+                                            <span>📋 Copy</span>
+                                        </button>
+                                        <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: '0.7rem' }}>•</span>
+                                        <a
+                                            href={subdomainUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{
+                                                color: '#10b981',
+                                                fontSize: '0.72rem',
+                                                textDecoration: 'none',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.2rem',
+                                                fontWeight: 600,
+                                            }}
+                                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                                            title="Open and test live shop storefront"
+                                        >
+                                            <span>▶ Test Shop</span>
+                                        </a>
+                                    </div>
+                                </div>,
                                 <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                                     {shop.status === 'pending' && (
                                         <ActionBtn
