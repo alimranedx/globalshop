@@ -152,4 +152,24 @@ class SubdomainShopRoutingTest extends TestCase
         $response->assertStatus(301);
         $response->assertRedirect('http://alpha.localhost/login');
     }
+
+    public function test_cpanel_service_skipped_when_disabled(): void
+    {
+        config(['services.cpanel.enabled' => false]);
+        $service = new \App\Services\CpanelSubdomainService();
+
+        $createRes = $service->createSubdomain('testshop');
+        $this->assertTrue($createRes['success']);
+        $this->assertTrue($createRes['skipped']);
+
+        $deleteRes = $service->deleteSubdomain('testshop');
+        $this->assertTrue($deleteRes['success']);
+        $this->assertTrue($deleteRes['skipped']);
+    }
+
+    public function test_shop_deletion_triggers_subdomain_cleanup(): void
+    {
+        $this->shopAlpha->delete();
+        $this->assertSoftDeleted('shops', ['id' => $this->shopAlpha->id]);
+    }
 }

@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    'cpanel' => [
+        'host' => env('CPANEL_HOST', 'https://104.152.168.205:2083'),
+        'username' => env('CPANEL_USERNAME', 'shopbusk'),
+        'token' => env('CPANEL_API_TOKEN', '8FD4C2QCFTSLQ1WD0Y0X45UM9HSVPGCP'),
+        'root_domain' => env('CPANEL_ROOT_DOMAIN', 'shopbusket.com'),
+        'enabled' => env('CPANEL_AUTO_SUBDOMAIN_ENABLED', false),
+    ],
+
 ];

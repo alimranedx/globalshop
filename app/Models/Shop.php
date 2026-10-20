@@ -42,6 +42,42 @@ class Shop extends Model
     ];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (Shop $shop) {
+            if (!empty($shop->subdomain)) {
+                try {
+                    resolve(\App\Services\CpanelSubdomainService::class)->createSubdomain($shop->subdomain);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Could not auto-create cPanel subdomain for shop {$shop->slug}: " . $e->getMessage());
+                }
+            }
+        });
+
+        static::deleted(function (Shop $shop) {
+            if (!empty($shop->subdomain)) {
+                try {
+                    resolve(\App\Services\CpanelSubdomainService::class)->deleteSubdomain($shop->subdomain);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Could not auto-delete cPanel subdomain for shop {$shop->slug}: " . $e->getMessage());
+                }
+            }
+        });
+
+        static::restored(function (Shop $shop) {
+            if (!empty($shop->subdomain)) {
+                try {
+                    resolve(\App\Services\CpanelSubdomainService::class)->createSubdomain($shop->subdomain);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning("Could not auto-restore cPanel subdomain for shop {$shop->slug}: " . $e->getMessage());
+                }
+            }
+        });
+    }
+
+    /**
      * Get the owner of the shop.
      */
     public function owner(): BelongsTo

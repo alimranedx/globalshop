@@ -29,3 +29,11 @@
 * **Subdomain Normalization:** Canonical domains use 3rd-level domain structure (`alpha.shopbusket.com`). 4th-level subdomains (`www.alpha.shopbusket.com`) automatically 301 redirect to the canonical 3rd-level domain to respect wildcard SSL limits.
 * **Reserved Subdomain Protection:** System subdomains (`www`, `admin`, `api`, `app`, `mail`, `cpanel`, `webmail`, `billing`, `support`) are rejected from being claimed or routed as tenant shops.
 * **Dual Routing Compatibility:** Both subdomain routes and path routes (`/shop/{slug}/*`) are supported simultaneously. React Router dynamically toggles its `basename` between root `/` (when loaded on a subdomain) and `/shop/{slug}` (when loaded via central domain path).
+
+---
+
+## 🏛️ ADR-005: Automated cPanel Subdomain Provisioning & Deletion
+* **Date:** 2026-10-20
+* **Decision:** Automate subdomain creation and deletion at the hosting level via cPanel UAPI (`SubDomain::addsubdomain` and `SubDomain::delsubdomain`).
+* **Wildcard Fallback:** cPanel Wildcard Subdomain `*.shopbusket.com` and Wildcard DNS `*` are permanently enabled pointing to `/home/shopbusk/public_html`, ensuring zero propagation delay and 100% uptime for new shops.
+* **Model Hooks:** `Shop::created` provisions the cPanel subdomain, and `Shop::deleted` automatically deletes the subdomain from cPanel. Handled via `CpanelSubdomainService` using full-access cPanel API tokens.
