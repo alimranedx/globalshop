@@ -137,6 +137,15 @@ class StorefrontWebController extends Controller
             ->take(50)
             ->get();
 
-        return view('storefront', compact('shop', 'theme', 'themeConfig', 'categories', 'brands', 'products'));
+        // Fetch popular / top featured products for slider
+        $popularProducts = Product::withoutGlobalScopes()
+            ->where('shop_id', $shop->id)
+            ->where('status', 'published')
+            ->with(['images' => fn($q) => $q->orderBy('sort_order', 'asc'), 'category', 'brand'])
+            ->orderBy('stock_quantity', 'desc')
+            ->take(6)
+            ->get();
+
+        return view('storefront', compact('shop', 'theme', 'themeConfig', 'categories', 'brands', 'products', 'popularProducts'));
     }
 }
