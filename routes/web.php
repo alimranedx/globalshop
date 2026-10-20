@@ -737,51 +737,58 @@ if (app()->environment('local') || config('app.debug')) {
 // 1. Central Shop Discovery / Selection Page
 Route::get('/shop', [\App\Http\Controllers\ShopDiscoveryController::class, 'index'])->name('shop.index');
 
-// 2. Unauthenticated Shop Public & Auth View Routes
-Route::get('/shop/{slug}/login', function (string $slug) {
-    $shop = \App\Models\Shop::where('slug', $slug)->first();
+// 2. Unauthenticated Shop Public & Auth View Routes (Redirect to Subdomain)
+Route::get('/shop/{slug}/login', function (Request $request, string $slug) {
+    $shop = \App\Models\Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
     if (!$shop) {
         abort(404, 'Shop not found');
     }
-    return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
+    return redirect()->to($shop->getSubdomainUrl('/login'), 301);
 })->name('shop.login.view');
 
-Route::get('/shop/{slug}/register', function (string $slug) {
-    $shop = \App\Models\Shop::where('slug', $slug)->first();
+Route::get('/shop/{slug}/register', function (Request $request, string $slug) {
+    $shop = \App\Models\Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
     if (!$shop) {
         abort(404, 'Shop not found');
     }
-    return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
+    return redirect()->to($shop->getSubdomainUrl('/register'), 301);
 })->name('shop.register.view');
 
 Route::post('/shop/{slug}/login', [\App\Http\Controllers\ShopAuthController::class, 'login'])->name('shop.login');
 Route::post('/shop/{slug}/register', [\App\Http\Controllers\ShopAuthController::class, 'register'])->name('shop.register');
 
-// 3. Protected Authenticated Shop Panel Routes
+// 3. Protected Authenticated Shop Panel Routes (Redirect to Subdomain)
 Route::middleware(['auth', 'shop.access'])->group(function () {
-    Route::get('/shop/{slug}/dashboard', function (string $slug) {
-        $shop = \App\Models\Shop::where('slug', $slug)->first();
+    Route::get('/shop/{slug}/dashboard', function (Request $request, string $slug) {
+        $shop = \App\Models\Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
         if (!$shop) {
             abort(404, 'Shop not found');
         }
-        return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
+        return redirect()->to($shop->getSubdomainUrl('/dashboard'), 301);
     })->name('shop.dashboard');
 
-    Route::get('/shop/{slug}/{any}', function (string $slug, string $any) {
-        $shop = \App\Models\Shop::where('slug', $slug)->first();
+    Route::get('/shop/{slug}/{any}', function (Request $request, string $slug, string $any) {
+        $shop = \App\Models\Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
         if (!$shop) {
             abort(404, 'Shop not found');
         }
-        return view('shop', ['shopSlug' => $slug, 'isSubdomain' => false]);
+        return redirect()->to($shop->getSubdomainUrl('/' . ltrim($any, '/')), 301);
     })->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('shop.panel');
 });
 
-// 4. Shop Public & Auth Entry Page
+// 4. Shop Public & Auth Entry Page (Redirect to Subdomain Dashboard)
 Route::get('/shop/{slug}', [\App\Http\Controllers\ShopAuthController::class, 'showEntry'])->name('shop.entry');
 
 // 5. Dedicated Tenant Shop Storefront Routes (Multi-Theme eCommerce website)
 Route::get('/store/{slug}', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('storefront.view');
-Route::get('/shop/{slug}/storefront', [\App\Http\Controllers\StorefrontWebController::class, 'renderStorefront'])->name('shop.storefront.view');
+
+Route::get('/shop/{slug}/storefront', function (Request $request, string $slug) {
+    $shop = \App\Models\Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
+    if (!$shop) {
+        abort(404, 'Shop not found');
+    }
+    return redirect()->to($shop->getSubdomainUrl('/'), 301);
+})->name('shop.storefront.view');
 
 // 6. Subdomain Route Handlers (e.g. alpha.shopbusket.com or alpha.shopbusket.test)
 $centralDomain = config('app.central_domain', 'shopbusket.com');

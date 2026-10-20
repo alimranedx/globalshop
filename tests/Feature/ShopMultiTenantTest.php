@@ -119,9 +119,8 @@ class ShopMultiTenantTest extends TestCase
     public function test_shop_public_auth_entry_page_displays_shop_branding()
     {
         $response = $this->get('/shop/alpha');
-        $response->assertStatus(200);
-        $response->assertSee('Shop Alpha');
-        $response->assertSee('Log In');
+        $response->assertStatus(301);
+        $response->assertRedirect('http://alpha.localhost/dashboard');
 
         // Non-existent shop returns 404
         $invalidResponse = $this->get('/shop/invalid-shop-slug');
@@ -163,8 +162,8 @@ class ShopMultiTenantTest extends TestCase
         // Acting as Owner Alpha
         $this->actingAs($this->ownerAlpha);
 
-        // Attempting to visit Beta dashboard
-        $response = $this->get('/shop/beta/dashboard');
+        // Attempting to visit Beta dashboard on subdomain
+        $response = $this->get('http://beta.shopbusket.test/dashboard');
         $response->assertStatus(403);
     }
 
@@ -172,10 +171,10 @@ class ShopMultiTenantTest extends TestCase
     {
         $this->actingAs($this->superAdmin);
 
-        $responseAlpha = $this->get('/shop/alpha/dashboard');
+        $responseAlpha = $this->get('http://alpha.shopbusket.test/dashboard');
         $responseAlpha->assertStatus(200);
 
-        $responseBeta = $this->get('/shop/beta/dashboard');
+        $responseBeta = $this->get('http://beta.shopbusket.test/dashboard');
         $responseBeta->assertStatus(200);
     }
 

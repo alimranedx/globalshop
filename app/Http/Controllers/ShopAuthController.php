@@ -27,24 +27,17 @@ class ShopAuthController extends Controller
     }
 
     /**
-     * Display the shop public entry and authentication page (/shop/{slug}).
+     * Redirect legacy shop public entry (/shop/{slug}) to the tenant subdomain dashboard.
      */
-    public function showEntry(Request $request, string $slug): View|RedirectResponse
+    public function showEntry(Request $request, string $slug): RedirectResponse
     {
-        $shop = Shop::where('slug', $slug)->first();
+        $shop = Shop::where('slug', $slug)->orWhere('subdomain', $slug)->first();
 
         if (!$shop) {
             abort(404, 'Shop not found');
         }
 
-        $user = Auth::user();
-        $isAuthorized = $user ? $user->belongsToShop($shop) : false;
-
-        return view('shop.entry', [
-            'shop' => $shop,
-            'authenticatedUser' => $user,
-            'isAuthorized' => $isAuthorized,
-        ]);
+        return redirect()->to($shop->getSubdomainUrl('/dashboard'), 301);
     }
 
     /**

@@ -131,4 +131,25 @@ class SubdomainShopRoutingTest extends TestCase
         $url = $newShop->getSubdomainUrl('/dashboard');
         $this->assertStringContainsString('bravo.localhost/dashboard', $url);
     }
+
+    public function test_legacy_path_shop_alpha_redirects_to_subdomain_dashboard(): void
+    {
+        $response = $this->get('/shop/alpha');
+        $response->assertStatus(301);
+        $response->assertRedirect('http://alpha.localhost/dashboard');
+    }
+
+    public function test_legacy_path_catalog_hub_redirects_to_subdomain(): void
+    {
+        $response = $this->actingAs($this->ownerAlpha)->get('/shop/alpha/catalog-hub/categories');
+        $response->assertStatus(301);
+        $response->assertRedirect('http://alpha.localhost/catalog-hub/categories');
+    }
+
+    public function test_legacy_path_login_redirects_to_subdomain(): void
+    {
+        $response = $this->get('/shop/alpha/login');
+        $response->assertStatus(301);
+        $response->assertRedirect('http://alpha.localhost/login');
+    }
 }

@@ -164,7 +164,7 @@ class ShopRegistrationApprovalTest extends TestCase
         $owner = User::where('email', 'sarah@boutique.com')->first();
         $this->actingAs($owner);
 
-        $dashboardResponse = $this->get("/shop/{$shop->slug}/dashboard");
+        $dashboardResponse = $this->get($shop->getSubdomainUrl('/dashboard'));
         $dashboardResponse->assertStatus(200);
 
         // Sarah adds a new employee to her shop via Tenant Employee API

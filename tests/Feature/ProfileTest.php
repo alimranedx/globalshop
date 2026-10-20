@@ -197,7 +197,7 @@ class ProfileTest extends TestCase
     public function test_shop_profile_web_route_loads_successfully(): void
     {
         $response = $this->actingAs($this->owner)
-            ->get('/shop/' . $this->shop->slug . '/profile');
+            ->get($this->shop->getSubdomainUrl('/profile'));
 
         $response->assertStatus(200)
             ->assertViewIs('shop');
