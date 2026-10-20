@@ -31,6 +31,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToGroup('api', \Illuminate\Session\Middleware\StartSession::class);
         $middleware->prependToGroup('api', \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class);
         $middleware->prependToGroup('api', \Illuminate\Cookie\Middleware\EncryptCookies::class);
+        $middleware->appendToGroup('web', ResolveTenant::class);
+        $middleware->appendToGroup('api', ResolveTenant::class);
         $middleware->alias([
             'tenant.resolve' => ResolveTenant::class,
             'shop.access' => \App\Modules\ShopManager\Middleware\EnsureShopAccess::class,

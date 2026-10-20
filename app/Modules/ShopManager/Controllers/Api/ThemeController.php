@@ -118,15 +118,31 @@ class ThemeController extends Controller
 
         $domain = $validated['custom_domain'] ? Str::lower(trim($validated['custom_domain'])) : null;
 
-        // Strip http/https and trailing slashes if entered by user
+        // Strip http/https, trailing slashes, and port if entered by user
         if ($domain) {
             $domain = preg_replace('#^https?://#', '', $domain);
             $domain = rtrim($domain, '/');
+            if (str_contains($domain, ':')) {
+                $domain = explode(':', $domain)[0];
+            }
         }
 
         $shop->custom_domain = $domain;
-        // In local/testing environment, mark as verified immediately; in production, mark pending DNS check
-        $shop->custom_domain_status = $domain ? (app()->environment('production') ? 'pending' : 'verified') : 'none';
+        if ($domain) {
+            $shop->domain = $domain;
+            // In testing/local environment, mark verified immediately; in production verify against host IP
+            $serverIp = '104.152.168.205';
+            $resolvedIp = @gethostbyname($domain);
+            if (app()->environment('testing', 'local') || $resolvedIp === $serverIp) {
+                $shop->custom_domain_status = 'verified';
+            } else {
+                $shop->custom_domain_status = 'pending';
+            }
+        } else {
+            $shop->domain = ($shop->subdomain ?: $shop->slug) . '.' . config('app.central_domain', 'shopbusket.com');
+            $shop->custom_domain_status = 'none';
+        }
+
         $shop->save();
 
         return response()->json([
@@ -138,7 +154,56 @@ class ThemeController extends Controller
                 'custom_domain' => $shop->custom_domain,
                 'custom_domain_status' => $shop->custom_domain_status,
                 'cname_target' => config('app.central_domain', 'shopbusket.com'),
+                'server_ip' => '104.152.168.205',
             ],
         ]);
+    }
+
+    /**
+     * Verify DNS records for the shop's custom domain.
+     */
+    public function verifyCustomDomain(): JsonResponse
+    {
+        $shop = TenantManager::getTenant();
+
+        if (!$shop || empty($shop->custom_domain)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No custom domain configured.'
+            ], 400);
+        }
+
+        $serverIp = '104.152.168.205';
+        $domain = $shop->custom_domain;
+        $resolvedIp = @gethostbyname($domain);
+
+        $isPointing = ($resolvedIp === $serverIp) || app()->environment('testing', 'local');
+
+        if ($isPointing) {
+            $shop->custom_domain_status = 'verified';
+            $shop->save();
+
+            return response()->json([
+                'success' => true,
+                'verified' => true,
+                'message' => "Domain {$domain} is verified and pointed to your shop!",
+                'data' => [
+                    'custom_domain' => $shop->custom_domain,
+                    'custom_domain_status' => 'verified',
+                ]
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'verified' => false,
+            'message' => "DNS records for {$domain} have not propagated yet. Current resolved IP: {$resolvedIp}. Expected: {$serverIp}.",
+            'data' => [
+                'custom_domain' => $shop->custom_domain,
+                'custom_domain_status' => 'pending',
+                'expected_ip' => $serverIp,
+                'actual_ip' => $resolvedIp,
+            ]
+        ], 422);
     }
 }

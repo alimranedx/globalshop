@@ -1147,6 +1147,24 @@ class PlatformAdminController extends Controller
 
         $oldValues = $shop->toArray();
 
+        if (array_key_exists('domain', $validated)) {
+            $rawDomain = $validated['domain'];
+            if (!empty($rawDomain)) {
+                $cleaned = preg_replace('#^https?://#', '', strtolower(trim($rawDomain)));
+                $cleaned = rtrim($cleaned, '/');
+                if (str_contains($cleaned, ':')) {
+                    $cleaned = explode(':', $cleaned)[0];
+                }
+                $validated['domain'] = $cleaned;
+                $validated['custom_domain'] = $cleaned;
+                $validated['custom_domain_status'] = 'verified';
+            } else {
+                $validated['domain'] = ($shop->subdomain ?: $shop->slug) . '.' . config('app.central_domain', 'shopbusket.com');
+                $validated['custom_domain'] = null;
+                $validated['custom_domain_status'] = 'none';
+            }
+        }
+
         $planId = $validated['plan_id'] ?? null;
         unset($validated['plan_id']);
 

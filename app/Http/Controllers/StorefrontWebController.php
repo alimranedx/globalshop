@@ -35,14 +35,12 @@ class StorefrontWebController extends Controller
         }
 
         // Try custom domain
-        $host = $request->getHost();
-        $shop = Shop::where('custom_domain', $host)
-            ->orWhere('domain', $host)
-            ->first();
-
+        $shop = Shop::resolveCustomDomainShop($request->getHost());
         if ($shop) {
             return $shop;
         }
+
+        $host = $request->getHost();
 
         // Try subdomain
         $baseDomains = array_filter([

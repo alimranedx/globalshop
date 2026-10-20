@@ -105,6 +105,7 @@ Route::prefix('v1')->group(function () {
         Route::get('theme', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'index'])->name('shop.theme.index');
         Route::put('theme', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'update'])->name('shop.theme.update');
         Route::post('custom-domain', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'updateCustomDomain'])->name('shop.custom-domain.update');
+        Route::post('custom-domain/verify', [\App\Modules\ShopManager\Controllers\Api\ThemeController::class, 'verifyCustomDomain'])->name('shop.custom-domain.verify');
 
         // Dashboard Analytics
         Route::get('dashboard-stats', \App\Modules\ShopManager\Controllers\Api\DashboardStatsController::class)->name('dashboard.stats');

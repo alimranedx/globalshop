@@ -24,6 +24,12 @@ use Illuminate\Validation\ValidationException;
 */
 
 Route::get('/', function (Request $request) {
+    // 1. Check if request is on a verified custom domain
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $customShop->subdomain ?: $customShop->slug);
+    }
+
     if (auth()->check()) {
         $user = auth()->user();
 
@@ -70,6 +76,14 @@ Route::get('/login', function (Request $request) {
         return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
     }
 
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        if (Auth::check() && Auth::user()->belongsToShop($customShop)) {
+            return redirect('/dashboard');
+        }
+        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
+    }
+
     if (auth()->check()) {
         $user = auth()->user();
         $isShopOrAdminUser = $user->is_platform_admin
@@ -94,6 +108,11 @@ Route::get('/login', function (Request $request) {
 Route::get('/register', function (Request $request) {
     if ($request->wantsJson()) {
         return response()->json(['success' => false, 'message' => 'Unauthenticated.'], 401);
+    }
+
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
     }
 
     if (auth()->check()) {
@@ -554,6 +573,11 @@ Route::prefix('demo')->group(function () {
             'shop' => $shop ? [
                 'id' => $shop->id,
                 'name' => $shop->name,
+                'slug' => $shop->slug,
+                'subdomain' => $shop->subdomain ?: $shop->slug,
+                'domain' => $shop->domain,
+                'custom_domain' => $shop->custom_domain,
+                'custom_domain_status' => $shop->custom_domain_status ?: 'none',
                 'status' => $shop->status,
                 'currency' => $shop->currency ?? 'USD',
                 'language' => $shop->language ?? 'en',
@@ -789,6 +813,61 @@ Route::get('/shop/{slug}/storefront', function (Request $request, string $slug) 
     }
     return redirect()->to($shop->getSubdomainUrl('/'), 301);
 })->name('shop.storefront.view');
+
+// 5.5 Custom Domain Direct Tenant Handlers (e.g. alphagear.com or store.mybrand.com)
+Route::get('/catalog', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $customShop->subdomain ?: $customShop->slug);
+    }
+    return redirect('/');
+})->name('custom_domain.catalog');
+
+Route::get('/storefront', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return resolve(\App\Http\Controllers\StorefrontWebController::class)->renderStorefront($request, $customShop->subdomain ?: $customShop->slug);
+    }
+    return redirect('/');
+})->name('custom_domain.storefront');
+
+Route::post('/login', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return resolve(\App\Http\Controllers\ShopAuthController::class)->login($request, $customShop->slug);
+    }
+    abort(404);
+})->name('custom_domain.shop.login');
+
+Route::post('/register', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        return resolve(\App\Http\Controllers\ShopAuthController::class)->register($request, $customShop->slug);
+    }
+    abort(404);
+})->name('custom_domain.shop.register');
+
+Route::get('/dashboard', function (Request $request) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        if (!Auth::check() || !Auth::user()->belongsToShop($customShop)) {
+            return redirect('/login');
+        }
+        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
+    }
+    abort(404);
+})->name('custom_domain.shop.dashboard');
+
+Route::get('/{any}', function (Request $request, string $any) {
+    $customShop = \App\Models\Shop::resolveCustomDomainShop($request->getHost());
+    if ($customShop) {
+        if (!Auth::check() || !Auth::user()->belongsToShop($customShop)) {
+            return redirect('/login');
+        }
+        return view('shop', ['shopSlug' => $customShop->slug, 'isSubdomain' => false, 'isCustomDomain' => true]);
+    }
+    abort(404);
+})->where('any', 'catalog-hub.*|sales.*|customers.*|staff.*|settings.*|logs.*|products.*|categories.*|brands.*|reports.*|inventory.*|suppliers.*|purchases.*|payments.*|expenses.*|profile.*')->name('custom_domain.shop.panel');
 
 // 6. Subdomain Route Handlers (e.g. alpha.shopbusket.com or alpha.shopbusket.test)
 $centralDomain = config('app.central_domain', 'shopbusket.com');

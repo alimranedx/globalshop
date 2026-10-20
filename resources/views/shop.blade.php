@@ -9,7 +9,8 @@
     <script>
         window.AppConfig = {
             shopSlug: "{{ $shopSlug }}",
-            isSubdomain: {{ !empty($isSubdomain) ? 'true' : 'false' }},
+            isSubdomain: {{ (!empty($isSubdomain) || !empty($isCustomDomain)) ? 'true' : 'false' }},
+            isCustomDomain: {{ !empty($isCustomDomain) ? 'true' : 'false' }},
             baseUrl: "{{ url('/') }}"
         };
     </script>

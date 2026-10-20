@@ -17,7 +17,10 @@ export default function SettingsView() {
     const [currency, setCurrency] = useState(shop ? (shop.currency || 'USD') : 'USD');
     const [language, setLanguage] = useState(shop ? (shop.language || 'en') : 'en');
     const [refundWindowDays, setRefundWindowDays] = useState(shop ? (shop.refund_window_days ?? 30) : 30);
+    const [customDomainInput, setCustomDomainInput] = useState(shop ? (shop.custom_domain || '') : '');
     const [saving, setSaving] = useState(false);
+    const [savingDomain, setSavingDomain] = useState(false);
+    const [verifyingDomain, setVerifyingDomain] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
@@ -27,8 +30,80 @@ export default function SettingsView() {
             setCurrency(shop.currency || 'USD');
             setLanguage(shop.language || 'en');
             setRefundWindowDays(shop.refund_window_days ?? 30);
+            setCustomDomainInput(shop.custom_domain || '');
         }
     }, [shop]);
+
+    const handleSaveCustomDomain = async (e) => {
+        if (e) e.preventDefault();
+        setSavingDomain(true);
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/custom-domain', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ custom_domain: customDomainInput.trim() })
+            });
+            const res = await response.json();
+            if (res.success) {
+                dispatch(showToast({ message: res.message || 'Custom domain updated!', isError: false }));
+                dispatch(fetchState());
+            } else {
+                dispatch(showToast({ message: res.message || 'Failed to update custom domain.', isError: true }));
+            }
+        } catch (err) {
+            dispatch(showToast({ message: 'Connection error updating domain.', isError: true }));
+        } finally {
+            setSavingDomain(false);
+        }
+    };
+
+    const handleRemoveCustomDomain = async () => {
+        if (!confirm('Are you sure you want to disconnect this custom domain?')) return;
+        setSavingDomain(true);
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/custom-domain', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ custom_domain: '' })
+            });
+            const res = await response.json();
+            if (res.success) {
+                dispatch(showToast({ message: 'Custom domain removed.', isError: false }));
+                setCustomDomainInput('');
+                dispatch(fetchState());
+            } else {
+                dispatch(showToast({ message: res.message || 'Failed to remove domain.', isError: true }));
+            }
+        } catch (err) {
+            dispatch(showToast({ message: 'Connection error.', isError: true }));
+        } finally {
+            setSavingDomain(false);
+        }
+    };
+
+    const handleVerifyCustomDomain = async () => {
+        setVerifyingDomain(true);
+        const headers = getHeaders();
+        try {
+            const response = await fetch('/api/v1/tenant/custom-domain/verify', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' }
+            });
+            const res = await response.json();
+            if (res.success && res.verified) {
+                dispatch(showToast({ message: res.message || 'Domain verified successfully!', isError: false }));
+                dispatch(fetchState());
+            } else {
+                dispatch(showToast({ message: res.message || 'DNS verification pending.', isError: true }));
+            }
+        } catch (err) {
+            dispatch(showToast({ message: 'DNS verification check failed.', isError: true }));
+        } finally {
+            setVerifyingDomain(false);
+        }
+    };
 
     const handleSave = async (e) => {
         e.preventDefault();
@@ -265,7 +340,10 @@ export default function SettingsView() {
                                 </span>
                             </div>
                             <div>Subdomain Slug: <code>{shop.slug}</code></div>
-                            <div>Mock Domain: <code>{shop.domain || `${shop.slug}.globalshop.test`}</code></div>
+                            <div>Subdomain URL: <a href={`https://${shop.subdomain || shop.slug}.shopbusket.com`} target="_blank" rel="noreferrer" style={{ color: '#6366f1', fontWeight: 600 }}>https://{shop.subdomain || shop.slug}.shopbusket.com</a></div>
+                            {shop.custom_domain && (
+                                <div>Custom Domain: <a href={`https://${shop.custom_domain}`} target="_blank" rel="noreferrer" style={{ color: '#10b981', fontWeight: 700 }}>https://{shop.custom_domain}</a> ({shop.custom_domain_status || 'verified'})</div>
+                            )}
                             <div>Tenant ULID ID: <code>{shop.id}</code></div>
                             <div>Currency Code: <strong>{shop.currency || 'USD'}</strong></div>
                             <div>Active Interface Language: <strong>{shop.language === 'bn' ? 'Bangla (বাংলা)' : 'English'}</strong></div>
@@ -274,6 +352,141 @@ export default function SettingsView() {
                     )
                 )}
             </div>
+
+            {/* Custom Domain Settings Card */}
+            {isOwner && (
+                <div style={{ background: colors.surface, border: `1px solid ${colors.border}`, padding: '2rem', borderRadius: '16px', boxShadow: colors.shadow }}>
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: colors.text, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>🌐</span> Custom Domain Configuration
+                        </h3>
+                        <p style={{ color: colors.textMuted, fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                            Connect your own separate brand domain (e.g. <code>alphagear.com</code> or <code>store.mybrand.com</code>) to open this shop directly.
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '580px' }}>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', color: colors.textMuted, fontWeight: '600', textTransform: 'uppercase', display: 'block', marginBottom: '0.35rem' }}>
+                                Default Subdomain (Always Active)
+                            </label>
+                            <div style={{ padding: '0.65rem 0.9rem', borderRadius: '8px', background: colors.inputBg, border: `1px solid ${colors.inputBorder}`, color: '#6366f1', fontSize: '0.9rem', fontWeight: '600' }}>
+                                https://{shop?.subdomain || shop?.slug}.shopbusket.com
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ fontSize: '0.8rem', color: colors.textMuted, fontWeight: '600', textTransform: 'uppercase', display: 'block', marginBottom: '0.35rem' }}>
+                                Branded Custom Domain
+                            </label>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <input 
+                                    type="text"
+                                    placeholder="e.g. alphagear.com"
+                                    value={customDomainInput}
+                                    onChange={e => setCustomDomainInput(e.target.value)}
+                                    disabled={savingDomain}
+                                    style={{
+                                        flex: 1,
+                                        minWidth: '220px',
+                                        background: colors.inputBg,
+                                        border: `1px solid ${colors.inputBorder}`,
+                                        color: colors.text,
+                                        padding: '0.7rem 0.9rem',
+                                        borderRadius: '8px',
+                                        outline: 'none',
+                                        fontFamily: 'Outfit',
+                                        fontSize: '0.9rem'
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleSaveCustomDomain}
+                                    disabled={savingDomain || !customDomainInput.trim()}
+                                    style={{
+                                        background: '#6366f1',
+                                        color: '#fff',
+                                        border: 'none',
+                                        padding: '0.7rem 1.25rem',
+                                        borderRadius: '8px',
+                                        fontWeight: '600',
+                                        cursor: (savingDomain || !customDomainInput.trim()) ? 'default' : 'pointer',
+                                        fontFamily: 'Outfit',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {savingDomain ? 'Saving...' : 'Connect Domain'}
+                                </button>
+                                {shop?.custom_domain && (
+                                    <button
+                                        type="button"
+                                        onClick={handleRemoveCustomDomain}
+                                        disabled={savingDomain}
+                                        style={{
+                                            background: 'transparent',
+                                            border: '1px solid #ef4444',
+                                            color: '#ef4444',
+                                            padding: '0.7rem 1rem',
+                                            borderRadius: '8px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            fontFamily: 'Outfit'
+                                        }}
+                                    >
+                                        Disconnect
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {shop?.custom_domain ? (
+                            <div style={{ padding: '1rem', borderRadius: '12px', background: isDark ? 'rgba(99,102,241,0.08)' : '#f8fafc', border: `1px solid ${colors.border}`, fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontWeight: '600', color: colors.text }}>Domain Status:</span>
+                                        <span style={{ 
+                                            padding: '0.2rem 0.6rem', 
+                                            borderRadius: '6px', 
+                                            fontSize: '0.75rem', 
+                                            fontWeight: '700', 
+                                            textTransform: 'uppercase',
+                                            background: shop.custom_domain_status === 'verified' ? 'rgba(16,185,129,0.18)' : 'rgba(245,158,11,0.18)',
+                                            color: shop.custom_domain_status === 'verified' ? '#10b981' : '#f59e0b'
+                                        }}>
+                                            {shop.custom_domain_status === 'verified' ? '✓ Active & Pointed' : '⏳ Pending DNS Check'}
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleVerifyCustomDomain}
+                                        disabled={verifyingDomain}
+                                        style={{
+                                            background: 'transparent',
+                                            border: `1px solid ${colors.border}`,
+                                            color: colors.text,
+                                            padding: '0.35rem 0.75rem',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            fontFamily: 'Outfit'
+                                        }}
+                                    >
+                                        {verifyingDomain ? 'Checking...' : '🔄 Verify DNS'}
+                                    </button>
+                                </div>
+
+                                <div style={{ color: colors.textMuted, fontSize: '0.8rem', lineHeight: 1.5, borderTop: `1px solid ${colors.border}`, paddingTop: '0.6rem' }}>
+                                    📌 <strong>DNS Setup Instructions:</strong><br />
+                                    1. Log in to your domain registrar (GoDaddy, Namecheap, Cloudflare, etc.).<br />
+                                    2. Add a <strong>CNAME</strong> record pointing to <code>shopbusket.com</code> (or an <strong>A Record</strong> pointing to <code>104.152.168.205</code>).<br />
+                                    3. In your cPanel, add <code>{shop.custom_domain}</code> under <strong>Domains</strong> pointing to <code>/public_html</code>.
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

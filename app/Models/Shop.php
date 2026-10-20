@@ -163,6 +163,64 @@ class Shop extends Model
     }
 
     /**
+     * Resolve a tenant shop matching a custom domain.
+     */
+    public static function resolveCustomDomainShop(?string $host): ?self
+    {
+        if (empty($host)) {
+            return null;
+        }
+
+        $host = strtolower(trim($host));
+        if (str_contains($host, ':')) {
+            $host = explode(':', $host)[0];
+        }
+
+        $centralDomains = array_filter([
+            config('app.central_domain', 'shopbusket.com'),
+            config('app.base_domain', 'globalshop.test'),
+            'shopbusket.test',
+            'localhost',
+            '127.0.0.1',
+        ]);
+
+        foreach ($centralDomains as $central) {
+            $central = strtolower($central);
+            if ($host === $central || str_ends_with($host, '.' . $central)) {
+                return null;
+            }
+        }
+
+        $shop = static::where('custom_domain', $host)
+            ->orWhere('domain', $host)
+            ->first();
+
+        if ($shop) {
+            return $shop;
+        }
+
+        if (str_starts_with($host, 'www.')) {
+            $stripped = substr($host, 4);
+            $shop = static::where('custom_domain', $stripped)
+                ->orWhere('domain', $stripped)
+                ->first();
+            if ($shop) {
+                return $shop;
+            }
+        } else {
+            $withWww = 'www.' . $host;
+            $shop = static::where('custom_domain', $withWww)
+                ->orWhere('domain', $withWww)
+                ->first();
+            if ($shop) {
+                return $shop;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Generate a unique slug for a shop.
      */
     public static function generateUniqueSlug(string $name, ?int $ignoreShopId = null): string
@@ -233,6 +291,21 @@ class Shop extends Model
         $path = ltrim($path, '/');
 
         return "{$scheme}://{$host}{$portSuffix}" . ($path !== '' ? "/{$path}" : '');
+    }
+
+    /**
+     * Get primary URL for this shop (preferring custom_domain if configured).
+     */
+    public function getPrimaryUrl(string $path = ''): string
+    {
+        if (!empty($this->custom_domain)) {
+            $request = request();
+            $scheme = $request ? $request->getScheme() : (config('app.force_https') ? 'https' : 'http');
+            $path = ltrim($path, '/');
+            return "{$scheme}://{$this->custom_domain}" . ($path !== '' ? "/{$path}" : '');
+        }
+
+        return $this->getSubdomainUrl($path);
     }
 
     /**

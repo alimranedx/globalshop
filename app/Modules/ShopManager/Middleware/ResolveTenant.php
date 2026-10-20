@@ -15,6 +15,11 @@ class ResolveTenant
      */
     public function handle(Request $request, Closure $next): Response
     {
+        // Platform admin management routes should never be blocked by tenant status checks
+        if ($request->is('api/v1/platform/*') || $request->is('admin/*') || $request->is('admin')) {
+            return $next($request);
+        }
+
         $shop = null;
 
         // 1. Check for tenant header (useful for API testing/mobile apps)
@@ -57,10 +62,7 @@ class ResolveTenant
 
         // 3. Fallback: Check if there's a custom domain mapped
         if (! $shop) {
-            $host = $request->getHost();
-            $shop = Shop::where('custom_domain', $host)
-                ->orWhere('domain', $host)
-                ->first();
+            $shop = Shop::resolveCustomDomainShop($request->getHost());
         }
 
         // 4. Fallback: Check route parameters {slug}, {subdomain}, or {shop}
@@ -81,13 +83,15 @@ class ResolveTenant
         }
 
         if ($shop) {
+            $isPlatformAdmin = auth()->check() && auth()->user()->is_platform_admin;
+
             // Check if tenant is suspended
-            if ($shop->status === 'suspended') {
+            if ($shop->status === 'suspended' && !$isPlatformAdmin) {
                 abort(403, 'This shop has been suspended.');
             }
 
             // Check if tenant is pending approval
-            if ($shop->status === 'pending') {
+            if ($shop->status === 'pending' && !$isPlatformAdmin) {
                 abort(403, 'This shop is pending admin approval.');
             }
 

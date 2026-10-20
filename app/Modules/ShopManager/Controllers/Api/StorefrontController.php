@@ -39,15 +39,13 @@ class StorefrontController extends Controller
             }
         }
 
-        // Try host detection
-        $host = $request->getHost();
-        $shop = Shop::where('custom_domain', $host)
-            ->orWhere('domain', $host)
-            ->first();
-
+        // Try custom domain host detection
+        $shop = Shop::resolveCustomDomainShop($request->getHost());
         if ($shop) {
             return $shop;
         }
+
+        $host = $request->getHost();
 
         $baseDomains = array_filter([
             config('app.central_domain', 'shopbusket.com'),
