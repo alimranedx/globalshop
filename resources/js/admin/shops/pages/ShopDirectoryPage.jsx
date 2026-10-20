@@ -21,6 +21,28 @@ export function ShopDirectoryPage() {
     const { show, ToastComponent } = useToast();
     const navigate = useNavigate();
 
+    const getSubdomainUrl = (shop) => {
+        if (shop.subdomain_url) {
+            return shop.subdomain_url;
+        }
+        const sub = shop.subdomain || shop.slug;
+        const centralDomain = 'shopbusket.com';
+        if (typeof window !== 'undefined') {
+            const host = window.location.hostname;
+            if (host === 'localhost' || host === '127.0.0.1') {
+                const port = window.location.port ? `:${window.location.port}` : '';
+                return `http://${sub}.localhost${port}/`;
+            }
+            if (host.endsWith('.test')) {
+                return `http://${sub}.${host}/`;
+            }
+            if (host.includes(centralDomain)) {
+                return `https://${sub}.${centralDomain}/`;
+            }
+        }
+        return `https://${sub}.${centralDomain}/`;
+    };
+
     const loadShops = useCallback(async () => {
         setLoading(true);
         const params = new URLSearchParams();
@@ -110,7 +132,7 @@ export function ShopDirectoryPage() {
                 <div style={{ flex: 1, minWidth: '220px' }}>
                     <input
                         type="text"
-                        placeholder="Search shops by name, slug, or owner..."
+                        placeholder="Search shops by name, slug, subdomain, or owner..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         style={{
@@ -194,50 +216,81 @@ export function ShopDirectoryPage() {
                 {loading ? <PageLoader /> : (
                     <DataTable
                         columns={['Shop Name', 'Owner', 'Plan', 'Setup Progress', 'Status', 'Actions']}
-                        rows={shops.map(shop => [
-                            <div>
-                                <div style={{ fontWeight: 700, color: '#f3f4f6', fontSize: '0.925rem' }}>{shop.name}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6366f1' }}>/{shop.slug}</div>
-                            </div>,
-                            <div>
-                                <div style={{ color: '#e5e7eb', fontSize: '0.85rem', fontWeight: 500 }}>{shop.owner?.name || 'Unassigned'}</div>
-                                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{shop.owner?.email || '—'}</div>
-                            </div>,
-                            <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{shop.active_subscription?.plan?.name || 'No Plan'}</span>,
-                            <div style={{ minWidth: '140px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.25rem' }}>
-                                    <span>Progress</span>
-                                    <span style={{ fontWeight: 700, color: '#a5b4fc' }}>{shop.setup_progress ?? 0}%</span>
-                                </div>
-                                <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        width: `${shop.setup_progress ?? 0}%`, height: '100%',
-                                        background: (shop.setup_progress ?? 0) === 100 ? '#10b981' : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
-                                        transition: 'width 0.3s ease',
-                                    }} />
-                                </div>
-                            </div>,
-                            <ShopStatusBadge status={shop.status} />,
-                            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                                {shop.status === 'pending' && (
-                                    <ActionBtn
-                                        label="✅ Approve"
-                                        color="#10b981"
-                                        onClick={() => handleApproveShop(shop)}
-                                    />
-                                )}
-                                <ActionBtn label="⚙️ Manage Hub" color="#6366f1" onClick={() => navigate(`/admin/shops/${shop.id}/manage`)} />
-                                <ActionBtn label="Edit" color="#a5b4fc" onClick={() => navigate(`/admin/shops/${shop.id}/edit`)} />
-                                {shop.status !== 'pending' && (
-                                    <ActionBtn
-                                        label={shop.status === 'suspended' ? 'Activate' : 'Suspend'}
-                                        color={shop.status === 'suspended' ? '#10b981' : '#f59e0b'}
-                                        onClick={() => toggleSuspend(shop)}
-                                    />
-                                )}
-                                <ActionBtn label="Delete" color="#ef4444" onClick={() => setDeleteShopTarget(shop)} />
-                            </div>,
-                        ])}
+                        rows={shops.map(shop => {
+                            const subdomainUrl = getSubdomainUrl(shop);
+                            return [
+                                <div>
+                                    <div style={{ fontWeight: 700, color: '#f3f4f6', fontSize: '0.925rem' }}>{shop.name}</div>
+                                    <div style={{ marginTop: '0.2rem' }}>
+                                        <a
+                                            href={subdomainUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            title={`Visit subdomain: ${subdomainUrl}`}
+                                            style={{
+                                                fontSize: '0.75rem',
+                                                color: '#818cf8',
+                                                textDecoration: 'none',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '0.25rem',
+                                                transition: 'color 0.15s ease',
+                                                fontFamily: 'monospace',
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.color = '#c7d2fe';
+                                                e.currentTarget.style.textDecoration = 'underline';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.color = '#818cf8';
+                                                e.currentTarget.style.textDecoration = 'none';
+                                            }}
+                                        >
+                                            <span>{subdomainUrl}</span>
+                                            <span style={{ fontSize: '0.7rem' }}>↗</span>
+                                        </a>
+                                    </div>
+                                </div>,
+                                <div>
+                                    <div style={{ color: '#e5e7eb', fontSize: '0.85rem', fontWeight: 500 }}>{shop.owner?.name || 'Unassigned'}</div>
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{shop.owner?.email || '—'}</div>
+                                </div>,
+                                <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>{shop.active_subscription?.plan?.name || 'No Plan'}</span>,
+                                <div style={{ minWidth: '140px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#9ca3af', marginBottom: '0.25rem' }}>
+                                        <span>Progress</span>
+                                        <span style={{ fontWeight: 700, color: '#a5b4fc' }}>{shop.setup_progress ?? 0}%</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{
+                                            width: `${shop.setup_progress ?? 0}%`, height: '100%',
+                                            background: (shop.setup_progress ?? 0) === 100 ? '#10b981' : 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                                            transition: 'width 0.3s ease',
+                                        }} />
+                                    </div>
+                                </div>,
+                                <ShopStatusBadge status={shop.status} />,
+                                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                    {shop.status === 'pending' && (
+                                        <ActionBtn
+                                            label="✅ Approve"
+                                            color="#10b981"
+                                            onClick={() => handleApproveShop(shop)}
+                                        />
+                                    )}
+                                    <ActionBtn label="⚙️ Manage Hub" color="#6366f1" onClick={() => navigate(`/admin/shops/${shop.id}/manage`)} />
+                                    <ActionBtn label="Edit" color="#a5b4fc" onClick={() => navigate(`/admin/shops/${shop.id}/edit`)} />
+                                    {shop.status !== 'pending' && (
+                                        <ActionBtn
+                                            label={shop.status === 'suspended' ? 'Activate' : 'Suspend'}
+                                            color={shop.status === 'suspended' ? '#10b981' : '#f59e0b'}
+                                            onClick={() => toggleSuspend(shop)}
+                                        />
+                                    )}
+                                    <ActionBtn label="Delete" color="#ef4444" onClick={() => setDeleteShopTarget(shop)} />
+                                </div>,
+                            ];
+                        })}
                         emptyMsg="No matching shops found."
                     />
                 )}

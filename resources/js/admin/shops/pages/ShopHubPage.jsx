@@ -49,6 +49,16 @@ export function ShopHubPage() {
     const checklist = hubData.setup_checklist || [];
     const progress = hubData.setup_progress || 0;
 
+    const sub = shop.subdomain || shop.slug;
+    const centralDomain = 'shopbusket.com';
+    const subdomainUrl = shop.subdomain_url || (
+        typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+            ? `http://${sub}.localhost${window.location.port ? `:${window.location.port}` : ''}/`
+            : typeof window !== 'undefined' && window.location.hostname.endsWith('.test')
+                ? `http://${sub}.${window.location.hostname}/`
+                : `https://${sub}.${centralDomain}/`
+    );
+
     return (
         <div>
             {ToastComponent}
@@ -81,7 +91,8 @@ export function ShopHubPage() {
                             <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#f3f4f6', margin: 0 }}>{shop.name}</h1>
                             <ShopStatusBadge status={shop.status} />
                         </div>
-                        <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '0.35rem', display: 'flex', gap: '1rem' }}>
+                        <div style={{ color: '#9ca3af', fontSize: '0.85rem', marginTop: '0.35rem', display: 'flex', gap: '1.25rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <span>Subdomain: <a href={subdomainUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#a5b4fc', textDecoration: 'none', fontWeight: 600 }}>{subdomainUrl} <span style={{ fontSize: '0.75rem' }}>↗</span></a></span>
                             <span>Slug: <strong style={{ color: '#a5b4fc' }}>/{shop.slug}</strong></span>
                             <span>Owner: <strong style={{ color: '#e5e7eb' }}>{shop.owner?.name || 'Unassigned'}</strong></span>
                             <span>Plan: <strong style={{ color: '#34d399' }}>{shop.active_subscription?.plan?.name || 'No Plan'}</strong></span>

@@ -25,6 +25,7 @@ export function EditShopPage() {
     const [form, setForm] = useState({
         name: '',
         slug: '',
+        subdomain: '',
         domain: '',
         email: '',
         phone: '',
@@ -55,6 +56,7 @@ export function EditShopPage() {
                 setForm({
                     name: s.name || '',
                     slug: s.slug || '',
+                    subdomain: s.subdomain || s.slug || '',
                     domain: s.domain || '',
                     email: s.email || '',
                     phone: s.phone || '',

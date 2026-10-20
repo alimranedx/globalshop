@@ -36,21 +36,30 @@ export function ShopForm({
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <FormField
-                    label="Subdomain / URL Slug *"
-                    id="shop-slug"
-                    value={values.slug}
-                    onChange={handleFieldChange('slug')}
+                    label="Subdomain (https://[subdomain].shopbusket.com) *"
+                    id="shop-subdomain"
+                    value={values.subdomain !== undefined ? values.subdomain : (values.slug || '')}
+                    onChange={handleFieldChange('subdomain')}
                     required
-                    placeholder="apex"
+                    placeholder="e.g. alpha"
                 />
                 <FormField
-                    label="Custom Domain"
-                    id="shop-domain"
-                    value={values.domain}
-                    onChange={handleFieldChange('domain')}
-                    placeholder="apex.com"
+                    label="URL Slug *"
+                    id="shop-slug"
+                    value={values.slug || ''}
+                    onChange={handleFieldChange('slug')}
+                    required
+                    placeholder="e.g. alpha"
                 />
             </div>
+
+            <FormField
+                label="Custom Domain (Optional)"
+                id="shop-domain"
+                value={values.domain || ''}
+                onChange={handleFieldChange('domain')}
+                placeholder="e.g. mybrand.com or www.mybrand.com"
+            />
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <FormField

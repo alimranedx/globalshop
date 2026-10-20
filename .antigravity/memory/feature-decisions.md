@@ -66,3 +66,8 @@ This document tracks permanent business rules established for GlobalShop feature
   - Subdomain & Custom Domain Routes: Explicit `/logout` (GET/POST) routes provided; storefront header dynamically renders Dashboard and Logout buttons for authorized staff.
   - Verified in `CrossShopSessionIsolationTest`.
 
+### 13. Platform Admin Shop Directory Subdomain Display & Linkage
+- **Rule:** The Platform Admin Shop Directory (`/admin/shops`) displays each tenant shop's canonical subdomain address (e.g., `https://alpha.shopbusket.com/`) directly under the shop name instead of legacy relative path slugs (`/alpha`). The address is rendered as an interactive external link (`target="_blank"`) pointing directly to the tenant's storefront, and can be searched via the search filter. All shops are guaranteed to have a valid non-empty `subdomain` generated upon creation/saving.
+- **Reason:** Immediate platform visibility into live merchant subdomains and 1-click access to storefronts.
+- **Enforcement:** Enforced in `Shop` model (`saving` hook, `subdomain_url` accessor, `getSubdomainUrl`), `PlatformAdminController::listShops`, `ShopDirectoryPage.jsx`, and `SubdomainShopRoutingTest`.
+

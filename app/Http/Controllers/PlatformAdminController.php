@@ -113,6 +113,7 @@ class PlatformAdminController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('slug', 'like', "%{$search}%")
+                  ->orWhere('subdomain', 'like', "%{$search}%")
                   ->orWhereHas('owner', function ($uq) use ($search) {
                       $uq->where('name', 'like', "%{$search}%")
                          ->orWhere('email', 'like', "%{$search}%");
@@ -140,6 +141,7 @@ class PlatformAdminController extends Controller
 
             $shop->setup_checklist = $checklist;
             $shop->setup_progress = $progressPercent;
+            $shop->subdomain_url = $shop->getSubdomainUrl('/');
             return $shop;
         });
 
@@ -208,6 +210,7 @@ class PlatformAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'slug' => 'nullable|string|alpha_dash|unique:shops,slug',
+            'subdomain' => 'nullable|string|alpha_dash|unique:shops,subdomain',
             'domain' => 'nullable|string|max:255|unique:shops,domain',
             'logo_url' => 'nullable|string|max:1000',
             'email' => 'nullable|email|max:255',
@@ -245,6 +248,7 @@ class PlatformAdminController extends Controller
             [
                 'name' => $validated['name'],
                 'slug' => $validated['slug'] ?? null,
+                'subdomain' => $validated['subdomain'] ?? $validated['slug'] ?? null,
                 'domain' => $validated['domain'] ?? null,
                 'currency' => $validated['currency'] ?? 'USD',
                 'language' => 'en',
@@ -298,6 +302,7 @@ class PlatformAdminController extends Controller
         $completedCount = collect($checklist)->where('completed', true)->count();
         $totalCount = count($checklist);
         $progressPercent = $totalCount > 0 ? (int) round(($completedCount / $totalCount) * 100) : 0;
+        $shop->subdomain_url = $shop->getSubdomainUrl('/');
 
         return response()->json([
             'success' => true,
@@ -1135,6 +1140,7 @@ class PlatformAdminController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'slug' => 'required|string|alpha_dash|unique:shops,slug,' . $shop->id,
+            'subdomain' => 'nullable|string|alpha_dash|unique:shops,subdomain,' . $shop->id,
             'domain' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:50',
@@ -1167,6 +1173,10 @@ class PlatformAdminController extends Controller
 
         $planId = $validated['plan_id'] ?? null;
         unset($validated['plan_id']);
+
+        if (empty($validated['subdomain'])) {
+            $validated['subdomain'] = $shop->subdomain ?: $validated['slug'];
+        }
 
         $shop->update($validated);
 

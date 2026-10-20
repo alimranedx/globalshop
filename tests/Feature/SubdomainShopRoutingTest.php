@@ -172,4 +172,36 @@ class SubdomainShopRoutingTest extends TestCase
         $this->shopAlpha->delete();
         $this->assertSoftDeleted('shops', ['id' => $this->shopAlpha->id]);
     }
+
+    public function test_all_shops_have_subdomain_and_admin_list_returns_subdomain_urls(): void
+    {
+        // 1. Verify shopAlpha has subdomain and subdomain_url attribute
+        $this->assertEquals('alpha', $this->shopAlpha->subdomain);
+        $this->assertNotNull($this->shopAlpha->subdomain_url);
+        $this->assertStringContainsString('alpha.', $this->shopAlpha->subdomain_url);
+
+        // 2. Test saving shop without subdomain auto-populates it from slug
+        $shopWithoutSub = Shop::create([
+            'name' => 'Auto Subdomain Shop',
+            'slug' => 'auto-sub-shop',
+            'owner_id' => $this->ownerAlpha->id,
+            'status' => 'active',
+        ]);
+        $this->assertEquals('auto-sub-shop', $shopWithoutSub->subdomain);
+        $this->assertEquals('auto-sub-shop.shopbusket.com', $shopWithoutSub->domain);
+
+        // 3. Test platform admin listShops endpoint includes subdomain and subdomain_url
+        $admin = \App\Models\User::firstOrCreate(
+            ['email' => 'superadmin@marketplace.com'],
+            ['name' => 'Super Admin', 'password' => bcrypt('password'), 'is_platform_admin' => true]
+        );
+        $res = $this->actingAs($admin)->getJson('/api/v1/platform/shops?search=alpha');
+        $res->assertStatus(200);
+        $res->assertJsonPath('success', true);
+        $data = $res->json('data');
+        $this->assertNotEmpty($data);
+        $this->assertEquals('alpha', $data[0]['subdomain']);
+        $this->assertNotNull($data[0]['subdomain_url']);
+        $this->assertStringContainsString('alpha.', $data[0]['subdomain_url']);
+    }
 }

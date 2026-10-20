@@ -101,11 +101,14 @@ export function ShopOwnerDirectoryPage() {
                         <div style={{ fontWeight: 600, color: '#e5e7eb' }}>{o.name}</div>,
                         <div style={{ color: '#a5b4fc', fontSize: '0.85rem' }}>{o.email}</div>,
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                            {o.owned_shops?.length > 0 ? o.owned_shops.map(s => (
-                                <span key={s.id} onClick={() => navigate(`/admin/shops/${s.id}/manage`)} style={{ color: '#6366f1', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }}>
-                                    🏬 {s.name} (/{s.slug})
-                                </span>
-                            )) : <span style={{ color: '#6b7280', fontSize: '0.78rem' }}>No active shop</span>}
+                            {o.owned_shops?.length > 0 ? o.owned_shops.map(s => {
+                                const sub = s.subdomain || s.slug;
+                                return (
+                                    <span key={s.id} onClick={() => navigate(`/admin/shops/${s.id}/manage`)} style={{ color: '#6366f1', fontSize: '0.78rem', cursor: 'pointer', textDecoration: 'underline' }} title={`Manage ${s.name}`}>
+                                        🏬 {s.name} ({sub}.shopbusket.com)
+                                    </span>
+                                );
+                            }) : <span style={{ color: '#6b7280', fontSize: '0.78rem' }}>No active shop</span>}
                         </div>,
                         o.status === 'active' || !o.status
                             ? <span style={{ color: '#34d399', fontWeight: 700, fontSize: '0.78rem' }}>● Active</span>

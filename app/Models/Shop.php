@@ -41,11 +41,25 @@ class Shop extends Model
         'theme_config' => 'array',
     ];
 
+    protected $appends = [
+        'subdomain_url',
+    ];
+
     /**
      * The "booted" method of the model.
      */
     protected static function booted(): void
     {
+        static::saving(function (Shop $shop) {
+            if (empty($shop->subdomain)) {
+                $shop->subdomain = $shop->slug ?: \Illuminate\Support\Str::slug($shop->name);
+            }
+            if (empty($shop->domain)) {
+                $centralDomain = config('app.central_domain', 'shopbusket.com');
+                $shop->domain = "{$shop->subdomain}.{$centralDomain}";
+            }
+        });
+
         static::created(function (Shop $shop) {
             if (!empty($shop->subdomain)) {
                 try {
@@ -281,16 +295,28 @@ class Shop extends Model
     /**
      * Get full subdomain URL for a given path.
      */
-    public function getSubdomainUrl(string $path = ''): string
+    public function getSubdomainUrl(string $path = '/'): string
     {
         $host = $this->getSubdomainHost();
         $request = request();
-        $scheme = $request ? $request->getScheme() : (config('app.force_https') ? 'https' : 'http');
+        $isHttps = ($request && ($request->isSecure() || $request->header('X-Forwarded-Proto') === 'https'))
+            || config('app.force_https')
+            || str_contains($host, 'shopbusket.com');
+
+        $scheme = $isHttps ? 'https' : ($request ? $request->getScheme() : 'http');
         $port = $request ? $request->getPort() : null;
         $portSuffix = ($port && !in_array($port, [80, 443])) ? ":{$port}" : '';
         $path = ltrim($path, '/');
 
-        return "{$scheme}://{$host}{$portSuffix}" . ($path !== '' ? "/{$path}" : '');
+        return "{$scheme}://{$host}{$portSuffix}/" . ($path !== '' ? $path : '');
+    }
+
+    /**
+     * Accessor for full canonical subdomain URL.
+     */
+    public function getSubdomainUrlAttribute(): string
+    {
+        return $this->getSubdomainUrl('/');
     }
 
     /**

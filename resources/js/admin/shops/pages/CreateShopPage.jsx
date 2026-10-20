@@ -22,7 +22,7 @@ export function CreateShopPage() {
     const [userOptions, setUserOptions] = useState([]);
 
     const [form, setForm] = useState({
-        name: '', slug: '', domain: '', logo_url: '', email: '', phone: '', address: '', city: '', country: '', currency: 'USD', timezone: 'UTC',
+        name: '', slug: '', subdomain: '', domain: '', logo_url: '', email: '', phone: '', address: '', city: '', country: '', currency: 'USD', timezone: 'UTC',
         owner_type: 'create',
         owner_id: '', owner_name: '', owner_email: '', owner_password: 'password',
         plan_id: '',
@@ -52,9 +52,12 @@ export function CreateShopPage() {
 
     const handleAutoSlug = (nameVal) => {
         updateForm('name', nameVal);
+        const autoSlug = nameVal.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         if (!form.slug) {
-            const autoSlug = nameVal.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
             updateForm('slug', autoSlug);
+        }
+        if (!form.subdomain) {
+            updateForm('subdomain', autoSlug);
         }
     };
 
