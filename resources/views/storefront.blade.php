@@ -181,7 +181,7 @@
                 <button onclick="toggleCartDrawer()" class="relative py-2.5 px-4 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 font-bold text-xs flex items-center gap-2 transition-all shadow-sm">
                     <i class="bi bi-bag-check-fill text-indigo-600 text-base"></i>
                     <span class="hidden sm:inline">Cart</span>
-                    <span id="cartCountBadge" class="bg-indigo-600 text-white font-extrabold text-[11px] h-5 min-w-[20px] px-1 rounded-full flex items-center justify-center">
+                    <span id="cartCountBadge" class="bg-indigo-600 text-white font-extrabold text-[11px] h-5 min-w-[20px] px-1 rounded-full flex items-center justify-center transition-transform duration-200">
                         0
                     </span>
                 </button>
@@ -261,7 +261,7 @@
                                     $topImg = $topPopular->images->first()?->path ? asset('storage/' . $topPopular->images->first()->path) : 'https://placehold.co/600x600/1e1e2d/ffffff?text=' . urlencode($topPopular->name);
                                 @endphp
                                 <div class="aspect-4/3 rounded-2xl overflow-hidden mb-4 bg-slate-900/80 border border-white/10 flex items-center justify-center relative group">
-                                    <img src="{{ $topImg }}" alt="{{ $topPopular->name }}" class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500">
+                                    <img src="{{ $topImg }}" alt="{{ $topPopular->name }}" onerror="this.onerror=null; this.src='https://placehold.co/600x600/1e1e2d/ffffff?text=' + encodeURIComponent('{{ addslashes($topPopular->name) }}');" class="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500">
                                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
                                         <span class="text-xs font-bold text-amber-300">Featured Store Favorite</span>
                                     </div>
@@ -279,7 +279,7 @@
                                         'stock_unit' => $topPopular->stock_unit ?: 'pcs',
                                         'stock_quantity' => $topPopular->stock_quantity,
                                         'image' => $topImg,
-                                    ]) }})" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm font-bold flex items-center gap-1.5 transition-colors">
+                                    ]) }}, event)" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm font-bold flex items-center gap-1.5 transition-colors">
                                         <i class="bi bi-cart-plus"></i> Add
                                     </button>
                                 </div>
@@ -331,7 +331,7 @@
                                     'stock_unit' => $secondPopular->stock_unit ?: 'pcs',
                                     'stock_quantity' => $secondPopular->stock_quantity,
                                     'image' => $secImg,
-                                ]) }})" class="px-6 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white backdrop-blur transition-all">
+                                ]) }}, event)" class="px-6 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 border border-white/20 text-white backdrop-blur transition-all">
                                     <i class="bi bi-cart-plus"></i> Add to Cart
                                 </button>
                             </div>
@@ -340,7 +340,7 @@
                         <!-- Slide 2 Big Image Display -->
                         <div class="w-full md:w-[420px] shrink-0">
                             <div class="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900/60 aspect-square flex items-center justify-center p-4">
-                                <img src="{{ $secImg }}" alt="{{ $secondPopular->name }}" class="max-h-full max-w-full object-contain pulse-slow">
+                                <img src="{{ $secImg }}" alt="{{ $secondPopular->name }}" onerror="this.onerror=null; this.src='https://placehold.co/600x600/1e1e2d/ffffff?text=' + encodeURIComponent('{{ addslashes($secondPopular->name) }}');" class="max-h-full max-w-full object-contain pulse-slow">
                                 <div class="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md rounded-2xl p-3 border border-white/10 text-xs flex justify-between items-center">
                                     <span class="text-slate-300 font-semibold truncate">{{ $secondPopular->category?->name ?? 'Popular Item' }}</span>
                                     <span class="text-amber-400 font-bold">★★★★★ 4.9</span>
@@ -523,7 +523,7 @@
                             <div>
                                 <!-- Product Image Frame -->
                                 <div class="relative aspect-square overflow-hidden bg-slate-50 flex items-center justify-center p-2">
-                                    <img src="{{ $primaryImage }}" alt="{{ $prod->name }}" class="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-500">
+                                    <img src="{{ $primaryImage }}" alt="{{ $prod->name }}" onerror="this.onerror=null; this.src='https://placehold.co/600x600/f3f4f6/334155?text=' + encodeURIComponent('{{ addslashes($prod->name) }}');" class="w-full h-full object-cover rounded-2xl group-hover:scale-105 transition-transform duration-500">
                                     
                                     <!-- Stock Status Badge -->
                                     <div class="absolute top-3 left-3 flex flex-col gap-1">
@@ -581,7 +581,7 @@
                                 @if($inStock)
                                     <div class="grid grid-cols-2 gap-2">
                                         <!-- Add to Cart -->
-                                        <button onclick="addToCart({{ json_encode($productPayload) }})" 
+                                        <button onclick="addToCart({{ json_encode($productPayload) }}, event)" 
                                                 class="py-2.5 px-3 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 transition-all shadow-2xs flex items-center justify-center gap-1.5 hover:border-slate-300">
                                             <i class="bi bi-cart-plus text-sm"></i> Add to Cart
                                         </button>
@@ -782,6 +782,49 @@
         </div>
     </footer>
 
+    <!-- Floating Quick-Action Cart Bar (Silent Add-To-Cart Counter & Quick Checkout) -->
+    <div id="floatingCartBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none w-[90%] sm:w-auto max-w-md">
+        <div class="flex items-center justify-between gap-3 bg-slate-950/95 text-white backdrop-blur-md px-5 py-3 rounded-2xl sm:rounded-full shadow-2xl border border-white/10 ring-1 ring-black/30">
+            <div class="flex items-center gap-3">
+                <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-600/30 text-indigo-400">
+                    <i class="bi bi-bag-check-fill text-lg"></i>
+                    <span id="floatingCartBadge" class="absolute -top-1.5 -right-1.5 bg-indigo-600 text-white text-[10px] font-black h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center ring-2 ring-slate-950">0</span>
+                </div>
+                <div class="text-left text-xs leading-tight">
+                    <span id="floatingCartCount" class="font-extrabold text-white block">0 Items in Cart</span>
+                    <span id="floatingCartTotal" class="font-bold text-amber-400 text-xs">{{ $shop->currency ?: 'USD' }} 0.00</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleCartDrawer()" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors whitespace-nowrap flex items-center gap-1.5">
+                    <i class="bi bi-cart3"></i>
+                    <span class="hidden sm:inline">View Cart</span>
+                </button>
+                <button onclick="openCheckoutModal()" class="btn-theme-primary px-4 py-2 rounded-xl font-extrabold text-xs shadow-md whitespace-nowrap flex items-center gap-1.5">
+                    <i class="bi bi-lightning-charge-fill text-amber-300"></i>
+                    <span>Checkout</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Non-Blocking Silent Add-to-Cart Toast -->
+    <div id="cartToast" class="fixed bottom-24 right-4 sm:bottom-28 sm:right-8 z-50 transform translate-y-6 opacity-0 pointer-events-none transition-all duration-300">
+        <div class="bg-slate-900/95 text-white backdrop-blur-md px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-3 max-w-sm">
+            <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-base shrink-0 font-bold">
+                <i class="bi bi-check2"></i>
+            </div>
+            <div class="text-xs min-w-0 pr-2">
+                <p id="cartToastTitle" class="font-bold text-white truncate max-w-[170px]">Item added</p>
+                <p class="text-[11px] text-slate-400">Added to your shopping cart</p>
+            </div>
+            <button onclick="toggleCartDrawer()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] shrink-0 transition-colors">
+                View
+            </button>
+        </div>
+    </div>
+
     <!-- Storefront JavaScript Client Engine -->
     <script>
         const shopConfig = {
@@ -847,6 +890,7 @@
         // IN-MEMORY SHOPPING CART & DIRECT CHECKOUT
         // ========================================================
         let cart = [];
+        let toastTimeout = null;
 
         function toggleCartDrawer() {
             const drawer = document.getElementById('cartDrawer');
@@ -860,7 +904,7 @@
             }
         }
 
-        function addToCart(item) {
+        function addToCart(item, evt) {
             const existing = cart.find(i => i.id === item.id);
             if (existing) {
                 if (existing.quantity < item.stock_quantity) {
@@ -878,8 +922,40 @@
             } else {
                 cart.push({ ...item, quantity: 1 });
             }
+
+            // Update cart counters silently without blocking UI
             renderCart();
-            toggleCartDrawer();
+
+            // Button micro-interaction feedback
+            const targetBtn = evt?.currentTarget || (evt?.target ? evt.target.closest('button') : null);
+            if (targetBtn) {
+                const originalHtml = targetBtn.innerHTML;
+                targetBtn.innerHTML = `<i class="bi bi-check2 text-emerald-600 text-sm"></i> Added!`;
+                targetBtn.classList.add('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+                setTimeout(() => {
+                    targetBtn.innerHTML = originalHtml;
+                    targetBtn.classList.remove('border-emerald-400', 'bg-emerald-50', 'text-emerald-700');
+                }, 1200);
+            }
+
+            // Non-blocking slide-in toast
+            showCartToast(item.name);
+        }
+
+        function showCartToast(name) {
+            const toast = document.getElementById('cartToast');
+            const titleEl = document.getElementById('cartToastTitle');
+            if (!toast) return;
+
+            if (titleEl) titleEl.textContent = name;
+            toast.classList.remove('translate-y-6', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-6', 'opacity-0', 'pointer-events-none');
+                toast.classList.remove('translate-y-0', 'opacity-100');
+            }, 2500);
         }
 
         // DIRECT 1-CLICK CHECKOUT (BUY NOW)
@@ -926,13 +1002,39 @@
 
             const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
             const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const formattedPrice = `${shopConfig.currency} ${totalPrice.toFixed(2)}`;
 
-            countBadge.textContent = totalCount;
-            subtotalEl.textContent = `${shopConfig.currency} ${totalPrice.toFixed(2)}`;
-            totalEl.textContent = `${shopConfig.currency} ${totalPrice.toFixed(2)}`;
-            document.getElementById('modalTotalAmount').textContent = `${shopConfig.currency} ${totalPrice.toFixed(2)}`;
+            if (countBadge) {
+                countBadge.textContent = totalCount;
+                countBadge.classList.add('scale-125');
+                setTimeout(() => countBadge.classList.remove('scale-125'), 200);
+            }
 
-            btnCheckout.disabled = cart.length === 0;
+            if (subtotalEl) subtotalEl.textContent = formattedPrice;
+            if (totalEl) totalEl.textContent = formattedPrice;
+            const modalTotal = document.getElementById('modalTotalAmount');
+            if (modalTotal) modalTotal.textContent = formattedPrice;
+
+            // Update floating cart bar
+            const floatingBar = document.getElementById('floatingCartBar');
+            const floatingBadge = document.getElementById('floatingCartBadge');
+            const floatingCount = document.getElementById('floatingCartCount');
+            const floatingTotal = document.getElementById('floatingCartTotal');
+
+            if (floatingBar) {
+                if (totalCount > 0) {
+                    if (floatingBadge) floatingBadge.textContent = totalCount;
+                    if (floatingCount) floatingCount.textContent = `${totalCount} ${totalCount === 1 ? 'Item' : 'Items'} in Cart`;
+                    if (floatingTotal) floatingTotal.textContent = formattedPrice;
+                    floatingBar.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+                    floatingBar.classList.add('translate-y-0', 'opacity-100');
+                } else {
+                    floatingBar.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+                    floatingBar.classList.remove('translate-y-0', 'opacity-100');
+                }
+            }
+
+            if (btnCheckout) btnCheckout.disabled = cart.length === 0;
 
             if (cart.length === 0) {
                 container.innerHTML = `
@@ -946,7 +1048,7 @@
 
             container.innerHTML = cart.map(item => `
                 <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                    <img src="${item.image}" alt="${item.name}" class="w-14 h-14 object-cover rounded-xl border border-slate-200">
+                    <img src="${item.image}" alt="${item.name}" onerror="this.onerror=null; this.src='https://placehold.co/100x100/f1f5f9/64748b?text=Item';" class="w-14 h-14 object-cover rounded-xl border border-slate-200">
                     <div class="flex-1 min-w-0">
                         <h5 class="text-xs font-bold text-slate-800 truncate">${item.name}</h5>
                         <p class="text-xs text-slate-500">${shopConfig.currency} ${item.price.toFixed(2)} / ${item.stock_unit}</p>
