@@ -108,7 +108,7 @@ function ShopManagerApp() {
             setLoadingState(false);
         };
         init();
-    }, [currentUserEmail]);
+    }, [dispatch]);
 
     const handleLogout = async () => {
         try {
